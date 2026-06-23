@@ -89,7 +89,7 @@ any of these:
 | Packaging | **OCI artifacts** (e.g. `oras`) | A new registry/format |
 | Serialization | **Protobuf** (wire) + YAML/TOML (authoring) | A new binary serializer |
 | Embedded executors | **RTIC + Embassy** | A new RTOS |
-| Early visualization | **Foxglove Studio** (reads MCAP) | A bespoke GUI in Phase 1 |
+| Early visualization | **Foxglove Studio** (reads MCAP) — *interim stopgap only* | A bespoke GUI in Phase 1 |
 | Flight reference patterns | study **cFS / F´**, **RTEMS** | a flight OS |
 | Qualified toolchain | **Ferrocene** (when flight is real) | a qualified compiler |
 
@@ -444,6 +444,15 @@ milestone at which Neuradix is a real product.
 serious investment in a custom Studio (§32) begin, and even then start with the
 *inspection* views (graph, signals, lineage, replay) before authoring views — exactly
 as §42's risk row advises. Foxglove + the CLI cover most needs until then.
+
+**Decision update (June 2026):** Neuradix Studio is now scoped as a *first-class,
+differentiating product* — a contract-native, high-performance, web/desktop **and
+XR-headset** observability tool intended to equal and surpass Foxglove. It is still
+built **inspection-first, growing alongside the core** (Foxglove remains the interim
+stopgap until Studio reaches parity at S3). The full design, architecture (shared
+Rust + wgpu engine targeting WASM, native, WebXR and OpenXR), phasing and acceptance
+criteria are in
+[Neuradix Studio — Implementation Plan](./Neuradix_Studio_Implementation_Plan_v0.1.md).
 
 ## Phase 4+ — Space, Flight, Ground, Fleet (post-v1.0; multi-year)
 
