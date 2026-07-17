@@ -1,0 +1,41 @@
+name: Build Functional Specification v0.5
+
+on:
+  push:
+    paths:
+      - tools/docs/build_functional_spec_v05.py
+      - .github/workflows/build-functional-spec-v05.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-specification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate merged specification
+        run: python3 tools/docs/build_functional_spec_v05.py
+
+      - name: Validate generated document
+        run: |
+          test -s docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md
+          grep -q 'version: "0.5 Draft"' docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md
+          grep -q 'NRX-EMB-020' docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md
+          grep -q 'NRX-CLI-020' docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md
+          grep -q 'neuradix_platform_ecosystem_mind_map_light.svg' docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md
+
+      - name: Commit generated specification
+        run: |
+          if git diff --quiet -- docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md README.md; then
+            echo 'Generated files are already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md README.md
+          git commit -m 'Generate merged functional specification v0.5'
+          git push
