@@ -6,8 +6,7 @@ Neuradix is a Rust-first, contract-driven platform for dependable autonomous rob
 
 ## Current architecture documents
 
-- [Product, Functional and Technical Specification v0.4](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.4.md)
-- [Embedded and CLI Functional Addendum v0.5](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5_Addendum.md)
+- [Product, Functional and Technical Specification v0.5](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md)
 - [Platform Implementation Plan v0.3](docs/Neuradix_Implementation_Plan_v0.3.md)
 - [Studio XR Implementation Plan v0.2](docs/Neuradix_Studio_XR_Implementation_Plan_v0.2.md)
 - [Embedded Profile Implementation Plan v0.1](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md)
