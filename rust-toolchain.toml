@@ -1,0 +1,10 @@
+# Pinned toolchain for reproducible builds.
+#
+# 1.94.1 is the exact stable toolchain validated in the development environment
+# for this foundation increment and is the first version documented for the
+# project (see docs/decisions/ADR-0001-toolchain-pin.md). Edition 2024 requires
+# rustc >= 1.85; this pin is well above that floor.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

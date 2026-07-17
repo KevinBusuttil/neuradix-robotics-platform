@@ -1,0 +1,25 @@
+[package]
+name = "neuradix-cli"
+description = "The `neuradix` command-line interface."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "neuradix"
+path = "src/main.rs"
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+neuradix-time = { workspace = true }
+neuradix-runtime = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+[dev-dependencies]
+neuradix-testkit = { workspace = true }

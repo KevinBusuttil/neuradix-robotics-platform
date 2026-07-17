@@ -1,0 +1,14 @@
+# Rust build artifacts
+/target
+**/target
+
+# Backup / editor files
+**/*.rs.bk
+*.swp
+.DS_Store
+
+# Local environment
+/.env
+
+# Note: Cargo.lock is intentionally NOT ignored. This workspace ships binaries
+# (neuradix CLI and examples), so the lockfile is tracked for reproducible builds.

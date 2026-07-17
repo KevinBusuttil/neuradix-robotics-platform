@@ -1,0 +1,12 @@
+[package]
+name = "neuradix-time"
+description = "Explicit Neuradix time semantics: clock domains, typed timestamps, durations and injectable clocks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }

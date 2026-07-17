@@ -1,0 +1,38 @@
+name: rust
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  build-test:
+    name: fmt • clippy • test • doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rustup is pre-installed on GitHub runners and honours rust-toolchain.toml,
+      # which pins the exact channel and installs the rustfmt + clippy components.
+      - name: Show toolchain (triggers pinned install)
+        run: |
+          rustup show active-toolchain || rustup show
+          rustc --version
+          cargo --version
+
+      - name: Format check
+        run: cargo fmt --all --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests (workspace)
+        run: cargo test --workspace
+
+      - name: Docs (no deps)
+        run: cargo doc --workspace --no-deps

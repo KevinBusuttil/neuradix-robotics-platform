@@ -1,0 +1,13 @@
+[package]
+name = "neuradix-transport-api"
+description = "Transport-neutral data-plane interface with a bounded in-process stream backend."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "neuradix-testkit"
+description = "Reusable test utilities for Neuradix: clocks, golden files, schema hashing, lifecycle, streams and CLI output."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+neuradix-time = { workspace = true }
+neuradix-runtime = { workspace = true }
+neuradix-transport-api = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
