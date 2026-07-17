@@ -12,6 +12,7 @@ Neuradix is a Rust-first, contract-driven platform for dependable autonomous rob
 - [Studio XR Implementation Plan v0.2](docs/Neuradix_Studio_XR_Implementation_Plan_v0.2.md)
 - [Embedded Profile Implementation Plan v0.1](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md)
 - [CLI Command Specification v0.1](docs/Neuradix_CLI_Command_Specification_v0.1.md)
+- [RFC Backlog v0.3](docs/Neuradix_RFC_Backlog_v0.3.md)
 
 ## Current implementation priority
 
