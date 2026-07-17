@@ -43,6 +43,44 @@ pub enum Command {
         #[command(subcommand)]
         command: ContractCommand,
     },
+
+    /// Work with recordings.
+    Record {
+        /// The record subcommand.
+        #[command(subcommand)]
+        command: RecordCommand,
+    },
+
+    /// Replay recordings.
+    Replay {
+        /// The replay subcommand.
+        #[command(subcommand)]
+        command: ReplayCommand,
+    },
+}
+
+/// `neuradix record ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum RecordCommand {
+    /// Show a recording's manifest, channels and replay digest.
+    Inspect {
+        /// The recording file to inspect.
+        file: PathBuf,
+    },
+}
+
+/// `neuradix replay ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum ReplayCommand {
+    /// Replay a recording and report its deterministic replay digest.
+    Run {
+        /// The recording file to replay.
+        file: PathBuf,
+
+        /// Fail with the determinism exit code if the replay digest differs.
+        #[arg(long = "expect-digest")]
+        expect_digest: Option<String>,
+    },
 }
 
 /// `neuradix contract ...` subcommands.

@@ -51,6 +51,31 @@ impl ClockDomain {
     /// Every supported spelling, in a stable order.
     pub const ALL: &'static [&'static str] =
         &["monotonic", "utc", "sensor", "simulation", "replay"];
+
+    /// A stable one-byte code for compact serialization (e.g. recordings).
+    ///
+    /// These codes are part of the recording wire format and MUST remain stable.
+    pub const fn code(self) -> u8 {
+        match self {
+            ClockDomain::Monotonic => 0,
+            ClockDomain::Utc => 1,
+            ClockDomain::Sensor => 2,
+            ClockDomain::Simulation => 3,
+            ClockDomain::Replay => 4,
+        }
+    }
+
+    /// The inverse of [`ClockDomain::code`].
+    pub const fn from_code(code: u8) -> Option<Self> {
+        Some(match code {
+            0 => ClockDomain::Monotonic,
+            1 => ClockDomain::Utc,
+            2 => ClockDomain::Sensor,
+            3 => ClockDomain::Simulation,
+            4 => ClockDomain::Replay,
+            _ => return None,
+        })
+    }
 }
 
 impl std::fmt::Display for ClockDomain {

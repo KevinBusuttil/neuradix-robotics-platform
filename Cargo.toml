@@ -14,6 +14,7 @@ members = [
     "crates/time",
     "crates/transport-api",
     "crates/runtime",
+    "crates/record",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",
@@ -33,6 +34,7 @@ neuradix-contracts = { path = "crates/contracts", version = "0.0.1" }
 neuradix-time = { path = "crates/time", version = "0.0.1" }
 neuradix-transport-api = { path = "crates/transport-api", version = "0.0.1" }
 neuradix-runtime = { path = "crates/runtime", version = "0.0.1" }
+neuradix-record = { path = "crates/record", version = "0.0.1" }
 neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
 
 # Third-party foundations (kept minimal and standard; see docs/decisions).

@@ -15,7 +15,7 @@ mod render;
 use clap::Parser;
 
 use app::{AppError, Outcome};
-use cli::{Cli, Command, ContractCommand};
+use cli::{Cli, Command, ContractCommand, RecordCommand, ReplayCommand};
 use envelope::CommandResult;
 use exit::ExitCode;
 
@@ -67,6 +67,20 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             } => (
                 "contract.generate".to_owned(),
                 app::contract::generate(&file, language, &out_dir),
+            ),
+        },
+        Command::Record { command } => match command {
+            RecordCommand::Inspect { file } => {
+                ("record.inspect".to_owned(), app::record::inspect(&file))
+            }
+        },
+        Command::Replay { command } => match command {
+            ReplayCommand::Run {
+                file,
+                expect_digest,
+            } => (
+                "replay.run".to_owned(),
+                app::record::replay_run(&file, expect_digest.as_deref()),
             ),
         },
     }

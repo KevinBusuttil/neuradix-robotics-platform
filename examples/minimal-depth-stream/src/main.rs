@@ -4,6 +4,7 @@
 //!
 //! ```text
 //! VehicleDepth producer -> bounded in-process stream -> VehicleDepth consumer
+//!                       -> deterministic recording -> replay (verified)
 //! ```
 //!
 //! It demonstrates, with no network, no threads sleeping and no ambient clock:
@@ -12,7 +13,7 @@
 //! * an explicit timestamp carrying its clock domain on every sample;
 //! * queue capacity and overflow policy taken from the authored contract;
 //! * components moved through valid lifecycle states;
-//! * bounded-stream statistics printed at the end;
+//! * recording the run and replaying it with verified, byte-stable fidelity;
 //! * fully deterministic execution and termination.
 #![forbid(unsafe_code)]
 
@@ -20,6 +21,10 @@ use std::error::Error;
 use std::path::Path;
 
 use neuradix_contracts::{ClockDomainRef, schema_identity, validate};
+use neuradix_record::{
+    Channel, NativeRecordWriter, NativeRecording, RecordCodec, RecordError, RecordingManifest,
+    SoftwareId, replay_digest,
+};
 use neuradix_runtime::{
     Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState,
 };
@@ -35,11 +40,40 @@ use generated::vehicle_depth::VehicleDepth;
 const CONTRACT_YAML: &str =
     include_str!("../../../contracts/standard/navigation/vehicle-depth.yaml");
 
+/// The single channel id used by this mission recording.
+const CHANNEL_ID: u16 = 0;
+
 /// A depth measurement plus the domain-tagged time at which it was measured.
 #[derive(Clone, Copy, Debug)]
 struct DepthSample {
     measurement_time: Timestamp,
     value: VehicleDepth,
+}
+
+/// A deterministic fixed-layout codec for `VehicleDepth` (two little-endian f64).
+struct DepthCodec;
+
+impl RecordCodec for DepthCodec {
+    type Message = VehicleDepth;
+
+    fn encode(&self, m: &VehicleDepth) -> Vec<u8> {
+        let mut out = Vec::with_capacity(16);
+        out.extend_from_slice(&m.depth.to_le_bytes());
+        out.extend_from_slice(&m.uncertainty.to_le_bytes());
+        out
+    }
+
+    fn decode(&self, bytes: &[u8]) -> Result<VehicleDepth, RecordError> {
+        if bytes.len() != 16 {
+            return Err(RecordError::Decode(format!(
+                "expected 16 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        let depth = f64::from_le_bytes(bytes[0..8].try_into().expect("8 bytes"));
+        let uncertainty = f64::from_le_bytes(bytes[8..16].try_into().expect("8 bytes"));
+        Ok(VehicleDepth { depth, uncertainty })
+    }
 }
 
 /// A component that produces depth samples.
@@ -86,6 +120,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contract = validate::from_yaml_str(CONTRACT_YAML, Path::new("vehicle-depth.yaml"))?;
     let config = StreamConfig::from_delivery(&contract.spec.delivery);
     let domain = map_domain(contract.spec.semantics.clock_domain);
+    let schema = schema_identity(&contract);
 
     println!("Neuradix — minimal depth-stream example");
     println!(
@@ -93,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         contract.identifier(),
         contract.metadata.version
     );
-    println!("  schema   : {}", schema_identity(&contract));
+    println!("  schema   : {schema}");
     println!(
         "  stream   : capacity={}, overflow={}, clockDomain={}",
         config.capacity,
@@ -122,11 +157,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     bring_up(&mut producer, &mut producer_lc, &clock)?;
     bring_up(&mut consumer, &mut consumer_lc, &clock)?;
 
+    // Collect every published sample so the mission can be recorded and replayed.
+    let mut published: Vec<DepthSample> = Vec::new();
+
     // 5. Phase A — a flowing pipeline: publish then consume each step.
     println!("\nphase A — flowing pipeline (publish then consume)");
     for step in 0..5 {
         clock.advance(Duration::from_millis(50))?;
         let sample = make_sample(step, &clock);
+        published.push(sample);
         let outcome = tx.publish(sample)?;
         consumer.drain(&rx);
         println!(
@@ -139,7 +178,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nphase B — burst of 10 without draining (overflow policy in effect)");
     for step in 5..15 {
         clock.advance(Duration::from_millis(50))?;
-        let outcome = tx.publish(make_sample(step, &clock))?;
+        let sample = make_sample(step, &clock);
+        published.push(sample);
+        let outcome = tx.publish(sample)?;
         if outcome != PublishOutcome::Enqueued {
             println!("  step {step}: {outcome:?}");
         }
@@ -161,15 +202,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("  rejected  : {}", stats.rejected);
     println!("  final len : {}", stats.len);
     println!("  consumer received : {}", consumer.received);
-    match consumer.last_seen {
-        Some(sample) => println!(
-            "  last sample: depth={:.2}m uncertainty={:.2}m at {} (domain {})",
-            sample.value.depth,
-            sample.value.uncertainty,
-            sample.measurement_time,
-            sample.measurement_time.domain()
-        ),
-        None => println!("  last sample: none"),
+
+    // 9. Record the mission and prove deterministic replay.
+    println!("\nrecord & replay");
+    let bytes = record_mission(&schema, domain, &published)?;
+    let recording = NativeRecording::from_bytes(&bytes)?;
+    let digest = replay_digest(&recording);
+
+    // Replay: decode every recorded payload and check it matches what was sent.
+    let codec = DepthCodec;
+    let replayed: Vec<VehicleDepth> = recording
+        .records_for(CHANNEL_ID)
+        .map(|r| codec.decode(&r.payload))
+        .collect::<Result<_, _>>()?;
+    let originals: Vec<VehicleDepth> = published.iter().map(|s| s.value).collect();
+    let verified = replayed == originals;
+
+    println!("  records  : {}", recording.records().len());
+    println!("  digest   : {digest}");
+    println!(
+        "  fidelity : {}",
+        if verified {
+            "verified (replay == recorded)"
+        } else {
+            "MISMATCH"
+        }
+    );
+
+    let path = std::env::temp_dir().join("neuradix-depth-mission.nrec");
+    std::fs::write(&path, &bytes)?;
+    println!("  written  : {}", path.display());
+    println!("  inspect  : neuradix record inspect {}", path.display());
+    println!(
+        "  replay   : neuradix replay run {} --expect-digest {digest}",
+        path.display()
+    );
+
+    if !verified {
+        return Err("replay fidelity check failed".into());
     }
 
     println!("\ndone.");
@@ -185,6 +255,39 @@ fn make_sample(step: u32, clock: &ManualClock) -> DepthSample {
             uncertainty: 0.1,
         },
     }
+}
+
+/// Encode the whole mission into a native recording buffer.
+fn record_mission(
+    schema: &neuradix_contracts::SchemaId,
+    domain: ClockDomain,
+    samples: &[DepthSample],
+) -> Result<Vec<u8>, Box<dyn Error>> {
+    let manifest = RecordingManifest::builder("neuradix-example-minimal-depth-stream")
+        .channel(Channel::new(
+            CHANNEL_ID,
+            "navigation/vehicle-depth",
+            schema,
+            domain,
+        ))
+        .software(SoftwareId::new(
+            "neuradix-example-minimal-depth-stream",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .note("minimal depth mission")
+        .build();
+
+    let codec = DepthCodec;
+    let mut writer = NativeRecordWriter::new(Vec::new(), &manifest)?;
+    for (seq, sample) in samples.iter().enumerate() {
+        writer.write_record(
+            CHANNEL_ID,
+            seq as u64,
+            sample.measurement_time,
+            &codec.encode(&sample.value),
+        )?;
+    }
+    Ok(writer.finish()?)
 }
 
 /// Drive a component `Declared -> Configured -> Inactive -> Active`.

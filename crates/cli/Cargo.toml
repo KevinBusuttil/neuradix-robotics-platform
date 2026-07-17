@@ -16,6 +16,7 @@ path = "src/main.rs"
 neuradix-contracts = { workspace = true }
 neuradix-time = { workspace = true }
 neuradix-runtime = { workspace = true }
+neuradix-record = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -23,3 +24,5 @@ serde_yaml = { workspace = true }
 
 [dev-dependencies]
 neuradix-testkit = { workspace = true }
+neuradix-record = { workspace = true }
+neuradix-time = { workspace = true }

@@ -47,6 +47,21 @@ fn timestamps_compare_within_a_domain() {
 }
 
 #[test]
+fn clock_domain_byte_codes_round_trip_and_are_stable() {
+    for (domain, expected) in [
+        (ClockDomain::Monotonic, 0u8),
+        (ClockDomain::Utc, 1),
+        (ClockDomain::Sensor, 2),
+        (ClockDomain::Simulation, 3),
+        (ClockDomain::Replay, 4),
+    ] {
+        assert_eq!(domain.code(), expected);
+        assert_eq!(ClockDomain::from_code(expected), Some(domain));
+    }
+    assert_eq!(ClockDomain::from_code(5), None);
+}
+
+#[test]
 fn manual_clock_set_requires_matching_domain() {
     let clock = ManualClock::new(Timestamp::new(ClockDomain::Simulation, 0));
     assert!(

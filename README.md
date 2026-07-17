@@ -16,13 +16,15 @@ Neuradix is a Rust-first, contract-driven platform for dependable autonomous rob
 
 ## Implementation status — foundation increment 1
 
-This repository currently implements the **first foundation increment**: the
-contract-to-runtime path proven end to end on a single in-process stream.
+This repository currently implements the **foundation increments**: the
+contract-to-runtime path and a deterministic recording/replay nucleus, proven
+end to end on a single in-process stream.
 
 ```text
 authored contract → parsed & validated contract → deterministic schema identity
 → generated Rust type → typed timestamp & clock domain → bounded in-process stream
-→ minimal component lifecycle → CLI validation and inspection → automated tests
+→ minimal component lifecycle → deterministic recording → verified replay
+→ CLI validation, inspection and replay → automated tests
 ```
 
 ### What works today
@@ -40,19 +42,27 @@ authored contract → parsed & validated contract → deterministic schema ident
 - **Runtime** (`neuradix-runtime`): stable component identity, a validated and
   audited lifecycle state machine, execution-class and health models, and a
   minimal component manifest and trait.
-- **CLI** (`neuradix`): `version`, `doctor`, and `contract validate|inspect|hash|
-  generate`, with `--output table|json|yaml`, a versioned result envelope and a
-  stable exit-code contract.
+- **Record** (`neuradix-record`): a native, self-describing, deterministic
+  recording container (manifest + channels + schema identities + provenance), a
+  payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
+  checks. Parsing is bounds-checked and panic-free. (MCAP is a planned backend
+  behind the same interface.)
+- **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
+  generate`, `record inspect`, and `replay run` (with `--expect-digest`), with
+  `--output table|json|yaml`, a versioned result envelope and a stable exit-code
+  contract (including exit code 9 on a replay-digest mismatch).
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
-  → consumer, driven through lifecycle states with a deterministic clock.
+  → consumer, driven through lifecycle states with a deterministic clock, then
+  **recorded and replayed with a verified fidelity check**.
 
 ### Not yet implemented
 
-The following are **planned and intentionally absent** from this increment:
-Swarm, Aero, Studio and Studio XR, Flight, Ground, Fleet; network transport
-(Zenoh/DDS), shared memory, MCAP recording/replay, Python/PyO3 bindings; ROS 2 /
+The following are **planned and intentionally absent**: Swarm, Aero, Studio and
+Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
+MCAP recording containers (only the native container exists so far), live
+`record start/stop` against a running graph, Python/PyO3 bindings; ROS 2 /
 MAVLink bridges; the safety/authority path and command lineage; and any physical
 MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public boundaries are
 designed so these can be added without exposing backend-specific types.
@@ -90,6 +100,11 @@ cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/veh
 
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
+
+# The example writes a recording to a temp file; inspect and replay it:
+cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec path + digest
+cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
+cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
 ```
 
 ## Minimal depth-stream example
@@ -112,6 +127,7 @@ crates/
   time/             # neuradix-time: clock domains, timestamps, clocks
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
   runtime/          # neuradix-runtime: component + lifecycle model
+  record/           # neuradix-record: deterministic recording + replay digest
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)

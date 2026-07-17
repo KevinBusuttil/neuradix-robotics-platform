@@ -7,6 +7,7 @@
 
 pub mod contract;
 pub mod doctor;
+pub mod record;
 pub mod version;
 
 use serde_json::Value;
