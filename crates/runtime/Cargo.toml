@@ -13,3 +13,6 @@ neuradix-contracts = { workspace = true }
 neuradix-time = { workspace = true }
 semver = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+neuradix-record = { workspace = true }

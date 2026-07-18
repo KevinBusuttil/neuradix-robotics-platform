@@ -140,3 +140,28 @@ impl Clock for ManualClock {
         Timestamp::new(self.domain, self.nanos.get())
     }
 }
+
+/// A [`Clock`] whose current time can be controlled.
+///
+/// This is the capability a deterministic executor, a simulator or a replay
+/// driver needs: it can position the clock exactly (`set`) or step it forward
+/// (`advance`). Only controllable clocks (e.g. [`ManualClock`]) implement it;
+/// the ambient [`SystemClock`] deliberately does not, so deterministic drivers
+/// cannot be handed a non-reproducible clock by mistake.
+pub trait ControllableClock: Clock {
+    /// Position the clock at `at` (same domain required).
+    fn set(&self, at: Timestamp) -> Result<(), TimeError>;
+
+    /// Step the clock forward by `delta`.
+    fn advance(&self, delta: Duration) -> Result<(), TimeError>;
+}
+
+impl ControllableClock for ManualClock {
+    fn set(&self, at: Timestamp) -> Result<(), TimeError> {
+        ManualClock::set(self, at)
+    }
+
+    fn advance(&self, delta: Duration) -> Result<(), TimeError> {
+        ManualClock::advance(self, delta)
+    }
+}

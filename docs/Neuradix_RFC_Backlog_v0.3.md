@@ -14,6 +14,7 @@ This backlog aligns the architecture RFC sequence with the current functional an
 | RFC-0013 | CLI Command, Output and Automation Contract | Public CLI implementation |
 | RFC-0014 | Embedded Runtime, Board Support and Code Generation | MCU implementation |
 | RFC-0015 | Recording and Deterministic Replay | Record/replay and external log backends (MCAP) |
+| RFC-0016 | Deterministic Execution | Executors, scheduling and replay-equivalent runs |
 
 ## P1 — Multi-robot and domain expansion
 

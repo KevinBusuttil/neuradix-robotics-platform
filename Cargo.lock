@@ -260,6 +260,7 @@ name = "neuradix-runtime"
 version = "0.0.1"
 dependencies = [
  "neuradix-contracts",
+ "neuradix-record",
  "neuradix-time",
  "semver",
  "thiserror",

@@ -23,7 +23,8 @@ end to end on a single in-process stream.
 ```text
 authored contract → parsed & validated contract → deterministic schema identity
 → generated Rust type → typed timestamp & clock domain → bounded in-process stream
-→ minimal component lifecycle → deterministic recording → verified replay
+→ minimal component lifecycle → deterministic executor → recording
+→ lockstep replay reproducing identical control decisions
 → CLI validation, inspection and replay → automated tests
 ```
 
@@ -40,8 +41,10 @@ authored contract → parsed & validated contract → deterministic schema ident
   with `reject` / `drop-oldest` / `drop-newest` / `keep-latest` overflow policies
   and observable statistics. No backend type leaks into the public API.
 - **Runtime** (`neuradix-runtime`): stable component identity, a validated and
-  audited lifecycle state machine, execution-class and health models, and a
-  minimal component manifest and trait.
+  audited lifecycle state machine, execution-class and health models, a minimal
+  component manifest and trait, and a **deterministic input-driven executor**
+  (`Processor` + `run_lockstep`) that drives component logic under an injected,
+  controllable clock — so a recorded run replays to identical outputs.
 - **Record** (`neuradix-record`): a native, self-describing, deterministic
   recording container (manifest + channels + schema identities + provenance), a
   payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
@@ -55,7 +58,9 @@ authored contract → parsed & validated contract → deterministic schema ident
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
   → consumer, driven through lifecycle states with a deterministic clock, then
-  **recorded and replayed with a verified fidelity check**.
+  **recorded and replayed with a verified fidelity check**, and finally a depth
+  controller whose **control decisions are shown to replay identically** from the
+  recording (live control == replayed control).
 
 ### Not yet implemented
 

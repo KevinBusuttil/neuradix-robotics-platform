@@ -26,7 +26,8 @@ use neuradix_record::{
     SoftwareId, replay_digest,
 };
 use neuradix_runtime::{
-    Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState,
+    Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState, Processor,
+    TickContext, run_lockstep,
 };
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
@@ -73,6 +74,39 @@ impl RecordCodec for DepthCodec {
         let depth = f64::from_le_bytes(bytes[0..8].try_into().expect("8 bytes"));
         let uncertainty = f64::from_le_bytes(bytes[8..16].try_into().expect("8 bytes"));
         Ok(VehicleDepth { depth, uncertainty })
+    }
+}
+
+/// A thrust command produced by the controller, tagged with its decision time.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ThrustCommand {
+    at: Timestamp,
+    thrust: f64,
+}
+
+/// A minimal proportional depth controller used to demonstrate that control
+/// decisions replay identically from a recording.
+struct DepthController {
+    kp: f64,
+    setpoint: f64,
+    max_thrust: f64,
+}
+
+impl Processor for DepthController {
+    type Input = VehicleDepth;
+    type Output = ThrustCommand;
+
+    fn process(
+        &mut self,
+        ctx: &TickContext,
+        depth: VehicleDepth,
+    ) -> Result<Vec<ThrustCommand>, ComponentError> {
+        let error = self.setpoint - depth.depth;
+        let thrust = (self.kp * error).clamp(-self.max_thrust, self.max_thrust);
+        Ok(vec![ThrustCommand {
+            at: ctx.now,
+            thrust,
+        }])
     }
 }
 
@@ -242,8 +276,53 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("replay fidelity check failed".into());
     }
 
+    // 10. Deterministic control + lockstep replay equivalence.
+    //
+    // Run a depth controller live over the samples that were sent, then run the
+    // same controller over the samples decoded from the recording, each under a
+    // fresh clock. If the control *decisions* match, the system (not just the
+    // data) replays identically.
+    println!("\ndeterministic control & lockstep replay");
+
+    let live_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let live_inputs = published.iter().map(|s| (s.measurement_time, s.value));
+    let thrust_live = run_lockstep(&live_clock, &mut new_controller(), live_inputs)?;
+
+    let replay_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let replay_inputs: Vec<(Timestamp, VehicleDepth)> = recording
+        .records_for(CHANNEL_ID)
+        .map(|r| codec.decode(&r.payload).map(|value| (r.timestamp, value)))
+        .collect::<Result<_, _>>()?;
+    let thrust_replay = run_lockstep(&replay_clock, &mut new_controller(), replay_inputs)?;
+
+    let control_equivalent = thrust_live == thrust_replay;
+    println!("  commands : {}", thrust_live.len());
+    if let Some(last) = thrust_live.last() {
+        println!("  last cmd : thrust={:.3} at {}", last.thrust, last.at);
+    }
+    println!(
+        "  lockstep : {}",
+        if control_equivalent {
+            "verified (live control == replayed control)"
+        } else {
+            "MISMATCH"
+        }
+    );
+    if !control_equivalent {
+        return Err("lockstep control replay mismatch".into());
+    }
+
     println!("\ndone.");
     Ok(())
+}
+
+/// A fresh depth controller with the mission's control parameters.
+fn new_controller() -> DepthController {
+    DepthController {
+        kp: 0.5,
+        setpoint: 12.0,
+        max_thrust: 5.0,
+    }
 }
 
 /// Build a deterministic sample for `step`, stamped with the current sim time.
