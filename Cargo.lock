@@ -238,6 +238,7 @@ dependencies = [
  "neuradix-contracts",
  "neuradix-record",
  "neuradix-runtime",
+ "neuradix-safety",
  "neuradix-testkit",
  "neuradix-time",
  "neuradix-transport-api",
@@ -263,6 +264,15 @@ dependencies = [
  "neuradix-record",
  "neuradix-time",
  "semver",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-safety"
+version = "0.0.1"
+dependencies = [
+ "neuradix-runtime",
+ "neuradix-time",
  "thiserror",
 ]
 

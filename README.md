@@ -25,6 +25,7 @@ authored contract → parsed & validated contract → deterministic schema ident
 → generated Rust type → typed timestamp & clock domain → bounded in-process stream
 → minimal component lifecycle → deterministic executor → recording
 → lockstep replay reproducing identical control decisions
+→ safety authority + constraint gate producing auditable decisions
 → CLI validation, inspection and replay → automated tests
 ```
 
@@ -50,6 +51,11 @@ authored contract → parsed & validated contract → deterministic schema ident
   payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
   checks. Parsing is bounds-checked and panic-free. (MCAP is a planned backend
   behind the same interface.)
+- **Safety** (`neuradix-safety`): the authority + constraint path every actuator
+  command traverses — time-bounded authority leases (with permitted envelopes),
+  range/slew constraints that name the rule they enforce, fail-safe rejection,
+  and an auditable, deterministic `SafetyDecision`. The gate is a `Processor`, so
+  safety decisions replay identically.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect`, and `replay run` (with `--expect-digest`), with
   `--output table|json|yaml`, a versioned result envelope and a stable exit-code
@@ -58,9 +64,11 @@ authored contract → parsed & validated contract → deterministic schema ident
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
   → consumer, driven through lifecycle states with a deterministic clock, then
-  **recorded and replayed with a verified fidelity check**, and finally a depth
-  controller whose **control decisions are shown to replay identically** from the
-  recording (live control == replayed control).
+  **recorded and replayed with a verified fidelity check**, a depth controller
+  whose **control decisions replay identically** from the recording, and finally
+  those commands routed through the **safety gate** (clamped by a range
+  constraint, then rejected to a fail-safe output once the authority lease
+  lapses).
 
 ### Not yet implemented
 
@@ -68,9 +76,11 @@ The following are **planned and intentionally absent**: Swarm, Aero, Studio and
 Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
 MCAP recording containers (only the native container exists so far), live
 `record start/stop` against a running graph, Python/PyO3 bindings; ROS 2 /
-MAVLink bridges; the safety/authority path and command lineage; and any physical
-MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public boundaries are
-designed so these can be added without exposing backend-specific types.
+MAVLink bridges; FDIR state machines, independent safety-island deployment and
+the recorded command-lineage `explain` view (the authority + constraint gate
+itself exists); and any physical MCU firmware (ESP32/RP2040/STM32) or Arduino
+compilation. Public boundaries are designed so these can be added without
+exposing backend-specific types.
 
 ## Prerequisites
 
@@ -131,8 +141,9 @@ crates/
   contracts/        # neuradix-contracts: model, validation, identity, codegen
   time/             # neuradix-time: clock domains, timestamps, clocks
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
-  runtime/          # neuradix-runtime: component + lifecycle model
+  runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
   record/           # neuradix-record: deterministic recording + replay digest
+  safety/           # neuradix-safety: authority leases, constraints, decisions
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)

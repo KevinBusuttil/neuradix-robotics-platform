@@ -29,6 +29,10 @@ use neuradix_runtime::{
     Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState, Processor,
     TickContext, run_lockstep,
 };
+use neuradix_safety::{
+    AuthorityLease, Capability, CommandRequest, Constraint, Identity, LeaseTable, Outcome,
+    SafetyGate,
+};
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
     PublishOutcome, StreamConfig, StreamPublisher, StreamSubscriber, in_process,
@@ -311,6 +315,69 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !control_equivalent {
         return Err("lockstep control replay mismatch".into());
     }
+
+    // 11. Route the control commands through the safety authority + constraint
+    // path. The lease is valid only for the first half of the mission, so later
+    // commands are rejected and forced to the fail-safe output; a tight range
+    // clamps the largest thrust demands. Every decision is auditable.
+    println!("\nsafety authority & constraints");
+    let holder = Identity::new("depth-controller");
+    let capability = Capability::new("propulsion/vertical-thrust");
+    let mut leases = LeaseTable::new();
+    leases.grant(AuthorityLease {
+        holder: holder.clone(),
+        capability: capability.clone(),
+        priority: 10,
+        issued: Timestamp::new(domain, 0),
+        // Authority lapses halfway through the mission (at 400ms).
+        expires: Timestamp::new(domain, 400_000_000),
+        envelope: None,
+    });
+    let constraints = vec![
+        Constraint::range("thrust-range", -0.8, 0.8)?,
+        Constraint::slew_rate("thrust-slew", 50.0)?,
+    ];
+    let mut gate = SafetyGate::new(leases, constraints, 0.0);
+
+    let safety_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let requests = thrust_live.iter().map(|c| {
+        (
+            c.at,
+            CommandRequest::new(holder.clone(), capability.clone(), c.thrust, c.at),
+        )
+    });
+    let decisions = run_lockstep(&safety_clock, &mut gate, requests)?;
+
+    let (mut accepted, mut modified, mut rejected) = (0u32, 0u32, 0u32);
+    for d in &decisions {
+        match d.outcome {
+            Outcome::Accepted => accepted += 1,
+            Outcome::Modified => modified += 1,
+            Outcome::Rejected(_) => rejected += 1,
+        }
+    }
+    println!(
+        "  decisions: {} (accepted {accepted}, modified {modified}, rejected {rejected})",
+        decisions.len()
+    );
+    for d in decisions
+        .iter()
+        .filter(|d| d.outcome != Outcome::Accepted)
+        .take(4)
+    {
+        let rules = if d.acted_rules.is_empty() {
+            d.outcome.label().to_owned()
+        } else {
+            d.acted_rules.join(",")
+        };
+        println!(
+            "  t={} requested={:.2} -> applied={:.2} [{}]",
+            d.at, d.request.value, d.applied, rules
+        );
+    }
+    println!(
+        "  note     : rejected commands apply the fail-safe output (0.0) after authority lapses"
+    );
 
     println!("\ndone.");
     Ok(())

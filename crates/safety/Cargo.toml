@@ -1,0 +1,14 @@
+[package]
+name = "neuradix-safety"
+description = "Command authority leases, constraint enforcement and auditable safety decisions."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-time = { workspace = true }
+neuradix-runtime = { workspace = true }
+thiserror = { workspace = true }
