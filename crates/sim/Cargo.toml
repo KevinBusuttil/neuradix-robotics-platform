@@ -1,0 +1,13 @@
+[package]
+name = "neuradix-sim"
+description = "Deterministic vehicle simulation: a fixed-step depth plant, sensor and closed-loop driver for the AUV vertical slice."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-time = { workspace = true }
+thiserror = { workspace = true }

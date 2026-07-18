@@ -29,6 +29,7 @@ authored contract → parsed & validated contract → deterministic schema ident
 → FDIR fault-mode state machine (nominal → degraded → safe → return-to-service)
 → recorded command lineage → `explain` the causal chain of any command
 → offline deployment-graph validation (contracts before connectivity)
+→ a deterministic closed-loop simulation (control → safety → simulated plant)
 → CLI validation, inspection, replay, explain and graph validate → automated tests
 ```
 
@@ -78,6 +79,14 @@ authored contract → parsed & validated contract → deterministic schema ident
   **deployment identity** for production pinning. Given a contract registry
   (`--contracts <dir>`) it also **resolves every wired contract reference** to a
   real, validated schema and pins the `sha256:` schema identity it resolved to.
+- **Sim** (`neuradix-sim`): a deterministic vehicle simulation that closes the
+  control loop. A fixed-step vertical-depth **plant**, a **sensor** model and a
+  closed-loop **driver** step sensor → controller → plant under an injected
+  clock, so the vertical slice runs against a *simulated vehicle* rather than a
+  canned input sequence — and two identical runs produce a byte-identical
+  trajectory. The controller seam is narrow enough that the crate depends only on
+  `neuradix-time`, so a real (or safety-gated) control law drives it without
+  coupling the model to the runtime or safety crates.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect`, `replay run` (with `--expect-digest`),
   `explain command` (reconstruct a command's causal chain from a recording), and
@@ -173,6 +182,11 @@ cargo run -p neuradix-example-minimal-depth-stream
 # An isolated Python worker: detection, a Python crash that is isolated and
 # drives FDIR to a safe mode, then a supervised restart (requires python3):
 cargo run -p neuradix-example-python-worker
+
+# A closed-loop AUV depth mission: a proportional controller drives a simulated
+# plant, but only through the safety gate; converges to the setpoint and proves
+# the whole mission is byte-identical on re-run:
+cargo run -p neuradix-example-auv-depth-sim
 ```
 
 It loads the authored contract, derives the stream's capacity and overflow policy
@@ -193,11 +207,12 @@ crates/
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler
+  sim/              # neuradix-sim: deterministic depth plant, sensor, closed-loop driver
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (navigation, perception, control, actuation)
-examples/           # minimal-depth-stream, python-worker, reference-auv (deployment manifest)
+examples/           # minimal-depth-stream, python-worker, auv-depth-sim, reference-auv (manifest)
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)
 ```

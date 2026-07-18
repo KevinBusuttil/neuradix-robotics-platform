@@ -234,6 +234,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-example-auv-depth-sim"
+version = "0.0.1"
+dependencies = [
+ "neuradix-safety",
+ "neuradix-sim",
+ "neuradix-time",
+ "sha2",
+]
+
+[[package]]
 name = "neuradix-example-minimal-depth-stream"
 version = "0.0.1"
 dependencies = [
@@ -309,6 +319,14 @@ dependencies = [
  "neuradix-time",
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-sim"
+version = "0.0.1"
+dependencies = [
+ "neuradix-time",
  "thiserror",
 ]
 
