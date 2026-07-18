@@ -30,8 +30,8 @@ use neuradix_runtime::{
     TickContext, run_lockstep,
 };
 use neuradix_safety::{
-    AuthorityLease, Capability, CommandRequest, Constraint, Identity, LeaseTable, Outcome,
-    SafetyGate,
+    AuthorityLease, Capability, CommandLineage, CommandRequest, Constraint, Identity,
+    LINEAGE_CHANNEL, LeaseTable, LineageOrigin, Outcome, SafetyGate,
 };
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
@@ -377,6 +377,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     println!(
         "  note     : rejected commands apply the fail-safe output (0.0) after authority lapses"
+    );
+
+    // 12. Record the command lineage so any actuator command can be explained.
+    // Each lineage entry links the originating depth sample to the controller
+    // request, the authority/constraint outcome and the applied value.
+    println!("\ncommand lineage");
+    let lineage_manifest = RecordingManifest::builder("neuradix-example-minimal-depth-stream")
+        .channel(Channel {
+            id: 0,
+            name: LINEAGE_CHANNEL.to_owned(),
+            schema_id: "application/vnd.neuradix.command-lineage+json".to_owned(),
+            clock_domain: domain.as_str().to_owned(),
+        })
+        .software(SoftwareId::new(
+            "neuradix-example-minimal-depth-stream",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .note("depth mission command lineage")
+        .build();
+    let mut lineage_writer = NativeRecordWriter::new(Vec::new(), &lineage_manifest)?;
+    for (trace, (sample, decision)) in published.iter().zip(decisions.iter()).enumerate() {
+        let origin =
+            LineageOrigin::new("navigation/vehicle-depth", "depth", "m", sample.value.depth);
+        let lineage = CommandLineage::from_decision(trace as u64, origin, decision);
+        lineage_writer.write_record(0, trace as u64, decision.at, &lineage.to_json_bytes())?;
+    }
+    let lineage_bytes = lineage_writer.finish()?;
+    let lineage_path = std::env::temp_dir().join("neuradix-depth-lineage.nrec");
+    std::fs::write(&lineage_path, &lineage_bytes)?;
+    println!("  entries  : {}", decisions.len());
+    println!("  written  : {}", lineage_path.display());
+    println!(
+        "  explain  : neuradix explain command {} --at 50000000",
+        lineage_path.display()
+    );
+    println!(
+        "  explain  : neuradix explain command {} --at 450000000  (a rejected command)",
+        lineage_path.display()
     );
 
     println!("\ndone.");

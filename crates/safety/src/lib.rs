@@ -46,6 +46,7 @@ pub mod constraint;
 pub mod decision;
 pub mod error;
 pub mod gate;
+pub mod lineage;
 
 pub use authority::{
     AuthorityDenial, AuthorityLease, Capability, CommandEnvelope, Identity, LeaseTable,
@@ -54,3 +55,4 @@ pub use constraint::Constraint;
 pub use decision::{CommandRequest, Outcome, RejectReason, SafetyDecision};
 pub use error::SafetyError;
 pub use gate::SafetyGate;
+pub use lineage::{CommandLineage, LINEAGE_CHANNEL, LineageOrigin};

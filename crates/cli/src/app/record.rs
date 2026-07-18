@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use crate::app::{AppError, Outcome};
 use crate::exit::ExitCode;
 
-fn load(file: &Path) -> Result<NativeRecording, AppError> {
+pub(crate) fn load(file: &Path) -> Result<NativeRecording, AppError> {
     let bytes = std::fs::read(file).map_err(|e| {
         AppError::message(
             ExitCode::GeneralFailure,

@@ -15,7 +15,7 @@ mod render;
 use clap::Parser;
 
 use app::{AppError, Outcome};
-use cli::{Cli, Command, ContractCommand, RecordCommand, ReplayCommand};
+use cli::{Cli, Command, ContractCommand, ExplainCommand, RecordCommand, ReplayCommand};
 use envelope::CommandResult;
 use exit::ExitCode;
 
@@ -81,6 +81,12 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             } => (
                 "replay.run".to_owned(),
                 app::record::replay_run(&file, expect_digest.as_deref()),
+            ),
+        },
+        Command::Explain { command } => match command {
+            ExplainCommand::Command { file, at } => (
+                "explain.command".to_owned(),
+                app::explain::command(&file, at),
             ),
         },
     }

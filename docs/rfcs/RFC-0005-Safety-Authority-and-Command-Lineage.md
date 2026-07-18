@@ -4,12 +4,13 @@
 - Authoritative spec: [Functional Specification v0.5](../Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) §16, §25.3–§25.4
 - Crate: `neuradix-safety`
 
-> Increment 4 implements the **authority + constraint gate** and its auditable
-> [`SafetyDecision`] evidence: time-bounded leases, a range/slew constraint
-> engine, fail-safe rejection, and deterministic (replayable) decisions. Still
-> **future**: FDIR state machines (§16.8), independent safety-island deployment
-> (§16.7), command arbitration beyond priority (§16.2 voting/pre-emption), and
-> the recorded command-lineage `explain` view (§25.3–§25.4).
+> Increments 4–5 implement the **authority + constraint gate** with auditable
+> [`SafetyDecision`] evidence, plus a **recorded command-lineage** and the
+> `neuradix explain command` view (§25.3–§25.4). Still **future**: FDIR state
+> machines (§16.8), independent safety-island deployment (§16.7), command
+> arbitration beyond priority (§16.2 voting/pre-emption), and correlating lineage
+> across *multiple* recorded channels (currently one self-describing lineage
+> record per command).
 
 ## Problem
 
@@ -35,6 +36,11 @@ The `neuradix-safety` crate provides:
   acted_rules, .. }`. Rejection applies a configured **fail-safe** value. The
   gate is a `neuradix_runtime::Processor`, so decisions are deterministic and
   replay identically under the executor (RFC-0016).
+- **`CommandLineage`** (increment 5): a self-describing, JSON-serializable record
+  linking the originating sensor input → requested command → authority/constraint
+  outcome → applied value. Recorded on the `safety/command-lineage` channel and
+  read back by `neuradix explain command <recording> --at <nanos>`, which prints
+  the causal chain for the command nearest the requested time.
 
 ## Scope (future)
 

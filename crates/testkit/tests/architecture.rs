@@ -25,6 +25,7 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
             "neuradix-time",
             "neuradix-runtime",
             "neuradix-record",
+            "neuradix-safety",
         ]
         .into_iter()
         .collect(),

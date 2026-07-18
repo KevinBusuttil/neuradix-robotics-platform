@@ -11,4 +11,6 @@ authors.workspace = true
 [dependencies]
 neuradix-time = { workspace = true }
 neuradix-runtime = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }

@@ -212,6 +212,7 @@ dependencies = [
  "neuradix-contracts",
  "neuradix-record",
  "neuradix-runtime",
+ "neuradix-safety",
  "neuradix-testkit",
  "neuradix-time",
  "serde",
@@ -273,6 +274,8 @@ version = "0.0.1"
 dependencies = [
  "neuradix-runtime",
  "neuradix-time",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

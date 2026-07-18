@@ -26,7 +26,8 @@ authored contract → parsed & validated contract → deterministic schema ident
 → minimal component lifecycle → deterministic executor → recording
 → lockstep replay reproducing identical control decisions
 → safety authority + constraint gate producing auditable decisions
-→ CLI validation, inspection and replay → automated tests
+→ recorded command lineage → `explain` the causal chain of any command
+→ CLI validation, inspection, replay and explain → automated tests
 ```
 
 ### What works today
@@ -55,9 +56,12 @@ authored contract → parsed & validated contract → deterministic schema ident
   command traverses — time-bounded authority leases (with permitted envelopes),
   range/slew constraints that name the rule they enforce, fail-safe rejection,
   and an auditable, deterministic `SafetyDecision`. The gate is a `Processor`, so
-  safety decisions replay identically.
+  safety decisions replay identically. A self-describing `CommandLineage` links
+  each command's sensor input → request → authority/constraint outcome → applied
+  value for later explanation.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
-  generate`, `record inspect`, and `replay run` (with `--expect-digest`), with
+  generate`, `record inspect`, `replay run` (with `--expect-digest`), and
+  `explain command` (reconstruct a command's causal chain from a recording), with
   `--output table|json|yaml`, a versioned result envelope and a stable exit-code
   contract (including exit code 9 on a replay-digest mismatch).
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
@@ -76,11 +80,11 @@ The following are **planned and intentionally absent**: Swarm, Aero, Studio and
 Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
 MCAP recording containers (only the native container exists so far), live
 `record start/stop` against a running graph, Python/PyO3 bindings; ROS 2 /
-MAVLink bridges; FDIR state machines, independent safety-island deployment and
-the recorded command-lineage `explain` view (the authority + constraint gate
-itself exists); and any physical MCU firmware (ESP32/RP2040/STM32) or Arduino
-compilation. Public boundaries are designed so these can be added without
-exposing backend-specific types.
+MAVLink bridges; FDIR state machines and independent safety-island deployment
+(the authority + constraint gate and command-lineage `explain` exist); and any
+physical MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public
+boundaries are designed so these can be added without exposing backend-specific
+types.
 
 ## Prerequisites
 
@@ -116,10 +120,14 @@ cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/veh
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
 
-# The example writes a recording to a temp file; inspect and replay it:
-cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec path + digest
+# The example writes recordings to temp files; inspect, replay and explain them:
+cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + digest
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
+
+# Explain the causal chain (sensor -> control -> authority/constraints -> applied)
+# of the command nearest a given time:
+cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --at 450000000
 ```
 
 ## Minimal depth-stream example
