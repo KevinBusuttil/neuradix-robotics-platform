@@ -8,6 +8,7 @@
 pub mod contract;
 pub mod doctor;
 pub mod explain;
+pub mod graph;
 pub mod record;
 pub mod version;
 

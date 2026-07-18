@@ -1,0 +1,25 @@
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.control
+  name: depth-setpoint
+  version: 1.0.0
+
+spec:
+  description: A commanded target depth from the motion planner.
+  payload:
+    type: object
+    fields:
+      target_depth:
+        type: float64
+        unit: m
+
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: arrival
+    maximumAge: 100ms
+
+  delivery:
+    capacity: 4
+    overflow: keep-latest

@@ -1,0 +1,27 @@
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.perception
+  name: sonar-range
+  version: 1.0.0
+
+spec:
+  description: A single forward-looking sonar range return.
+  payload:
+    type: object
+    fields:
+      range:
+        type: float64
+        unit: m
+      confidence:
+        type: float64
+
+  semantics:
+    frame: vehicle/sonar
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 200ms
+
+  delivery:
+    capacity: 8
+    overflow: keep-latest

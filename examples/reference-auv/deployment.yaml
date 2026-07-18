@@ -1,0 +1,77 @@
+# Reference autonomous underwater vehicle (AUV) deployment.
+#
+# A minimal but valid Neuradix deployment that exercises every layer the graph
+# compiler cares about: node placement, contract provides/requires wiring, a
+# Python perception stage kept off the deterministic control path, and an
+# actuator that can only be commanded through the Safety authority (§16.1).
+#
+# Contract references are the `namespace/name@version` identifiers of the
+# authored contracts under contracts/standard/, so the graph compiler can
+# resolve each one to a real, content-addressed schema.
+#
+# Validate topology + policy only:
+#   neuradix graph validate examples/reference-auv/deployment.yaml
+# Validate and resolve every contract reference to a registered schema:
+#   neuradix graph validate examples/reference-auv/deployment.yaml \
+#       --contracts contracts/standard
+apiVersion: deploy.neuradix.io/v1alpha1
+kind: RobotDeployment
+metadata:
+  name: reference-auv
+spec:
+  profile: marine-auv
+  nodes:
+    - name: main
+      target: linux-aarch64
+    - name: gpu
+      target: linux-x86_64
+  components:
+    # Sonar range sensing (native, soft-real-time).
+    - name: sonar
+      node: main
+      executionClass: interactive
+      provides: [io.neuradix.perception/sonar-range@1.0.0]
+
+    # Obstacle perception. Python is allowed here because the stage is
+    # batch-ai and sits off the deterministic control path.
+    - name: perception
+      node: gpu
+      executionClass: batch-ai
+      runtime: python
+      requires: [io.neuradix.perception/sonar-range@1.0.0]
+      provides: [io.neuradix.perception/obstacle-map@1.0.0]
+
+    # Motion planning (native).
+    - name: planner
+      node: main
+      executionClass: interactive
+      requires: [io.neuradix.perception/obstacle-map@1.0.0]
+      provides: [io.neuradix.control/depth-setpoint@1.0.0]
+
+    # Safety authority: the only component permitted to command the actuator.
+    - name: safety
+      node: main
+      executionClass: deterministic
+      role: safety
+      requires: [io.neuradix.control/depth-setpoint@1.0.0]
+      provides: [io.neuradix.actuation/thrust-command@1.0.0]
+
+    # Vertical thruster actuator (hard-real-time).
+    - name: thruster
+      node: main
+      executionClass: hard-real-time
+      role: actuator
+      requires: [io.neuradix.actuation/thrust-command@1.0.0]
+  connections:
+    - from: sonar
+      to: perception
+      contract: io.neuradix.perception/sonar-range@1.0.0
+    - from: perception
+      to: planner
+      contract: io.neuradix.perception/obstacle-map@1.0.0
+    - from: planner
+      to: safety
+      contract: io.neuradix.control/depth-setpoint@1.0.0
+    - from: safety
+      to: thruster
+      contract: io.neuradix.actuation/thrust-command@1.0.0

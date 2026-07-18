@@ -210,6 +210,7 @@ version = "0.0.1"
 dependencies = [
  "clap",
  "neuradix-contracts",
+ "neuradix-graph",
  "neuradix-record",
  "neuradix-runtime",
  "neuradix-safety",
@@ -254,6 +255,18 @@ dependencies = [
  "neuradix-safety",
  "neuradix-time",
  "serde_json",
+]
+
+[[package]]
+name = "neuradix-graph"
+version = "0.0.1"
+dependencies = [
+ "neuradix-contracts",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]
