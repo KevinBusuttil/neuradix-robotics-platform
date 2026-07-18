@@ -30,8 +30,8 @@ use neuradix_runtime::{
     TickContext, run_lockstep,
 };
 use neuradix_safety::{
-    AuthorityLease, Capability, CommandLineage, CommandRequest, Constraint, Identity,
-    LINEAGE_CHANNEL, LeaseTable, LineageOrigin, Outcome, SafetyGate,
+    AuthorityLease, Capability, CommandLineage, CommandRequest, Constraint, FdirMonitor,
+    FdirPolicy, Identity, LINEAGE_CHANNEL, LeaseTable, LineageOrigin, Outcome, SafetyGate,
 };
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
@@ -416,6 +416,37 @@ fn main() -> Result<(), Box<dyn Error>> {
         "  explain  : neuradix explain command {} --at 450000000  (a rejected command)",
         lineage_path.display()
     );
+
+    // 13. FDIR: drive a fault-mode state machine from a health sequence. A
+    // transient glitch is debounced; a confirmed soft fault degrades; recovery
+    // returns to nominal; a confirmed hard fault latches safe until reset.
+    println!("\nFDIR fault handling");
+    let health_sequence = [
+        HealthState::Healthy,
+        HealthState::Degraded, // transient glitch (debounced)
+        HealthState::Healthy,
+        HealthState::Degraded,
+        HealthState::Degraded, // confirmed -> Degraded
+        HealthState::Healthy,
+        HealthState::Healthy, // recovered -> Nominal
+        HealthState::Unhealthy,
+        HealthState::Unhealthy, // confirmed -> Safe
+    ];
+    let fdir_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let mut monitor = FdirMonitor::new(FdirPolicy::new(2, 2, 2));
+    let fdir_inputs = health_sequence
+        .iter()
+        .enumerate()
+        .map(|(i, &h)| (Timestamp::new(domain, i as i128 * 100_000_000), h));
+    let mut transitions = run_lockstep(&fdir_clock, &mut monitor, fdir_inputs)?;
+    // Operator return-to-service from safe mode.
+    if let Some(reset) = monitor.reset(Timestamp::new(domain, 1_000_000_000)) {
+        transitions.push(reset);
+    }
+    for t in &transitions {
+        println!("  {} -> {} at {} ({})", t.from, t.to, t.at, t.reason);
+    }
+    println!("  final mode: {}", monitor.mode());
 
     println!("\ndone.");
     Ok(())

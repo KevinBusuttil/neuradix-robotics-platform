@@ -26,6 +26,7 @@ authored contract → parsed & validated contract → deterministic schema ident
 → minimal component lifecycle → deterministic executor → recording
 → lockstep replay reproducing identical control decisions
 → safety authority + constraint gate producing auditable decisions
+→ FDIR fault-mode state machine (nominal → degraded → safe → return-to-service)
 → recorded command lineage → `explain` the causal chain of any command
 → CLI validation, inspection, replay and explain → automated tests
 ```
@@ -58,7 +59,9 @@ authored contract → parsed & validated contract → deterministic schema ident
   and an auditable, deterministic `SafetyDecision`. The gate is a `Processor`, so
   safety decisions replay identically. A self-describing `CommandLineage` links
   each command's sensor input → request → authority/constraint outcome → applied
-  value for later explanation.
+  value for later explanation. An `FdirMonitor` drives an explicit fault-mode
+  state machine (nominal → degraded → safe) with confirmation debounce, a
+  restart-storm budget and operator return-to-service.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect`, `replay run` (with `--expect-digest`), and
   `explain command` (reconstruct a command's causal chain from a recording), with
@@ -72,7 +75,8 @@ authored contract → parsed & validated contract → deterministic schema ident
   whose **control decisions replay identically** from the recording, and finally
   those commands routed through the **safety gate** (clamped by a range
   constraint, then rejected to a fail-safe output once the authority lease
-  lapses).
+  lapses), the resulting **command lineage recorded for `explain`**, and an
+  **FDIR** health sequence driving nominal → degraded → safe → reset.
 
 ### Not yet implemented
 
