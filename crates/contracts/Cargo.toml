@@ -1,0 +1,17 @@
+[package]
+name = "neuradix-contracts"
+description = "Neuradix contract model: parsing, validation, canonical schema identity and Rust code generation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+semver = { workspace = true }
+thiserror = { workspace = true }

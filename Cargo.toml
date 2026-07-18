@@ -1,0 +1,52 @@
+# Neuradix Robotics Platform — Cargo workspace.
+#
+# This is the foundation increment: contracts, time, a transport-neutral
+# bounded stream, a minimal component/lifecycle model, the `neuradix` CLI and a
+# reusable testkit. Deployment/domain subsystems (Swarm, Aero, Studio, Flight,
+# Fleet, network transport, shared memory, MCAP, Python bindings, MCU firmware)
+# are intentionally NOT part of this workspace yet. See docs/rfcs and
+# docs/Neuradix_Implementation_Plan_v0.3.md.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/contracts",
+    "crates/time",
+    "crates/transport-api",
+    "crates/runtime",
+    "crates/record",
+    "crates/cli",
+    "crates/testkit",
+    "examples/minimal-depth-stream",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.94"
+license = "Apache-2.0"
+repository = "https://github.com/KevinBusuttil/neuradix-robotics-platform"
+authors = ["Busuttil Technologies Limited"]
+
+[workspace.dependencies]
+# Internal crates (path dependencies, published names use the `neuradix-` prefix).
+neuradix-contracts = { path = "crates/contracts", version = "0.0.1" }
+neuradix-time = { path = "crates/time", version = "0.0.1" }
+neuradix-transport-api = { path = "crates/transport-api", version = "0.0.1" }
+neuradix-runtime = { path = "crates/runtime", version = "0.0.1" }
+neuradix-record = { path = "crates/record", version = "0.0.1" }
+neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
+
+# Third-party foundations (kept minimal and standard; see docs/decisions).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+semver = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
+[profile.release]
+# Deterministic, debuggable release builds for a robotics platform.
+overflow-checks = true

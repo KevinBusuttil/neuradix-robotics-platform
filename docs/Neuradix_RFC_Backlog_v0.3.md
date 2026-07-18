@@ -13,6 +13,7 @@ This backlog aligns the architecture RFC sequence with the current functional an
 | RFC-0005 | Safety Authority and Command Lineage | Actuator path |
 | RFC-0013 | CLI Command, Output and Automation Contract | Public CLI implementation |
 | RFC-0014 | Embedded Runtime, Board Support and Code Generation | MCU implementation |
+| RFC-0015 | Recording and Deterministic Replay | Record/replay and external log backends (MCAP) |
 
 ## P1 — Multi-robot and domain expansion
 

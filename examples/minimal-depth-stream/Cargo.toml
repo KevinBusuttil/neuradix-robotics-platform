@@ -1,0 +1,24 @@
+[package]
+name = "neuradix-example-minimal-depth-stream"
+description = "Minimal end-to-end proof: a VehicleDepth producer and consumer over a bounded in-process stream."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "minimal-depth-stream"
+path = "src/main.rs"
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+neuradix-time = { workspace = true }
+neuradix-transport-api = { workspace = true }
+neuradix-runtime = { workspace = true }
+neuradix-record = { workspace = true }
+
+[dev-dependencies]
+neuradix-testkit = { workspace = true }

@@ -1,6 +1,6 @@
 ---
 title: "Neuradix Robotics Platform — Implementation Plan"
-subtitle: "Engineering execution plan aligned to Functional Specification v0.4 and Embedded/CLI Addendum v0.5"
+subtitle: "Engineering execution plan aligned to Functional Specification v0.5"
 author: "Engineering"
 date: "17 July 2026"
 version: "0.3 Draft"
