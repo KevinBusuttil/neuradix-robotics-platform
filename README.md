@@ -62,6 +62,12 @@ authored contract → parsed & validated contract → deterministic schema ident
   value for later explanation. An `FdirMonitor` drives an explicit fault-mode
   state machine (nominal → degraded → safe) with confirmation debounce, a
   restart-storm budget and operator return-to-service.
+- **Python** (`neuradix-python` + `python/neuradix_worker.py`): run a Python
+  component as an **isolated OS process** supervised from Rust over a
+  line-delimited JSON protocol, with health, request timeouts, and **crash
+  isolation** — a Python crash surfaces as a recoverable error, never a runtime
+  crash (v1.0 acceptance §41.6). A bounded restart budget prevents restart
+  storms, and a worker's health composes with the FDIR monitor.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect`, `replay run` (with `--expect-digest`), and
   `explain command` (reconstruct a command's causal chain from a recording), with
@@ -83,8 +89,9 @@ authored contract → parsed & validated contract → deterministic schema ident
 The following are **planned and intentionally absent**: Swarm, Aero, Studio and
 Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
 MCAP recording containers (only the native container exists so far), live
-`record start/stop` against a running graph, Python/PyO3 bindings; ROS 2 /
-MAVLink bridges; FDIR state machines and independent safety-island deployment
+`record start/stop` against a running graph, in-process PyO3/Maturin bindings and
+NumPy zero-copy views (isolated Python *worker processes* exist); ROS 2 /
+MAVLink bridges; independent safety-island deployment
 (the authority + constraint gate and command-lineage `explain` exist); and any
 physical MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public
 boundaries are designed so these can be added without exposing backend-specific
@@ -94,6 +101,8 @@ types.
 
 - Rust toolchain **1.94.1** (pinned in `rust-toolchain.toml`; `rustup` installs it
   automatically). Edition 2024.
+- `python3` (optional) — only for the `neuradix-python` worker tests and the
+  `python-worker` example; those tests skip cleanly when it is absent.
 
 ## Build and test
 
@@ -134,10 +143,16 @@ cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expec
 cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --at 450000000
 ```
 
-## Minimal depth-stream example
+## Examples
 
 ```bash
+# The full deterministic vertical slice (contract -> stream -> control -> safety
+# -> record -> replay -> explain -> FDIR):
 cargo run -p neuradix-example-minimal-depth-stream
+
+# An isolated Python worker: detection, a Python crash that is isolated and
+# drives FDIR to a safe mode, then a supervised restart (requires python3):
+cargo run -p neuradix-example-python-worker
 ```
 
 It loads the authored contract, derives the stream's capacity and overflow policy
@@ -155,9 +170,11 @@ crates/
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
   runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
   record/           # neuradix-record: deterministic recording + replay digest
-  safety/           # neuradix-safety: authority leases, constraints, decisions
+  safety/           # neuradix-safety: authority, constraints, decisions, FDIR
+  python/           # neuradix-python: isolated Python worker supervision
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
+python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)
 examples/           # minimal-depth-stream
 docs/rfcs/          # architecture RFCs

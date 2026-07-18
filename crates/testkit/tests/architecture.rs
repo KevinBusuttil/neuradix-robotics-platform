@@ -20,6 +20,7 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
             .into_iter()
             .collect(),
         "neuradix-safety" => ["neuradix-time", "neuradix-runtime"].into_iter().collect(),
+        "neuradix-python" => ["neuradix-runtime"].into_iter().collect(),
         "neuradix-cli" => [
             "neuradix-contracts",
             "neuradix-time",
@@ -81,6 +82,7 @@ fn crate_dependencies_respect_the_layering() {
         "neuradix-runtime",
         "neuradix-record",
         "neuradix-safety",
+        "neuradix-python",
         "neuradix-cli",
         "neuradix-testkit",
     ];
@@ -92,6 +94,7 @@ fn crate_dependencies_respect_the_layering() {
         ("neuradix-runtime", "crates/runtime"),
         ("neuradix-record", "crates/record"),
         ("neuradix-safety", "crates/safety"),
+        ("neuradix-python", "crates/python"),
         ("neuradix-cli", "crates/cli"),
         ("neuradix-testkit", "crates/testkit"),
     ];

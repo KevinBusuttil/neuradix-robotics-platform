@@ -1,0 +1,21 @@
+[package]
+name = "neuradix-example-python-worker"
+description = "An isolated Python worker: detection, crash isolation and FDIR safing."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "python-worker"
+path = "src/main.rs"
+
+[dependencies]
+neuradix-python = { workspace = true }
+neuradix-runtime = { workspace = true }
+neuradix-safety = { workspace = true }
+neuradix-time = { workspace = true }
+serde_json = { workspace = true }

@@ -246,6 +246,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-example-python-worker"
+version = "0.0.1"
+dependencies = [
+ "neuradix-python",
+ "neuradix-runtime",
+ "neuradix-safety",
+ "neuradix-time",
+ "serde_json",
+]
+
+[[package]]
+name = "neuradix-python"
+version = "0.0.1"
+dependencies = [
+ "neuradix-runtime",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "neuradix-record"
 version = "0.0.1"
 dependencies = [
