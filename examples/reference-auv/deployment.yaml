@@ -5,7 +5,15 @@
 # Python perception stage kept off the deterministic control path, and an
 # actuator that can only be commanded through the Safety authority (§16.1).
 #
-# Validate with:  neuradix graph validate examples/reference-auv/deployment.yaml
+# Contract references are the `namespace/name@version` identifiers of the
+# authored contracts under contracts/standard/, so the graph compiler can
+# resolve each one to a real, content-addressed schema.
+#
+# Validate topology + policy only:
+#   neuradix graph validate examples/reference-auv/deployment.yaml
+# Validate and resolve every contract reference to a registered schema:
+#   neuradix graph validate examples/reference-auv/deployment.yaml \
+#       --contracts contracts/standard
 apiVersion: deploy.neuradix.io/v1alpha1
 kind: RobotDeployment
 metadata:
@@ -22,7 +30,7 @@ spec:
     - name: sonar
       node: main
       executionClass: interactive
-      provides: [range.v1]
+      provides: [io.neuradix.perception/sonar-range@1.0.0]
 
     # Obstacle perception. Python is allowed here because the stage is
     # batch-ai and sits off the deterministic control path.
@@ -30,40 +38,40 @@ spec:
       node: gpu
       executionClass: batch-ai
       runtime: python
-      requires: [range.v1]
-      provides: [obstacles.v1]
+      requires: [io.neuradix.perception/sonar-range@1.0.0]
+      provides: [io.neuradix.perception/obstacle-map@1.0.0]
 
     # Motion planning (native).
     - name: planner
       node: main
       executionClass: interactive
-      requires: [obstacles.v1]
-      provides: [setpoint.v1]
+      requires: [io.neuradix.perception/obstacle-map@1.0.0]
+      provides: [io.neuradix.control/depth-setpoint@1.0.0]
 
     # Safety authority: the only component permitted to command the actuator.
     - name: safety
       node: main
       executionClass: deterministic
       role: safety
-      requires: [setpoint.v1]
-      provides: [thrust-cmd.v1]
+      requires: [io.neuradix.control/depth-setpoint@1.0.0]
+      provides: [io.neuradix.actuation/thrust-command@1.0.0]
 
     # Vertical thruster actuator (hard-real-time).
     - name: thruster
       node: main
       executionClass: hard-real-time
       role: actuator
-      requires: [thrust-cmd.v1]
+      requires: [io.neuradix.actuation/thrust-command@1.0.0]
   connections:
     - from: sonar
       to: perception
-      contract: range.v1
+      contract: io.neuradix.perception/sonar-range@1.0.0
     - from: perception
       to: planner
-      contract: obstacles.v1
+      contract: io.neuradix.perception/obstacle-map@1.0.0
     - from: planner
       to: safety
-      contract: setpoint.v1
+      contract: io.neuradix.control/depth-setpoint@1.0.0
     - from: safety
       to: thruster
-      contract: thrust-cmd.v1
+      contract: io.neuradix.actuation/thrust-command@1.0.0

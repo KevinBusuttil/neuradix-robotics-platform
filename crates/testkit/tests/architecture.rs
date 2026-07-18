@@ -21,7 +21,7 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
             .collect(),
         "neuradix-safety" => ["neuradix-time", "neuradix-runtime"].into_iter().collect(),
         "neuradix-python" => ["neuradix-runtime"].into_iter().collect(),
-        "neuradix-graph" => BTreeSet::new(),
+        "neuradix-graph" => ["neuradix-contracts"].into_iter().collect(),
         "neuradix-cli" => [
             "neuradix-contracts",
             "neuradix-time",

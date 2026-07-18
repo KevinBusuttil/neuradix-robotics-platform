@@ -27,10 +27,11 @@ Implemented in this increment: a declarative deployment manifest
 parses it into a typed model and reports every structural and policy problem in
 one pass, a content-addressed **deployment identity**, and the
 `neuradix graph validate <file>` command wired to exit code 10
-(`DeploymentValidation`). Out of scope for this increment: actually launching a
-deployment, cross-node transport selection, resource/scheduling budgets, and
-verifying contract *schema identities* against a registry (the graph checks
-contract *references* by name; RFC-0002 owns schema identity).
+(`DeploymentValidation`). Extended in a follow-up increment: **contract-reference
+resolution** — with an authored contract registry (`--contracts <dir>`), every
+wired reference is resolved to a real, validated schema and its content-addressed
+`sha256:` identity is pinned in the report. Out of scope: actually launching a
+deployment, cross-node transport selection, and resource/scheduling budgets.
 
 ## Proposed decision
 
@@ -41,7 +42,23 @@ declares `nodes` (name + target), `components` and `connections`. A component ha
 a `node`, an `executionClass` (mirroring the runtime's spellings, RFC-0016), a
 `runtime` (`rust`|`python`, default `rust`), a safety `role`
 (`normal`|`safety`|`actuator`, default `normal`), and `provides`/`requires`
-contract references. A connection is `from`/`to`/`contract`.
+contract references. A connection is `from`/`to`/`contract`. A `contract` reference is a contract's
+`namespace/name` identifier, optionally pinned as `namespace/name@major.minor.patch`.
+
+### Contract-reference resolution (registry)
+
+The graph checks contract *references* structurally on its own. Given a contract
+registry — a directory of authored, validated contracts loaded via
+`ContractRegistry::load_dir` — it additionally **resolves** every wired reference
+to a real schema: a `namespace/name` with exactly one registered version resolves
+unambiguously; `namespace/name@version` pins an exact one. Failures are issues,
+not hard errors: `unknown-contract` (no such contract), `unknown-contract-version`
+(contract present, version absent), `ambiguous-contract` (several versions, none
+pinned — §28.4 immutability wants a pinned schema), and
+`malformed-contract-reference`. Each successful resolution records the resolved
+`namespace/name`, version and `sha256:` schema identity in the report, so a
+deployment is pinned to the exact schemas it was validated against. This is the
+bridge between RFC-0002 (schema identity) and this RFC.
 
 ### Validation is a report, not an error
 
@@ -83,9 +100,12 @@ unreadable file exits 1.
 
 `neuradix-graph`: `Deployment`/`Node`/`Component`/`Connection`,
 `ExecutionClass`/`Runtime`/`Role`, `RawDeployment`, `from_yaml`/`load_file`/
-`validate`, `GraphReport`/`GraphIssue`/`Severity`, `deployment_identity`,
-`GraphError`. CLI: the `graph validate` subcommand. `neuradix-cli` gains a
-`neuradix-graph` dependency; the graph crate depends on no internal crate.
+`validate`, `validate_with_registry`, `ContractRegistry`/`ContractEntry`/
+`Resolution`/`RegistryError`, `GraphReport`/`GraphIssue`/`ResolvedContract`/
+`Severity`, `deployment_identity`, `GraphError`. CLI: the `graph validate`
+subcommand and its `--contracts <dir>` flag. `neuradix-cli` depends on
+`neuradix-graph`; the graph crate depends only on `neuradix-contracts` (a leaf),
+so the layering stays acyclic.
 
 ## Alternatives considered
 
@@ -117,15 +137,21 @@ identity (RFC-0002).
 
 `crates/graph/tests/validate.rs` derives every invalid variant from one valid
 baseline, so each test proves a *single* policy flips validity, and asserts
-identity stability under reordering. `crates/cli/tests/graph.rs` covers the
-reference deployment (exit 0), an actuator-bypass manifest (exit 10) and a missing
-file (exit 1). `examples/reference-auv/deployment.yaml` is the worked reference
-manifest.
+identity stability under reordering. `crates/graph/tests/registry.rs` covers
+resolution (pinned, unpinned-single, unknown, unknown-version, ambiguous,
+malformed) and registry-aware validation. `crates/cli/tests/graph.rs` covers the
+reference deployment (exit 0), full registry resolution (`--contracts`, four
+schemas resolved), an unresolved reference (exit 10), an actuator-bypass manifest
+(exit 10) and a missing file (exit 1). `examples/reference-auv/deployment.yaml`
+wires the authored `contracts/standard/` contracts by their pinned references.
 
 ## Unresolved questions
 
-- Verifying contract *references* resolve to real, compatible schema identities
-  in a registry (bridges RFC-0002 and this RFC).
+- Folding resolved schema identities into the *deployment identity* itself (today
+  they are reported alongside it, but the identity stays structural), so a
+  schema change flips the deployment identity.
+- Structural/semantic *compatibility* between a producer's and consumer's schema
+  beyond reference equality (e.g. field superset/subset rules).
 - Cross-node transport selection and resource/scheduling budget validation (§28).
 - Warning-severity advisories (e.g. an unconnected `provides`, an unreachable
   component) beyond the current error set.

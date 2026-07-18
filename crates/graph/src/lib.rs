@@ -78,6 +78,7 @@
 pub mod error;
 pub mod identity;
 pub mod model;
+pub mod registry;
 pub mod validate;
 
 pub use error::GraphError;
@@ -86,4 +87,8 @@ pub use model::{
     Component, Connection, Deployment, ExecutionClass, Node, RawDeployment, Role, Runtime,
     SUPPORTED_API_VERSION, from_file, from_yaml_str,
 };
-pub use validate::{GraphIssue, GraphReport, Severity, from_yaml, load_file, validate};
+pub use registry::{ContractEntry, ContractRegistry, RegistryError, Resolution};
+pub use validate::{
+    GraphIssue, GraphReport, ResolvedContract, Severity, from_yaml, load_file, validate,
+    validate_with_registry,
+};

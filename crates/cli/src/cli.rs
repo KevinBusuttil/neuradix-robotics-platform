@@ -80,6 +80,12 @@ pub enum GraphCommand {
     Validate {
         /// The deployment manifest file to validate.
         file: PathBuf,
+
+        /// A directory of authored contracts to resolve every wired contract
+        /// reference against. When given, an unresolved reference fails
+        /// validation and the resolved schema identities are reported.
+        #[arg(long = "contracts")]
+        contracts: Option<PathBuf>,
     },
 }
 

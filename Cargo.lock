@@ -261,6 +261,7 @@ dependencies = [
 name = "neuradix-graph"
 version = "0.0.1"
 dependencies = [
+ "neuradix-contracts",
  "serde",
  "serde_json",
  "serde_yaml",

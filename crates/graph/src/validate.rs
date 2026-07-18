@@ -1,7 +1,7 @@
 //! Deployment graph validation: build a typed model and check topology + policy
 //! before runtime ("contracts before connectivity", §3.1, §28.2).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use crate::error::GraphError;
@@ -10,6 +10,7 @@ use crate::model::{
     Component, Connection, Deployment, ExecutionClass, Node, RawDeployment, Role, Runtime,
     SUPPORTED_API_VERSION, from_file, from_yaml_str,
 };
+use crate::registry::{ContractRegistry, Resolution};
 
 /// The severity of a validation issue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +44,19 @@ pub struct GraphIssue {
     pub message: String,
 }
 
+/// A contract reference that resolved to a real registered schema.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedContract {
+    /// The reference as written in the deployment (`namespace/name[@version]`).
+    pub reference: String,
+    /// The resolved contract's `namespace/name` identifier.
+    pub identifier: String,
+    /// The resolved version.
+    pub version: String,
+    /// The resolved `sha256:` schema identity.
+    pub schema_id: String,
+}
+
 /// The result of validating a deployment.
 #[derive(Debug, Clone)]
 pub struct GraphReport {
@@ -50,6 +64,9 @@ pub struct GraphReport {
     pub identity: String,
     /// All validation issues, in the order discovered.
     pub issues: Vec<GraphIssue>,
+    /// Contract references resolved against a registry, sorted by reference.
+    /// Empty when validation ran without a registry.
+    pub resolved: Vec<ResolvedContract>,
 }
 
 impl GraphReport {
@@ -87,13 +104,94 @@ pub fn load_file(path: &Path) -> Result<GraphReport, GraphError> {
     Ok(validate(&raw))
 }
 
-/// Validate a parsed raw deployment.
+/// Validate a parsed raw deployment, checking topology and policy only.
+///
+/// Contract references are checked for consistency (a producer provides and a
+/// consumer requires the same reference) but not resolved against real
+/// contracts. Use [`validate_with_registry`] to additionally prove every
+/// reference resolves to a registered schema.
 pub fn validate(raw: &RawDeployment) -> GraphReport {
+    validate_inner(raw, None)
+}
+
+/// Validate a parsed raw deployment and resolve every wired contract reference
+/// against `registry`, pinning the schema identity each resolves to.
+///
+/// In addition to the [`validate`] checks, an unresolved reference is an
+/// `unknown-contract` error, a reference to a missing version is
+/// `unknown-contract-version`, and an unpinned reference to a multi-version
+/// contract is `ambiguous-contract` (§28.4 immutability wants pinned schemas).
+pub fn validate_with_registry(raw: &RawDeployment, registry: &ContractRegistry) -> GraphReport {
+    validate_inner(raw, Some(registry))
+}
+
+fn validate_inner(raw: &RawDeployment, registry: Option<&ContractRegistry>) -> GraphReport {
     let mut issues = Vec::new();
     let deployment = build(raw, &mut issues);
     check(&deployment, &mut issues);
+    let resolved = resolve_contracts(&deployment, registry, &mut issues);
     let identity = deployment_identity(&deployment);
-    GraphReport { identity, issues }
+    GraphReport {
+        identity,
+        issues,
+        resolved,
+    }
+}
+
+/// Resolve every distinct contract reference wired by a connection against the
+/// registry, collecting the resolved schemas and emitting an issue per failure.
+fn resolve_contracts(
+    d: &Deployment,
+    registry: Option<&ContractRegistry>,
+    issues: &mut Vec<GraphIssue>,
+) -> Vec<ResolvedContract> {
+    let Some(registry) = registry else {
+        return Vec::new();
+    };
+
+    // Distinct references, in deterministic order.
+    let references: BTreeSet<&str> = d.connections.iter().map(|c| c.contract.as_str()).collect();
+
+    let mut resolved = Vec::new();
+    for reference in references {
+        let path = format!("contract `{reference}`");
+        match registry.resolve(reference) {
+            Resolution::Resolved(entry) => resolved.push(ResolvedContract {
+                reference: reference.to_owned(),
+                identifier: entry.identifier.clone(),
+                version: entry.version.clone(),
+                schema_id: entry.schema_id.clone(),
+            }),
+            Resolution::UnknownContract => error(
+                issues,
+                "unknown-contract",
+                &path,
+                format!("reference `{reference}` does not resolve to a registered contract"),
+            ),
+            Resolution::UnknownVersion => error(
+                issues,
+                "unknown-contract-version",
+                &path,
+                format!("reference `{reference}` names a version that is not registered"),
+            ),
+            Resolution::Ambiguous(versions) => error(
+                issues,
+                "ambiguous-contract",
+                &path,
+                format!(
+                    "reference `{reference}` matches several versions ({}); pin one with `@`",
+                    versions.join(", ")
+                ),
+            ),
+            Resolution::Malformed => error(
+                issues,
+                "malformed-contract-reference",
+                &path,
+                format!("reference `{reference}` is not a valid `namespace/name[@version]`"),
+            ),
+        }
+    }
+    resolved
 }
 
 // ---------------------------------------------------------------------------

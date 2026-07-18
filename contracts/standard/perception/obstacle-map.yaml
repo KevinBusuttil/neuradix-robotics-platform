@@ -1,0 +1,28 @@
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.perception
+  name: obstacle-map
+  version: 1.0.0
+
+spec:
+  description: Nearest-obstacle distance and bearing derived from perception.
+  payload:
+    type: object
+    fields:
+      nearest_distance:
+        type: float64
+        unit: m
+      bearing:
+        type: float64
+        unit: rad
+
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 500ms
+
+  delivery:
+    capacity: 4
+    overflow: keep-latest

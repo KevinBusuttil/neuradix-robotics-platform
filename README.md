@@ -75,7 +75,9 @@ authored contract → parsed & validated contract → deterministic schema ident
   Python kept off the deterministic control path (EXEC-007), and the rule that an
   actuator may only be commanded through the Safety authority (§16.1) — reporting
   every problem in one pass with stable issue codes, plus a content-addressed
-  **deployment identity** for production pinning.
+  **deployment identity** for production pinning. Given a contract registry
+  (`--contracts <dir>`) it also **resolves every wired contract reference** to a
+  real, validated schema and pins the `sha256:` schema identity it resolved to.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect`, `replay run` (with `--expect-digest`),
   `explain command` (reconstruct a command's causal chain from a recording), and
@@ -154,6 +156,11 @@ cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --
 # Validate a deployment manifest offline (exit code 10 on failure); reports the
 # content-addressed deployment identity and every topology/policy issue:
 cargo run -p neuradix-cli -- graph validate examples/reference-auv/deployment.yaml
+
+# ...and resolve every wired contract reference to a real, registered schema
+# (reports the sha256: schema identity each reference pins):
+cargo run -p neuradix-cli -- graph validate examples/reference-auv/deployment.yaml \
+    --contracts contracts/standard
 ```
 
 ## Examples
@@ -189,7 +196,7 @@ crates/
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
-contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)
+contracts/standard/ # authored standard contracts (navigation, perception, control, actuation)
 examples/           # minimal-depth-stream, python-worker, reference-auv (deployment manifest)
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)

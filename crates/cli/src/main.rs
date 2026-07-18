@@ -92,9 +92,10 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             ),
         },
         Command::Graph { command } => match command {
-            GraphCommand::Validate { file } => {
-                ("graph.validate".to_owned(), app::graph::validate(&file))
-            }
+            GraphCommand::Validate { file, contracts } => (
+                "graph.validate".to_owned(),
+                app::graph::validate(&file, contracts.as_deref()),
+            ),
         },
     }
 }
