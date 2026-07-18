@@ -212,6 +212,7 @@ dependencies = [
  "neuradix-contracts",
  "neuradix-record",
  "neuradix-runtime",
+ "neuradix-safety",
  "neuradix-testkit",
  "neuradix-time",
  "serde",
@@ -238,9 +239,30 @@ dependencies = [
  "neuradix-contracts",
  "neuradix-record",
  "neuradix-runtime",
+ "neuradix-safety",
  "neuradix-testkit",
  "neuradix-time",
  "neuradix-transport-api",
+]
+
+[[package]]
+name = "neuradix-example-python-worker"
+version = "0.0.1"
+dependencies = [
+ "neuradix-python",
+ "neuradix-runtime",
+ "neuradix-safety",
+ "neuradix-time",
+ "serde_json",
+]
+
+[[package]]
+name = "neuradix-python"
+version = "0.0.1"
+dependencies = [
+ "neuradix-runtime",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -260,8 +282,20 @@ name = "neuradix-runtime"
 version = "0.0.1"
 dependencies = [
  "neuradix-contracts",
+ "neuradix-record",
  "neuradix-time",
  "semver",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-safety"
+version = "0.0.1"
+dependencies = [
+ "neuradix-runtime",
+ "neuradix-time",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

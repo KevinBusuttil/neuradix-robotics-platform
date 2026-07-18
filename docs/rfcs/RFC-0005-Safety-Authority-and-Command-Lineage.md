@@ -1,19 +1,46 @@
 # RFC-0005 — Safety Authority and Command Lineage
 
-- Status: Draft (design only — NOT implemented in foundation increment 1)
+- Status: Partially implemented (foundation increment 4)
 - Authoritative spec: [Functional Specification v0.5](../Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) §16, §25.3–§25.4
-- Crate (future): `neuradix-safety`
+- Crate: `neuradix-safety`
 
-> This increment implements no safety crate, no authority path and no actuator
-> commands. This RFC records the intended design so that the interfaces built now
-> (component lifecycle, contracts, time, data plane) do not foreclose it. Nothing
-> here is a claim of implemented capability.
+> Increments 4–5 implement the **authority + constraint gate** with auditable
+> [`SafetyDecision`] evidence, plus a **recorded command-lineage** and the
+> `neuradix explain command` view (§25.3–§25.4). Still **future**: FDIR state
+> machines (§16.8), independent safety-island deployment (§16.7), command
+> arbitration beyond priority (§16.2 voting/pre-emption), and correlating lineage
+> across *multiple* recorded channels (currently one self-describing lineage
+> record per command).
 
 ## Problem
 
 No ordinary component may directly and unconditionally drive a safety-relevant
 actuator (§16.1). Actuator requests must pass an authority and constraint path,
 and every actuation must be explainable back to its inputs.
+
+## Implemented (increment 4)
+
+The `neuradix-safety` crate provides:
+
+- **`AuthorityLease` / `LeaseTable`**: holder identity, capability, priority,
+  `issued`/`expires` (checked against the command's injected timestamp) and an
+  optional permitted `CommandEnvelope`. `authorize` returns the winning lease or
+  a typed `AuthorityDenial` (`NoLease` / `NotYetValid` / `Expired` /
+  `OutOfEnvelope`).
+- **`Constraint`**: `Range { min, max }` and `SlewRate { rate_per_sec }`, each
+  carrying a stable rule id. A rate limit is a no-op on the first command (no
+  reference value), so hard limits always govern — a constraint is never
+  silently undone.
+- **`SafetyGate`**: authorizes, then applies constraints in order, producing a
+  `SafetyDecision { outcome: Accepted | Modified | Rejected, applied,
+  acted_rules, .. }`. Rejection applies a configured **fail-safe** value. The
+  gate is a `neuradix_runtime::Processor`, so decisions are deterministic and
+  replay identically under the executor (RFC-0016).
+- **`CommandLineage`** (increment 5): a self-describing, JSON-serializable record
+  linking the originating sensor input → requested command → authority/constraint
+  outcome → applied value. Recorded on the `safety/command-lineage` channel and
+  read back by `neuradix explain command <recording> --at <nanos>`, which prints
+  the causal chain for the command nearest the requested time.
 
 ## Scope (future)
 

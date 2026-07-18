@@ -19,6 +19,7 @@ neuradix-time = { workspace = true }
 neuradix-transport-api = { workspace = true }
 neuradix-runtime = { workspace = true }
 neuradix-record = { workspace = true }
+neuradix-safety = { workspace = true }
 
 [dev-dependencies]
 neuradix-testkit = { workspace = true }

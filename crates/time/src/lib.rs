@@ -30,7 +30,7 @@ pub mod duration;
 pub mod error;
 pub mod timestamp;
 
-pub use clock::{Clock, ManualClock, SystemClock};
+pub use clock::{Clock, ControllableClock, ManualClock, SystemClock};
 pub use domain::ClockDomain;
 pub use duration::Duration;
 pub use error::TimeError;

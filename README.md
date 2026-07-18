@@ -23,8 +23,12 @@ end to end on a single in-process stream.
 ```text
 authored contract → parsed & validated contract → deterministic schema identity
 → generated Rust type → typed timestamp & clock domain → bounded in-process stream
-→ minimal component lifecycle → deterministic recording → verified replay
-→ CLI validation, inspection and replay → automated tests
+→ minimal component lifecycle → deterministic executor → recording
+→ lockstep replay reproducing identical control decisions
+→ safety authority + constraint gate producing auditable decisions
+→ FDIR fault-mode state machine (nominal → degraded → safe → return-to-service)
+→ recorded command lineage → `explain` the causal chain of any command
+→ CLI validation, inspection, replay and explain → automated tests
 ```
 
 ### What works today
@@ -40,37 +44,65 @@ authored contract → parsed & validated contract → deterministic schema ident
   with `reject` / `drop-oldest` / `drop-newest` / `keep-latest` overflow policies
   and observable statistics. No backend type leaks into the public API.
 - **Runtime** (`neuradix-runtime`): stable component identity, a validated and
-  audited lifecycle state machine, execution-class and health models, and a
-  minimal component manifest and trait.
+  audited lifecycle state machine, execution-class and health models, a minimal
+  component manifest and trait, and a **deterministic input-driven executor**
+  (`Processor` + `run_lockstep`) that drives component logic under an injected,
+  controllable clock — so a recorded run replays to identical outputs.
 - **Record** (`neuradix-record`): a native, self-describing, deterministic
   recording container (manifest + channels + schema identities + provenance), a
   payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
   checks. Parsing is bounds-checked and panic-free. (MCAP is a planned backend
   behind the same interface.)
+- **Safety** (`neuradix-safety`): the authority + constraint path every actuator
+  command traverses — time-bounded authority leases (with permitted envelopes),
+  range/slew constraints that name the rule they enforce, fail-safe rejection,
+  and an auditable, deterministic `SafetyDecision`. The gate is a `Processor`, so
+  safety decisions replay identically. A self-describing `CommandLineage` links
+  each command's sensor input → request → authority/constraint outcome → applied
+  value for later explanation. An `FdirMonitor` drives an explicit fault-mode
+  state machine (nominal → degraded → safe) with confirmation debounce, a
+  restart-storm budget and operator return-to-service.
+- **Python** (`neuradix-python` + `python/neuradix_worker.py`): run a Python
+  component as an **isolated OS process** supervised from Rust over a
+  line-delimited JSON protocol, with health, request timeouts, and **crash
+  isolation** — a Python crash surfaces as a recoverable error, never a runtime
+  crash (v1.0 acceptance §41.6). A bounded restart budget prevents restart
+  storms, and a worker's health composes with the FDIR monitor.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
-  generate`, `record inspect`, and `replay run` (with `--expect-digest`), with
+  generate`, `record inspect`, `replay run` (with `--expect-digest`), and
+  `explain command` (reconstruct a command's causal chain from a recording), with
   `--output table|json|yaml`, a versioned result envelope and a stable exit-code
   contract (including exit code 9 on a replay-digest mismatch).
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
   → consumer, driven through lifecycle states with a deterministic clock, then
-  **recorded and replayed with a verified fidelity check**.
+  **recorded and replayed with a verified fidelity check**, a depth controller
+  whose **control decisions replay identically** from the recording, and finally
+  those commands routed through the **safety gate** (clamped by a range
+  constraint, then rejected to a fail-safe output once the authority lease
+  lapses), the resulting **command lineage recorded for `explain`**, and an
+  **FDIR** health sequence driving nominal → degraded → safe → reset.
 
 ### Not yet implemented
 
 The following are **planned and intentionally absent**: Swarm, Aero, Studio and
 Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
 MCAP recording containers (only the native container exists so far), live
-`record start/stop` against a running graph, Python/PyO3 bindings; ROS 2 /
-MAVLink bridges; the safety/authority path and command lineage; and any physical
-MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public boundaries are
-designed so these can be added without exposing backend-specific types.
+`record start/stop` against a running graph, in-process PyO3/Maturin bindings and
+NumPy zero-copy views (isolated Python *worker processes* exist); ROS 2 /
+MAVLink bridges; independent safety-island deployment
+(the authority + constraint gate and command-lineage `explain` exist); and any
+physical MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public
+boundaries are designed so these can be added without exposing backend-specific
+types.
 
 ## Prerequisites
 
 - Rust toolchain **1.94.1** (pinned in `rust-toolchain.toml`; `rustup` installs it
   automatically). Edition 2024.
+- `python3` (optional) — only for the `neuradix-python` worker tests and the
+  `python-worker` example; those tests skip cleanly when it is absent.
 
 ## Build and test
 
@@ -101,16 +133,26 @@ cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/veh
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
 
-# The example writes a recording to a temp file; inspect and replay it:
-cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec path + digest
+# The example writes recordings to temp files; inspect, replay and explain them:
+cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + digest
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
+
+# Explain the causal chain (sensor -> control -> authority/constraints -> applied)
+# of the command nearest a given time:
+cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --at 450000000
 ```
 
-## Minimal depth-stream example
+## Examples
 
 ```bash
+# The full deterministic vertical slice (contract -> stream -> control -> safety
+# -> record -> replay -> explain -> FDIR):
 cargo run -p neuradix-example-minimal-depth-stream
+
+# An isolated Python worker: detection, a Python crash that is isolated and
+# drives FDIR to a safe mode, then a supervised restart (requires python3):
+cargo run -p neuradix-example-python-worker
 ```
 
 It loads the authored contract, derives the stream's capacity and overflow policy
@@ -126,10 +168,13 @@ crates/
   contracts/        # neuradix-contracts: model, validation, identity, codegen
   time/             # neuradix-time: clock domains, timestamps, clocks
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
-  runtime/          # neuradix-runtime: component + lifecycle model
+  runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
   record/           # neuradix-record: deterministic recording + replay digest
+  safety/           # neuradix-safety: authority, constraints, decisions, FDIR
+  python/           # neuradix-python: isolated Python worker supervision
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
+python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)
 examples/           # minimal-depth-stream
 docs/rfcs/          # architecture RFCs

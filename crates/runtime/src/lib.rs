@@ -26,12 +26,14 @@
 
 pub mod component;
 pub mod error;
+pub mod executor;
 pub mod health;
 pub mod id;
 pub mod lifecycle;
 
 pub use component::{Component, ComponentManifest, ExecutionClass};
 pub use error::{ComponentError, LifecycleError};
+pub use executor::{Processor, TickContext, run_lockstep};
 pub use health::{HealthReport, HealthState};
 pub use id::ComponentId;
 pub use lifecycle::{Lifecycle, LifecycleState, TransitionRecord};

@@ -57,6 +57,27 @@ pub enum Command {
         #[command(subcommand)]
         command: ReplayCommand,
     },
+
+    /// Explain the causal lineage of a recorded command.
+    Explain {
+        /// The explain subcommand.
+        #[command(subcommand)]
+        command: ExplainCommand,
+    },
+}
+
+/// `neuradix explain ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum ExplainCommand {
+    /// Explain the causal chain of the command nearest a given time.
+    Command {
+        /// The recording file containing command lineage.
+        file: PathBuf,
+
+        /// The time of interest, in nanoseconds since the domain epoch.
+        #[arg(long)]
+        at: i128,
+    },
 }
 
 /// `neuradix record ...` subcommands.

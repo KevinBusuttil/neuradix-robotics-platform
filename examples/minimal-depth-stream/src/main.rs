@@ -26,7 +26,12 @@ use neuradix_record::{
     SoftwareId, replay_digest,
 };
 use neuradix_runtime::{
-    Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState,
+    Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState, Processor,
+    TickContext, run_lockstep,
+};
+use neuradix_safety::{
+    AuthorityLease, Capability, CommandLineage, CommandRequest, Constraint, FdirMonitor,
+    FdirPolicy, Identity, LINEAGE_CHANNEL, LeaseTable, LineageOrigin, Outcome, SafetyGate,
 };
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
@@ -73,6 +78,39 @@ impl RecordCodec for DepthCodec {
         let depth = f64::from_le_bytes(bytes[0..8].try_into().expect("8 bytes"));
         let uncertainty = f64::from_le_bytes(bytes[8..16].try_into().expect("8 bytes"));
         Ok(VehicleDepth { depth, uncertainty })
+    }
+}
+
+/// A thrust command produced by the controller, tagged with its decision time.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ThrustCommand {
+    at: Timestamp,
+    thrust: f64,
+}
+
+/// A minimal proportional depth controller used to demonstrate that control
+/// decisions replay identically from a recording.
+struct DepthController {
+    kp: f64,
+    setpoint: f64,
+    max_thrust: f64,
+}
+
+impl Processor for DepthController {
+    type Input = VehicleDepth;
+    type Output = ThrustCommand;
+
+    fn process(
+        &mut self,
+        ctx: &TickContext,
+        depth: VehicleDepth,
+    ) -> Result<Vec<ThrustCommand>, ComponentError> {
+        let error = self.setpoint - depth.depth;
+        let thrust = (self.kp * error).clamp(-self.max_thrust, self.max_thrust);
+        Ok(vec![ThrustCommand {
+            at: ctx.now,
+            thrust,
+        }])
     }
 }
 
@@ -242,8 +280,185 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("replay fidelity check failed".into());
     }
 
+    // 10. Deterministic control + lockstep replay equivalence.
+    //
+    // Run a depth controller live over the samples that were sent, then run the
+    // same controller over the samples decoded from the recording, each under a
+    // fresh clock. If the control *decisions* match, the system (not just the
+    // data) replays identically.
+    println!("\ndeterministic control & lockstep replay");
+
+    let live_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let live_inputs = published.iter().map(|s| (s.measurement_time, s.value));
+    let thrust_live = run_lockstep(&live_clock, &mut new_controller(), live_inputs)?;
+
+    let replay_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let replay_inputs: Vec<(Timestamp, VehicleDepth)> = recording
+        .records_for(CHANNEL_ID)
+        .map(|r| codec.decode(&r.payload).map(|value| (r.timestamp, value)))
+        .collect::<Result<_, _>>()?;
+    let thrust_replay = run_lockstep(&replay_clock, &mut new_controller(), replay_inputs)?;
+
+    let control_equivalent = thrust_live == thrust_replay;
+    println!("  commands : {}", thrust_live.len());
+    if let Some(last) = thrust_live.last() {
+        println!("  last cmd : thrust={:.3} at {}", last.thrust, last.at);
+    }
+    println!(
+        "  lockstep : {}",
+        if control_equivalent {
+            "verified (live control == replayed control)"
+        } else {
+            "MISMATCH"
+        }
+    );
+    if !control_equivalent {
+        return Err("lockstep control replay mismatch".into());
+    }
+
+    // 11. Route the control commands through the safety authority + constraint
+    // path. The lease is valid only for the first half of the mission, so later
+    // commands are rejected and forced to the fail-safe output; a tight range
+    // clamps the largest thrust demands. Every decision is auditable.
+    println!("\nsafety authority & constraints");
+    let holder = Identity::new("depth-controller");
+    let capability = Capability::new("propulsion/vertical-thrust");
+    let mut leases = LeaseTable::new();
+    leases.grant(AuthorityLease {
+        holder: holder.clone(),
+        capability: capability.clone(),
+        priority: 10,
+        issued: Timestamp::new(domain, 0),
+        // Authority lapses halfway through the mission (at 400ms).
+        expires: Timestamp::new(domain, 400_000_000),
+        envelope: None,
+    });
+    let constraints = vec![
+        Constraint::range("thrust-range", -0.8, 0.8)?,
+        Constraint::slew_rate("thrust-slew", 50.0)?,
+    ];
+    let mut gate = SafetyGate::new(leases, constraints, 0.0);
+
+    let safety_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let requests = thrust_live.iter().map(|c| {
+        (
+            c.at,
+            CommandRequest::new(holder.clone(), capability.clone(), c.thrust, c.at),
+        )
+    });
+    let decisions = run_lockstep(&safety_clock, &mut gate, requests)?;
+
+    let (mut accepted, mut modified, mut rejected) = (0u32, 0u32, 0u32);
+    for d in &decisions {
+        match d.outcome {
+            Outcome::Accepted => accepted += 1,
+            Outcome::Modified => modified += 1,
+            Outcome::Rejected(_) => rejected += 1,
+        }
+    }
+    println!(
+        "  decisions: {} (accepted {accepted}, modified {modified}, rejected {rejected})",
+        decisions.len()
+    );
+    for d in decisions
+        .iter()
+        .filter(|d| d.outcome != Outcome::Accepted)
+        .take(4)
+    {
+        let rules = if d.acted_rules.is_empty() {
+            d.outcome.label().to_owned()
+        } else {
+            d.acted_rules.join(",")
+        };
+        println!(
+            "  t={} requested={:.2} -> applied={:.2} [{}]",
+            d.at, d.request.value, d.applied, rules
+        );
+    }
+    println!(
+        "  note     : rejected commands apply the fail-safe output (0.0) after authority lapses"
+    );
+
+    // 12. Record the command lineage so any actuator command can be explained.
+    // Each lineage entry links the originating depth sample to the controller
+    // request, the authority/constraint outcome and the applied value.
+    println!("\ncommand lineage");
+    let lineage_manifest = RecordingManifest::builder("neuradix-example-minimal-depth-stream")
+        .channel(Channel {
+            id: 0,
+            name: LINEAGE_CHANNEL.to_owned(),
+            schema_id: "application/vnd.neuradix.command-lineage+json".to_owned(),
+            clock_domain: domain.as_str().to_owned(),
+        })
+        .software(SoftwareId::new(
+            "neuradix-example-minimal-depth-stream",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .note("depth mission command lineage")
+        .build();
+    let mut lineage_writer = NativeRecordWriter::new(Vec::new(), &lineage_manifest)?;
+    for (trace, (sample, decision)) in published.iter().zip(decisions.iter()).enumerate() {
+        let origin =
+            LineageOrigin::new("navigation/vehicle-depth", "depth", "m", sample.value.depth);
+        let lineage = CommandLineage::from_decision(trace as u64, origin, decision);
+        lineage_writer.write_record(0, trace as u64, decision.at, &lineage.to_json_bytes())?;
+    }
+    let lineage_bytes = lineage_writer.finish()?;
+    let lineage_path = std::env::temp_dir().join("neuradix-depth-lineage.nrec");
+    std::fs::write(&lineage_path, &lineage_bytes)?;
+    println!("  entries  : {}", decisions.len());
+    println!("  written  : {}", lineage_path.display());
+    println!(
+        "  explain  : neuradix explain command {} --at 50000000",
+        lineage_path.display()
+    );
+    println!(
+        "  explain  : neuradix explain command {} --at 450000000  (a rejected command)",
+        lineage_path.display()
+    );
+
+    // 13. FDIR: drive a fault-mode state machine from a health sequence. A
+    // transient glitch is debounced; a confirmed soft fault degrades; recovery
+    // returns to nominal; a confirmed hard fault latches safe until reset.
+    println!("\nFDIR fault handling");
+    let health_sequence = [
+        HealthState::Healthy,
+        HealthState::Degraded, // transient glitch (debounced)
+        HealthState::Healthy,
+        HealthState::Degraded,
+        HealthState::Degraded, // confirmed -> Degraded
+        HealthState::Healthy,
+        HealthState::Healthy, // recovered -> Nominal
+        HealthState::Unhealthy,
+        HealthState::Unhealthy, // confirmed -> Safe
+    ];
+    let fdir_clock = ManualClock::new(Timestamp::new(domain, 0));
+    let mut monitor = FdirMonitor::new(FdirPolicy::new(2, 2, 2));
+    let fdir_inputs = health_sequence
+        .iter()
+        .enumerate()
+        .map(|(i, &h)| (Timestamp::new(domain, i as i128 * 100_000_000), h));
+    let mut transitions = run_lockstep(&fdir_clock, &mut monitor, fdir_inputs)?;
+    // Operator return-to-service from safe mode.
+    if let Some(reset) = monitor.reset(Timestamp::new(domain, 1_000_000_000)) {
+        transitions.push(reset);
+    }
+    for t in &transitions {
+        println!("  {} -> {} at {} ({})", t.from, t.to, t.at, t.reason);
+    }
+    println!("  final mode: {}", monitor.mode());
+
     println!("\ndone.");
     Ok(())
+}
+
+/// A fresh depth controller with the mission's control parameters.
+fn new_controller() -> DepthController {
+    DepthController {
+        kp: 0.5,
+        setpoint: 12.0,
+        max_thrust: 5.0,
+    }
 }
 
 /// Build a deterministic sample for `step`, stamped with the current sim time.
