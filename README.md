@@ -28,7 +28,8 @@ authored contract → parsed & validated contract → deterministic schema ident
 → safety authority + constraint gate producing auditable decisions
 → FDIR fault-mode state machine (nominal → degraded → safe → return-to-service)
 → recorded command lineage → `explain` the causal chain of any command
-→ CLI validation, inspection, replay and explain → automated tests
+→ offline deployment-graph validation (contracts before connectivity)
+→ CLI validation, inspection, replay, explain and graph validate → automated tests
 ```
 
 ### What works today
@@ -68,9 +69,17 @@ authored contract → parsed & validated contract → deterministic schema ident
   isolation** — a Python crash surfaces as a recoverable error, never a runtime
   crash (v1.0 acceptance §41.6). A bounded restart budget prevents restart
   storms, and a worker's health composes with the FDIR monitor.
+- **Graph** (`neuradix-graph`): the deployment compiler that enforces "contracts
+  before connectivity". It validates a declarative `RobotDeployment` manifest
+  **offline** — node placement, contract provides/requires wiring, acyclicity,
+  Python kept off the deterministic control path (EXEC-007), and the rule that an
+  actuator may only be commanded through the Safety authority (§16.1) — reporting
+  every problem in one pass with stable issue codes, plus a content-addressed
+  **deployment identity** for production pinning.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
-  generate`, `record inspect`, `replay run` (with `--expect-digest`), and
-  `explain command` (reconstruct a command's causal chain from a recording), with
+  generate`, `record inspect`, `replay run` (with `--expect-digest`),
+  `explain command` (reconstruct a command's causal chain from a recording), and
+  `graph validate` (deployment topology + policy, exit code 10 on failure), with
   `--output table|json|yaml`, a versioned result envelope and a stable exit-code
   contract (including exit code 9 on a replay-digest mismatch).
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
@@ -141,6 +150,10 @@ cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expec
 # Explain the causal chain (sensor -> control -> authority/constraints -> applied)
 # of the command nearest a given time:
 cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --at 450000000
+
+# Validate a deployment manifest offline (exit code 10 on failure); reports the
+# content-addressed deployment identity and every topology/policy issue:
+cargo run -p neuradix-cli -- graph validate examples/reference-auv/deployment.yaml
 ```
 
 ## Examples
@@ -172,11 +185,12 @@ crates/
   record/           # neuradix-record: deterministic recording + replay digest
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
+  graph/            # neuradix-graph: offline deployment topology + policy compiler
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (e.g. navigation/vehicle-depth)
-examples/           # minimal-depth-stream
+examples/           # minimal-depth-stream, python-worker, reference-auv (deployment manifest)
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)
 ```

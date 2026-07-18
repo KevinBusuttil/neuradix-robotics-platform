@@ -17,6 +17,7 @@ members = [
     "crates/record",
     "crates/safety",
     "crates/python",
+    "crates/graph",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",
@@ -40,6 +41,7 @@ neuradix-runtime = { path = "crates/runtime", version = "0.0.1" }
 neuradix-record = { path = "crates/record", version = "0.0.1" }
 neuradix-safety = { path = "crates/safety", version = "0.0.1" }
 neuradix-python = { path = "crates/python", version = "0.0.1" }
+neuradix-graph = { path = "crates/graph", version = "0.0.1" }
 neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
 
 # Third-party foundations (kept minimal and standard; see docs/decisions).

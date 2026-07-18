@@ -15,7 +15,9 @@ mod render;
 use clap::Parser;
 
 use app::{AppError, Outcome};
-use cli::{Cli, Command, ContractCommand, ExplainCommand, RecordCommand, ReplayCommand};
+use cli::{
+    Cli, Command, ContractCommand, ExplainCommand, GraphCommand, RecordCommand, ReplayCommand,
+};
 use envelope::CommandResult;
 use exit::ExitCode;
 
@@ -88,6 +90,11 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
                 "explain.command".to_owned(),
                 app::explain::command(&file, at),
             ),
+        },
+        Command::Graph { command } => match command {
+            GraphCommand::Validate { file } => {
+                ("graph.validate".to_owned(), app::graph::validate(&file))
+            }
         },
     }
 }

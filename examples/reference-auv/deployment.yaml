@@ -1,0 +1,69 @@
+# Reference autonomous underwater vehicle (AUV) deployment.
+#
+# A minimal but valid Neuradix deployment that exercises every layer the graph
+# compiler cares about: node placement, contract provides/requires wiring, a
+# Python perception stage kept off the deterministic control path, and an
+# actuator that can only be commanded through the Safety authority (§16.1).
+#
+# Validate with:  neuradix graph validate examples/reference-auv/deployment.yaml
+apiVersion: deploy.neuradix.io/v1alpha1
+kind: RobotDeployment
+metadata:
+  name: reference-auv
+spec:
+  profile: marine-auv
+  nodes:
+    - name: main
+      target: linux-aarch64
+    - name: gpu
+      target: linux-x86_64
+  components:
+    # Sonar range sensing (native, soft-real-time).
+    - name: sonar
+      node: main
+      executionClass: interactive
+      provides: [range.v1]
+
+    # Obstacle perception. Python is allowed here because the stage is
+    # batch-ai and sits off the deterministic control path.
+    - name: perception
+      node: gpu
+      executionClass: batch-ai
+      runtime: python
+      requires: [range.v1]
+      provides: [obstacles.v1]
+
+    # Motion planning (native).
+    - name: planner
+      node: main
+      executionClass: interactive
+      requires: [obstacles.v1]
+      provides: [setpoint.v1]
+
+    # Safety authority: the only component permitted to command the actuator.
+    - name: safety
+      node: main
+      executionClass: deterministic
+      role: safety
+      requires: [setpoint.v1]
+      provides: [thrust-cmd.v1]
+
+    # Vertical thruster actuator (hard-real-time).
+    - name: thruster
+      node: main
+      executionClass: hard-real-time
+      role: actuator
+      requires: [thrust-cmd.v1]
+  connections:
+    - from: sonar
+      to: perception
+      contract: range.v1
+    - from: perception
+      to: planner
+      contract: obstacles.v1
+    - from: planner
+      to: safety
+      contract: setpoint.v1
+    - from: safety
+      to: thruster
+      contract: thrust-cmd.v1

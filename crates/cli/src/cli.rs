@@ -64,6 +64,23 @@ pub enum Command {
         #[command(subcommand)]
         command: ExplainCommand,
     },
+
+    /// Work with deployment graphs.
+    Graph {
+        /// The graph subcommand.
+        #[command(subcommand)]
+        command: GraphCommand,
+    },
+}
+
+/// `neuradix graph ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum GraphCommand {
+    /// Validate a deployment manifest's topology and policy offline.
+    Validate {
+        /// The deployment manifest file to validate.
+        file: PathBuf,
+    },
 }
 
 /// `neuradix explain ...` subcommands.
