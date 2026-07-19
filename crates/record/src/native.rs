@@ -146,6 +146,16 @@ impl NativeRecording {
     }
 }
 
+impl crate::recording::Recording for NativeRecording {
+    fn manifest(&self) -> &RecordingManifest {
+        &self.manifest
+    }
+
+    fn records(&self) -> &[RawRecord] {
+        &self.records
+    }
+}
+
 /// A minimal, bounds-checked byte cursor that never panics.
 struct Cursor<'a> {
     bytes: &'a [u8],

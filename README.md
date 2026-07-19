@@ -30,6 +30,7 @@ authored contract → parsed & validated contract → deterministic schema ident
 → recorded command lineage → `explain` the causal chain of any command
 → offline deployment-graph validation (contracts before connectivity)
 → a deterministic closed-loop simulation (control → safety → simulated plant)
+→ MCAP export with cross-container replay equivalence (Foxglove / ROS 2 interop)
 → CLI validation, inspection, replay, explain and graph validate → automated tests
 ```
 
@@ -53,8 +54,10 @@ authored contract → parsed & validated contract → deterministic schema ident
 - **Record** (`neuradix-record`): a native, self-describing, deterministic
   recording container (manifest + channels + schema identities + provenance), a
   payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
-  checks. Parsing is bounds-checked and panic-free. (MCAP is a planned backend
-  behind the same interface.)
+  checks. Parsing is bounds-checked and panic-free. A second, **MCAP** backend
+  (Foxglove / ROS 2 interop) sits behind the same `Recording` surface: a native
+  recording exported to MCAP **replays to the identical digest** — cross-container
+  replay equivalence.
 - **Safety** (`neuradix-safety`): the authority + constraint path every actuator
   command traverses — time-bounded authority leases (with permitted envelopes),
   range/slew constraints that name the rule they enforce, fail-safe rejection,
@@ -88,11 +91,12 @@ authored contract → parsed & validated contract → deterministic schema ident
   `neuradix-time`, so a real (or safety-gated) control law drives it without
   coupling the model to the runtime or safety crates.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
-  generate`, `record inspect`, `replay run` (with `--expect-digest`),
-  `explain command` (reconstruct a command's causal chain from a recording), and
-  `graph validate` (deployment topology + policy, exit code 10 on failure), with
-  `--output table|json|yaml`, a versioned result envelope and a stable exit-code
-  contract (including exit code 9 on a replay-digest mismatch).
+  generate`, `record inspect|export` (export to MCAP), `replay run` (with
+  `--expect-digest`), `explain command` (reconstruct a command's causal chain from
+  a recording), and `graph validate` (deployment topology + policy, exit code 10
+  on failure), with `--output table|json|yaml`, a versioned result envelope and a
+  stable exit-code contract (including exit code 9 on a replay-digest mismatch).
+  `inspect`, `replay` and `explain` accept native `.nrec` or MCAP transparently.
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
@@ -158,6 +162,11 @@ cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + 
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
 
+# Export a recording to MCAP (Foxglove / ROS 2). The MCAP replays to the SAME
+# digest, and `inspect`/`replay` accept the .mcap transparently:
+cargo run -p neuradix-cli -- record export /tmp/neuradix-depth-mission.nrec --out /tmp/mission.mcap
+cargo run -p neuradix-cli -- replay run /tmp/mission.mcap --expect-digest <sha256:...>
+
 # Explain the causal chain (sensor -> control -> authority/constraints -> applied)
 # of the command nearest a given time:
 cargo run -p neuradix-cli -- explain command /tmp/neuradix-depth-lineage.nrec --at 450000000
@@ -203,7 +212,7 @@ crates/
   time/             # neuradix-time: clock domains, timestamps, clocks
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
   runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
-  record/           # neuradix-record: deterministic recording + replay digest
+  record/           # neuradix-record: deterministic recording + replay digest (native + MCAP)
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler

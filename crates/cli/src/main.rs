@@ -75,6 +75,9 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             RecordCommand::Inspect { file } => {
                 ("record.inspect".to_owned(), app::record::inspect(&file))
             }
+            RecordCommand::Export { file, out } => {
+                ("record.export".to_owned(), app::record::export(&file, &out))
+            }
         },
         Command::Replay { command } => match command {
             ReplayCommand::Run {

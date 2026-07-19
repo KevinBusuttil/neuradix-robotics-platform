@@ -106,10 +106,20 @@ pub enum ExplainCommand {
 /// `neuradix record ...` subcommands.
 #[derive(Debug, Subcommand)]
 pub enum RecordCommand {
-    /// Show a recording's manifest, channels and replay digest.
+    /// Show a recording's manifest, channels and replay digest (native or MCAP).
     Inspect {
         /// The recording file to inspect.
         file: PathBuf,
+    },
+
+    /// Re-encode a recording as MCAP for external tooling (Foxglove, ROS 2).
+    Export {
+        /// The source recording (native `.nrec` or MCAP).
+        file: PathBuf,
+
+        /// The MCAP file to write.
+        #[arg(long = "out")]
+        out: PathBuf,
     },
 }
 
