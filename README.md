@@ -31,7 +31,8 @@ authored contract → parsed & validated contract → deterministic schema ident
 → offline deployment-graph validation (contracts before connectivity)
 → a deterministic closed-loop simulation (control → safety → simulated plant)
 → MCAP export with cross-container replay equivalence (Foxglove / ROS 2 interop)
-→ CLI validation, inspection, replay, explain and graph validate → automated tests
+→ a headless Studio read model (timeline, channel stats, scalar series)
+→ CLI validation, inspection, replay, explain, graph validate and studio → tests
 ```
 
 ### What works today
@@ -90,13 +91,21 @@ authored contract → parsed & validated contract → deterministic schema ident
   trajectory. The controller seam is narrow enough that the crate depends only on
   `neuradix-time`, so a real (or safety-gated) control law drives it without
   coupling the model to the runtime or safety crates.
+- **Studio** (`neuradix-studio`): the headless **read model** a Studio/XR UI
+  queries — built over the same `Recording` surface, so it works on native or
+  MCAP. It answers a **timeline** (per-clock-domain spans + per-channel
+  statistics: counts, first/last time, effective rate, payload sizes), **windowed**
+  and **nearest-record** queries, and plottable **scalar series** for a chosen
+  field (via a caller-supplied decoder, so it commits to no payload encoding).
+  Pure and deterministic; overflow-safe even at the extremes of the time domain.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect|export` (export to MCAP), `replay run` (with
   `--expect-digest`), `explain command` (reconstruct a command's causal chain from
-  a recording), and `graph validate` (deployment topology + policy, exit code 10
-  on failure), with `--output table|json|yaml`, a versioned result envelope and a
-  stable exit-code contract (including exit code 9 on a replay-digest mismatch).
-  `inspect`, `replay` and `explain` accept native `.nrec` or MCAP transparently.
+  a recording), `graph validate` (deployment topology + policy, exit code 10 on
+  failure), and `studio timeline|series` (headless inspection), with
+  `--output table|json|yaml`, a versioned result envelope and a stable exit-code
+  contract (including exit code 9 on a replay-digest mismatch). `inspect`,
+  `replay`, `explain` and `studio` accept native `.nrec` or MCAP transparently.
 - **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
   schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
 - **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
@@ -110,16 +119,16 @@ authored contract → parsed & validated contract → deterministic schema ident
 
 ### Not yet implemented
 
-The following are **planned and intentionally absent**: Swarm, Aero, Studio and
-Studio XR, Flight, Ground, Fleet; network transport (Zenoh/DDS), shared memory,
-MCAP recording containers (only the native container exists so far), live
-`record start/stop` against a running graph, in-process PyO3/Maturin bindings and
-NumPy zero-copy views (isolated Python *worker processes* exist); ROS 2 /
-MAVLink bridges; independent safety-island deployment
-(the authority + constraint gate and command-lineage `explain` exist); and any
-physical MCU firmware (ESP32/RP2040/STM32) or Arduino compilation. Public
-boundaries are designed so these can be added without exposing backend-specific
-types.
+The following are **planned and intentionally absent**: Swarm, Aero, Flight,
+Ground, Fleet; the Studio and Studio XR **UI** (the headless inspection read
+model exists — the graphical/3-D front-end does not); network transport
+(Zenoh/DDS) and shared memory; live `record start/stop` against a running graph;
+in-process PyO3/Maturin bindings and NumPy zero-copy views (isolated Python
+*worker processes* exist); ROS 2 / MAVLink bridges; independent safety-island
+deployment (the authority + constraint gate and command-lineage `explain`
+exist); and any physical MCU firmware (ESP32/RP2040/STM32) or Arduino
+compilation. Public boundaries are designed so these can be added without
+exposing backend-specific types.
 
 ## Prerequisites
 
@@ -166,6 +175,11 @@ cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expec
 # digest, and `inspect`/`replay` accept the .mcap transparently:
 cargo run -p neuradix-cli -- record export /tmp/neuradix-depth-mission.nrec --out /tmp/mission.mcap
 cargo run -p neuradix-cli -- replay run /tmp/mission.mcap --expect-digest <sha256:...>
+
+# Headless Studio inspection: a recording's timeline (per-domain spans + channel
+# rates) and a plottable scalar series from the command-lineage channel:
+cargo run -p neuradix-cli -- studio timeline /tmp/neuradix-depth-mission.nrec
+cargo run -p neuradix-cli -- studio series /tmp/neuradix-depth-lineage.nrec --field applied
 
 # Explain the causal chain (sensor -> control -> authority/constraints -> applied)
 # of the command nearest a given time:
@@ -217,6 +231,7 @@ crates/
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler
   sim/              # neuradix-sim: deterministic depth plant, sensor, closed-loop driver
+  studio/           # neuradix-studio: headless inspection (timeline, stats, series)
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library

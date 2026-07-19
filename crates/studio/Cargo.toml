@@ -1,0 +1,14 @@
+[package]
+name = "neuradix-studio"
+description = "Headless inspection and query model over recordings: timelines, channel statistics, windowed queries and scalar series."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-record = { workspace = true }
+neuradix-time = { workspace = true }
+thiserror = { workspace = true }

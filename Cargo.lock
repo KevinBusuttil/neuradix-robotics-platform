@@ -214,6 +214,7 @@ dependencies = [
  "neuradix-record",
  "neuradix-runtime",
  "neuradix-safety",
+ "neuradix-studio",
  "neuradix-testkit",
  "neuradix-time",
  "serde",
@@ -326,6 +327,15 @@ dependencies = [
 name = "neuradix-sim"
 version = "0.0.1"
 dependencies = [
+ "neuradix-time",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-studio"
+version = "0.0.1"
+dependencies = [
+ "neuradix-record",
  "neuradix-time",
  "thiserror",
 ]

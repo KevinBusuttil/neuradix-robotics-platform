@@ -20,6 +20,7 @@ This backlog aligns the architecture RFC sequence with the current functional an
 | RFC-0019 | Deployment Graph Validation | Compiling/launching deployments; contracts-before-connectivity gate |
 | RFC-0020 | Deterministic Vehicle Simulation | Closed-loop AUV vertical slice; control/safety driving a simulated plant |
 | RFC-0021 | MCAP Recording Backend | External tooling interop (Foxglove/ROS 2); cross-container replay equivalence |
+| RFC-0022 | Studio Inspection Model | Headless read model for Studio/XR; timeline, channel stats and scalar series |
 
 ## P1 — Multi-robot and domain expansion
 

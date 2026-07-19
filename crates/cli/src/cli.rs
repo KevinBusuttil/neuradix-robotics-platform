@@ -71,6 +71,37 @@ pub enum Command {
         #[command(subcommand)]
         command: GraphCommand,
     },
+
+    /// Headless inspection of a recording (the Studio read model).
+    Studio {
+        /// The studio subcommand.
+        #[command(subcommand)]
+        command: StudioCommand,
+    },
+}
+
+/// `neuradix studio ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum StudioCommand {
+    /// Show a recording's timeline: per-domain spans and channel statistics.
+    Timeline {
+        /// The recording file (native `.nrec` or MCAP).
+        file: PathBuf,
+    },
+
+    /// Extract a plottable scalar series from the command-lineage channel.
+    Series {
+        /// The recording file (native `.nrec` or MCAP).
+        file: PathBuf,
+
+        /// The scalar field: `requested`, `applied` or `sensor`.
+        #[arg(long)]
+        field: String,
+
+        /// The channel id to read (defaults to the command-lineage channel).
+        #[arg(long)]
+        channel: Option<u16>,
+    },
 }
 
 /// `neuradix graph ...` subcommands.
