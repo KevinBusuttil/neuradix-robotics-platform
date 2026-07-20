@@ -32,6 +32,7 @@ authored contract → parsed & validated contract → deterministic schema ident
 → a deterministic closed-loop simulation (control → safety → simulated plant)
 → MCAP export with cross-container replay equivalence (Foxglove / ROS 2 interop)
 → a headless Studio read model (timeline, channel stats, scalar series)
+→ a no_std embedded node with a local safe state on link loss / lease expiry
 → CLI validation, inspection, replay, explain, graph validate and studio → tests
 ```
 
@@ -98,6 +99,15 @@ authored contract → parsed & validated contract → deterministic schema ident
   and **nearest-record** queries, and plottable **scalar series** for a chosen
   field (via a caller-supplied decoder, so it commits to no payload encoding).
   Pure and deterministic; overflow-safe even at the extremes of the time domain.
+- **Embedded core** (`neuradix-embedded-core`): a `#![no_std]`, allocation-free,
+  executor-neutral component core for constrained MCUs. It provides node/
+  deployment identity, the same **health** vocabulary as the host runtime, a
+  time-bounded **authority lease**, a link-loss **watchdog**, and a local
+  **command gate** (authority → link → validity → range/slew) that applies a
+  **local safe output** on lease expiry, link loss or a non-finite command
+  (§16.1). The reference `PropulsionNode` runs the *identical* logic in host
+  simulation and on a board. It reuses the same `neuradix-time` types as the
+  host (that crate is now `no_std`-compatible behind a default-on `std` feature).
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect|export` (export to MCAP), `replay run` (with
   `--expect-digest`), `explain command` (reconstruct a command's causal chain from
@@ -126,9 +136,11 @@ model exists — the graphical/3-D front-end does not); network transport
 in-process PyO3/Maturin bindings and NumPy zero-copy views (isolated Python
 *worker processes* exist); ROS 2 / MAVLink bridges; independent safety-island
 deployment (the authority + constraint gate and command-lineage `explain`
-exist); and any physical MCU firmware (ESP32/RP2040/STM32) or Arduino
-compilation. Public boundaries are designed so these can be added without
-exposing backend-specific types.
+exist); and — on the embedded side — the Embassy/RTIC executor adapters, serial/
+CAN transport, the `neuradix embedded` CLI and real board firmware
+(ESP32/RP2040/STM32) or Arduino compilation (the `no_std` **embedded-core** logic
+exists and runs in host simulation; no board is flashed yet). Public boundaries
+are designed so these can be added without exposing backend-specific types.
 
 ## Prerequisites
 
@@ -210,6 +222,11 @@ cargo run -p neuradix-example-python-worker
 # plant, but only through the safety gate; converges to the setpoint and proves
 # the whole mission is byte-identical on re-run:
 cargo run -p neuradix-example-auv-depth-sim
+
+# The embedded AUV propulsion node, run as a host simulation: it applies commanded
+# thrust under a valid lease, then enters its LOCAL safe state on link loss and on
+# lease expiry — the identical no_std logic that runs on the board:
+cargo run -p neuradix-example-embedded-propulsion
 ```
 
 It loads the authored contract, derives the stream's capacity and overflow policy
@@ -232,11 +249,12 @@ crates/
   graph/            # neuradix-graph: offline deployment topology + policy compiler
   sim/              # neuradix-sim: deterministic depth plant, sensor, closed-loop driver
   studio/           # neuradix-studio: headless inspection (timeline, stats, series)
+  embedded-core/    # neuradix-embedded-core: no_std MCU component core (lease, watchdog, safe state)
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (navigation, perception, control, actuation)
-examples/           # minimal-depth-stream, python-worker, auv-depth-sim, reference-auv (manifest)
+examples/           # minimal-depth-stream, python-worker, auv-depth-sim, embedded-propulsion, reference-auv (manifest)
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)
 ```

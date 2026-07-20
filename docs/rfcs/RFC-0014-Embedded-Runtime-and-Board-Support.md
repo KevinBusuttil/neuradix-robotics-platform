@@ -1,12 +1,31 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Draft (design only — NOT implemented in foundation increment 1)
-- Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4
-- Crates (future): `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
+- Status: Partially implemented (foundation increment 13 — `embedded-core`, WP2)
+- Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4 (Phase 3E)
+- Crates: `neuradix-embedded-core` (implemented); `neuradix-embedded-codegen`, `neuradix-embedded-transport` (future)
 
-> This increment implements no embedded crate, MCU firmware or Arduino
-> projection. This RFC records the intended design so the foundation does not
-> foreclose it. Nothing here is a claim of implemented capability.
+## Implemented in increment 13 (WP2 — embedded-core)
+
+`neuradix-embedded-core` is now real: a `#![no_std]`, allocation-free,
+executor-neutral component core for the Embedded MCU tier. It provides node and
+deployment **identity**, the same **health** vocabulary as the host runtime, a
+time-bounded **authority lease**, a link-loss **watchdog**, and a local
+**command gate** that enforces authority → link → validity → envelope (range +
+slew) and applies a **local safe output** on lease expiry, link loss or a
+non-finite command (§16.1, NRX-EMB-004). The reference **`PropulsionNode`** is
+built from these and runs unchanged in host simulation (`examples/embedded-
+propulsion`). To make this parity real, **`neuradix-time` was made
+`no_std`-compatible** (a default-on `std` feature gates only the ambient
+`SystemClock`), so host and firmware share the identical `Timestamp` /
+`Duration` / `ClockDomain` types.
+
+Still future: contract projections and golden vectors (WP1), the Embassy/RTIC
+executor adapters (WP3), serial/CAN transport with CRC/sequence framing (WP4),
+the `neuradix embedded` CLI and real board builds (WP5), and the board/transport
+target decision (ESP32-C3 vs RP2040; serial vs CAN) recorded below.
+
+> The remainder of this RFC records the intended design for the not-yet-built
+> parts so the foundation does not foreclose them.
 
 ## Problem
 

@@ -235,6 +235,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-embedded-core"
+version = "0.0.1"
+dependencies = [
+ "neuradix-time",
+]
+
+[[package]]
 name = "neuradix-example-auv-depth-sim"
 version = "0.0.1"
 dependencies = [
@@ -242,6 +249,14 @@ dependencies = [
  "neuradix-sim",
  "neuradix-time",
  "sha2",
+]
+
+[[package]]
+name = "neuradix-example-embedded-propulsion"
+version = "0.0.1"
+dependencies = [
+ "neuradix-embedded-core",
+ "neuradix-time",
 ]
 
 [[package]]
@@ -355,9 +370,6 @@ dependencies = [
 [[package]]
 name = "neuradix-time"
 version = "0.0.1"
-dependencies = [
- "thiserror",
-]
 
 [[package]]
 name = "neuradix-transport-api"

@@ -8,5 +8,10 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[features]
+default = ["std"]
+# Enables the ambient `SystemClock`. With `default-features = false` the crate is
+# `no_std` and depends only on `core` (used by `neuradix-embedded-core`).
+std = []
+
 [dependencies]
-thiserror = { workspace = true }

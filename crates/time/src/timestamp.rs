@@ -1,6 +1,6 @@
 //! Domain-tagged timestamps.
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 use crate::domain::ClockDomain;
 use crate::duration::Duration;
@@ -73,8 +73,8 @@ impl Timestamp {
     }
 }
 
-impl std::fmt::Display for Timestamp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}@{}ns", self.domain, self.nanos)
     }
 }

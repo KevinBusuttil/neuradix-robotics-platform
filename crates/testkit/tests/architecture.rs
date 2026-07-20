@@ -24,6 +24,7 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
         "neuradix-graph" => ["neuradix-contracts"].into_iter().collect(),
         "neuradix-sim" => ["neuradix-time"].into_iter().collect(),
         "neuradix-studio" => ["neuradix-record", "neuradix-time"].into_iter().collect(),
+        "neuradix-embedded-core" => ["neuradix-time"].into_iter().collect(),
         "neuradix-cli" => [
             "neuradix-contracts",
             "neuradix-time",
@@ -91,6 +92,7 @@ fn crate_dependencies_respect_the_layering() {
         "neuradix-graph",
         "neuradix-sim",
         "neuradix-studio",
+        "neuradix-embedded-core",
         "neuradix-cli",
         "neuradix-testkit",
     ];
@@ -106,6 +108,7 @@ fn crate_dependencies_respect_the_layering() {
         ("neuradix-graph", "crates/graph"),
         ("neuradix-sim", "crates/sim"),
         ("neuradix-studio", "crates/studio"),
+        ("neuradix-embedded-core", "crates/embedded-core"),
         ("neuradix-cli", "crates/cli"),
         ("neuradix-testkit", "crates/testkit"),
     ];

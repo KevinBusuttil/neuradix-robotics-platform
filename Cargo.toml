@@ -20,11 +20,13 @@ members = [
     "crates/graph",
     "crates/sim",
     "crates/studio",
+    "crates/embedded-core",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",
     "examples/python-worker",
     "examples/auv-depth-sim",
+    "examples/embedded-propulsion",
 ]
 
 [workspace.package]
@@ -47,6 +49,7 @@ neuradix-python = { path = "crates/python", version = "0.0.1" }
 neuradix-graph = { path = "crates/graph", version = "0.0.1" }
 neuradix-sim = { path = "crates/sim", version = "0.0.1" }
 neuradix-studio = { path = "crates/studio", version = "0.0.1" }
+neuradix-embedded-core = { path = "crates/embedded-core", version = "0.0.1" }
 neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
 
 # Third-party foundations (kept minimal and standard; see docs/decisions).

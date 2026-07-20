@@ -7,8 +7,7 @@
 //! non-deterministic production clock and must not be used inside logic that is
 //! expected to replay identically.
 
-use std::cell::Cell;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use core::cell::Cell;
 
 use crate::domain::ClockDomain;
 use crate::duration::Duration;
@@ -30,18 +29,23 @@ pub trait Clock {
 /// reads UTC wall-clock time. Both read ambient time and therefore MUST NOT be
 /// used inside deterministic or replayable logic — inject a [`ManualClock`]
 /// there instead.
+///
+/// Requires the `std` feature (it reads the operating-system clock), so it is
+/// absent from `no_std` builds.
+#[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct SystemClock {
     domain: ClockDomain,
-    monotonic_base: Instant,
+    monotonic_base: std::time::Instant,
 }
 
+#[cfg(feature = "std")]
 impl SystemClock {
     /// A monotonic system clock whose epoch is the moment of construction.
     pub fn monotonic() -> Self {
         Self {
             domain: ClockDomain::Monotonic,
-            monotonic_base: Instant::now(),
+            monotonic_base: std::time::Instant::now(),
         }
     }
 
@@ -49,11 +53,12 @@ impl SystemClock {
     pub fn wall() -> Self {
         Self {
             domain: ClockDomain::Utc,
-            monotonic_base: Instant::now(),
+            monotonic_base: std::time::Instant::now(),
         }
     }
 }
 
+#[cfg(feature = "std")]
 impl Clock for SystemClock {
     fn domain(&self) -> ClockDomain {
         self.domain
@@ -64,8 +69,8 @@ impl Clock for SystemClock {
             ClockDomain::Utc => {
                 // Duration since the epoch; if the wall clock is (improbably)
                 // before 1970, saturate at zero rather than panic.
-                let nanos = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
+                let nanos = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_nanos() as i128)
                     .unwrap_or(0);
                 Timestamp::new(ClockDomain::Utc, nanos)
