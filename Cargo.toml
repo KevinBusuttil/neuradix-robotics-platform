@@ -21,6 +21,7 @@ members = [
     "crates/sim",
     "crates/studio",
     "crates/embedded-core",
+    "crates/embedded-transport",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",
@@ -50,6 +51,7 @@ neuradix-graph = { path = "crates/graph", version = "0.0.1" }
 neuradix-sim = { path = "crates/sim", version = "0.0.1" }
 neuradix-studio = { path = "crates/studio", version = "0.0.1" }
 neuradix-embedded-core = { path = "crates/embedded-core", version = "0.0.1" }
+neuradix-embedded-transport = { path = "crates/embedded-transport", version = "0.0.1" }
 neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
 
 # Third-party foundations (kept minimal and standard; see docs/decisions).

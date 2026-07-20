@@ -108,6 +108,14 @@ authored contract → parsed & validated contract → deterministic schema ident
   (§16.1). The reference `PropulsionNode` runs the *identical* logic in host
   simulation and on a board. It reuses the same `neuradix-time` types as the
   host (that crate is now `no_std`-compatible behind a default-on `std` feature).
+- **Embedded transport** (`neuradix-embedded-transport`): `#![no_std]`,
+  dependency-free on-wire **framing** for an MCU link (serial-first) —
+  `sync | seq | len | payload | crc32`. The encoder frames into a caller buffer;
+  the byte-at-a-time **decoder** resynchronises after line noise and yields only
+  **CRC-verified** frames (dropping corrupt/oversized ones without overrun); a
+  **sequence tracker** flags lost, duplicate or reordered frames. Corruption is
+  never applied — a bad frame is a missing command, which drives the node's local
+  safe state.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect|export` (export to MCAP), `replay run` (with
   `--expect-digest`), `explain command` (reconstruct a command's causal chain from
@@ -136,11 +144,12 @@ model exists — the graphical/3-D front-end does not); network transport
 in-process PyO3/Maturin bindings and NumPy zero-copy views (isolated Python
 *worker processes* exist); ROS 2 / MAVLink bridges; independent safety-island
 deployment (the authority + constraint gate and command-lineage `explain`
-exist); and — on the embedded side — the Embassy/RTIC executor adapters, serial/
-CAN transport, the `neuradix embedded` CLI and real board firmware
-(ESP32/RP2040/STM32) or Arduino compilation (the `no_std` **embedded-core** logic
-exists and runs in host simulation; no board is flashed yet). Public boundaries
-are designed so these can be added without exposing backend-specific types.
+exist); and — on the embedded side — the Embassy/RTIC executor adapters, the
+serial HAL/UART binding and CAN transport, the `neuradix embedded` CLI and real
+board firmware (ESP32/RP2040/STM32) or Arduino compilation (the `no_std`
+**embedded-core** logic and the **embedded-transport** framing exist and run in
+host simulation; no board is flashed yet). Public boundaries are designed so
+these can be added without exposing backend-specific types.
 
 ## Prerequisites
 
@@ -250,6 +259,7 @@ crates/
   sim/              # neuradix-sim: deterministic depth plant, sensor, closed-loop driver
   studio/           # neuradix-studio: headless inspection (timeline, stats, series)
   embedded-core/    # neuradix-embedded-core: no_std MCU component core (lease, watchdog, safe state)
+  embedded-transport/ # neuradix-embedded-transport: no_std serial framing (CRC, sequence, resync)
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library

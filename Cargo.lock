@@ -242,6 +242,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-embedded-transport"
+version = "0.0.1"
+dependencies = [
+ "neuradix-embedded-core",
+ "neuradix-time",
+]
+
+[[package]]
 name = "neuradix-example-auv-depth-sim"
 version = "0.0.1"
 dependencies = [

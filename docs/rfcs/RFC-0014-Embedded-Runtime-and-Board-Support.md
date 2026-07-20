@@ -1,8 +1,9 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Partially implemented (foundation increment 13 — `embedded-core`, WP2)
+- Status: Partially implemented (increments 13–14 — `embedded-core` WP2, `embedded-transport` framing WP4)
 - Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4 (Phase 3E)
-- Crates: `neuradix-embedded-core` (implemented); `neuradix-embedded-codegen`, `neuradix-embedded-transport` (future)
+- Crates: `neuradix-embedded-core`, `neuradix-embedded-transport` (implemented); `neuradix-embedded-codegen` (future)
+- First target (chosen): **ESP32-C3** (RISC-V) with a **serial** link.
 
 ## Implemented in increment 13 (WP2 — embedded-core)
 
@@ -19,10 +20,25 @@ propulsion`). To make this parity real, **`neuradix-time` was made
 `SystemClock`), so host and firmware share the identical `Timestamp` /
 `Duration` / `ClockDomain` types.
 
+## Implemented in increment 14 (WP4 — transport framing)
+
+`neuradix-embedded-transport` provides the on-wire framing for a byte link
+(serial-first), `#![no_std]`, allocation-free and dependency-free (only `core`):
+a frame is `sync(2) | seq:u16 | len:u16 | payload | crc32:u32`. [`encode`] frames
+into a caller buffer; [`FrameDecoder`] is a byte-at-a-time, resync-capable state
+machine over a fixed buffer that yields only CRC-verified frames (a corrupt or
+oversized frame is dropped as [`FrameEvent::Corrupt`] without overrunning the
+buffer); [`SequenceTracker`] classifies each frame as in-order, duplicate,
+gapped or reordered with wrap-safe arithmetic. Integrity (CRC) and ordering
+(sequence) live here; **freshness** stays with the embedded-core watchdog — a
+corrupt/missing frame is simply a missing command, which drives the node's local
+safe state. An integration test drives a `PropulsionNode` through the codec and
+shows sustained corruption → link-loss safe state.
+
 Still future: contract projections and golden vectors (WP1), the Embassy/RTIC
-executor adapters (WP3), serial/CAN transport with CRC/sequence framing (WP4),
-the `neuradix embedded` CLI and real board builds (WP5), and the board/transport
-target decision (ESP32-C3 vs RP2040; serial vs CAN) recorded below.
+executor adapters (WP3), CAN transport, the `neuradix embedded` CLI and real
+board builds/flashing (WP5). The board/transport target is now chosen (ESP32-C3,
+serial); real cross-compilation awaits a toolchain and hardware.
 
 > The remainder of this RFC records the intended design for the not-yet-built
 > parts so the foundation does not foreclose them.

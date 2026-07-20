@@ -25,6 +25,9 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
         "neuradix-sim" => ["neuradix-time"].into_iter().collect(),
         "neuradix-studio" => ["neuradix-record", "neuradix-time"].into_iter().collect(),
         "neuradix-embedded-core" => ["neuradix-time"].into_iter().collect(),
+        // Framing depends only on `core`; its embedded-core/time deps are
+        // dev-only (integration tests), which this check does not inspect.
+        "neuradix-embedded-transport" => BTreeSet::new(),
         "neuradix-cli" => [
             "neuradix-contracts",
             "neuradix-time",
@@ -93,6 +96,7 @@ fn crate_dependencies_respect_the_layering() {
         "neuradix-sim",
         "neuradix-studio",
         "neuradix-embedded-core",
+        "neuradix-embedded-transport",
         "neuradix-cli",
         "neuradix-testkit",
     ];
@@ -109,6 +113,7 @@ fn crate_dependencies_respect_the_layering() {
         ("neuradix-sim", "crates/sim"),
         ("neuradix-studio", "crates/studio"),
         ("neuradix-embedded-core", "crates/embedded-core"),
+        ("neuradix-embedded-transport", "crates/embedded-transport"),
         ("neuradix-cli", "crates/cli"),
         ("neuradix-testkit", "crates/testkit"),
     ];

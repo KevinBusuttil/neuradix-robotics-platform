@@ -1,0 +1,16 @@
+[package]
+name = "neuradix-embedded-transport"
+description = "no_std framing for MCU links: CRC-checked, resync-capable frames with sequence tracking (serial-first)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# None — pure byte framing, depends only on `core`.
+
+[dev-dependencies]
+neuradix-embedded-core = { workspace = true }
+neuradix-time = { workspace = true }
