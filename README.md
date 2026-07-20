@@ -116,6 +116,12 @@ authored contract → parsed & validated contract → deterministic schema ident
   **sequence tracker** flags lost, duplicate or reordered frames. Corruption is
   never applied — a bad frame is a missing command, which drives the node's local
   safe state.
+- **Embedded codegen** (`neuradix-embedded-codegen`): target **projections** over
+  the same validated `Contract` — a `no_std` **Rust** struct and an Arduino/**C++**
+  header, each with fixed little-endian `encode`/`decode`, plus deterministic
+  **golden vectors**. Conformance is *executed*: the generated C++ is compiled
+  with `g++` and the generated `no_std` Rust is compiled and run against the same
+  golden vectors, so host, MCU-Rust and C++ agree on the wire byte-for-byte.
 - **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
   generate`, `record inspect|export` (export to MCAP), `replay run` (with
   `--expect-digest`), `explain command` (reconstruct a command's causal chain from
@@ -145,11 +151,13 @@ in-process PyO3/Maturin bindings and NumPy zero-copy views (isolated Python
 *worker processes* exist); ROS 2 / MAVLink bridges; independent safety-island
 deployment (the authority + constraint gate and command-lineage `explain`
 exist); and — on the embedded side — the Embassy/RTIC executor adapters, the
-serial HAL/UART binding and CAN transport, the `neuradix embedded` CLI and real
-board firmware (ESP32/RP2040/STM32) or Arduino compilation (the `no_std`
-**embedded-core** logic and the **embedded-transport** framing exist and run in
-host simulation; no board is flashed yet). Public boundaries are designed so
-these can be added without exposing backend-specific types.
+serial HAL/UART binding and CAN transport, embedded-C projection and topology/
+memory reports, the `neuradix embedded` CLI and real board firmware
+(ESP32/RP2040/STM32) or on-device Arduino compilation. The `no_std`
+**embedded-core** logic, the **embedded-transport** framing and the **no_std
+Rust + Arduino/C++ codegen** (golden-vector-verified) all exist and run/compile
+on the host; no board is flashed yet. Public boundaries are designed so these can
+be added without exposing backend-specific types.
 
 ## Prerequisites
 
@@ -180,9 +188,12 @@ cargo run -p neuradix-cli -- contract hash contracts/standard/navigation/vehicle
 # Inspect the parsed contract:
 cargo run -p neuradix-cli -- contract inspect contracts/standard/navigation/vehicle-depth.yaml
 
-# Generate the Rust projection:
+# Generate the Rust projection (or a no_std Rust / Arduino C++ projection with
+# fixed little-endian encode/decode for an MCU):
 cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
     --language rust --out-dir /tmp/nrx-generated
+cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
+    --language cpp --out-dir /tmp/nrx-generated
 
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
@@ -260,6 +271,7 @@ crates/
   studio/           # neuradix-studio: headless inspection (timeline, stats, series)
   embedded-core/    # neuradix-embedded-core: no_std MCU component core (lease, watchdog, safe state)
   embedded-transport/ # neuradix-embedded-transport: no_std serial framing (CRC, sequence, resync)
+  embedded-codegen/ # neuradix-embedded-codegen: no_std Rust + Arduino/C++ projections + golden vectors
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library

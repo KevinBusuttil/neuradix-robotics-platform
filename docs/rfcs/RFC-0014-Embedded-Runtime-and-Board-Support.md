@@ -1,9 +1,24 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Partially implemented (increments 13–14 — `embedded-core` WP2, `embedded-transport` framing WP4)
+- Status: Partially implemented (increments 13–15 — `embedded-core` WP2, `embedded-transport` framing WP4, `embedded-codegen` WP1)
 - Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4 (Phase 3E)
-- Crates: `neuradix-embedded-core`, `neuradix-embedded-transport` (implemented); `neuradix-embedded-codegen` (future)
+- Crates: `neuradix-embedded-core`, `neuradix-embedded-transport`, `neuradix-embedded-codegen` (implemented)
 - First target (chosen): **ESP32-C3** (RISC-V) with a **serial** link.
+
+## Implemented in increment 15 (WP1 — embedded contract codegen)
+
+`neuradix-embedded-codegen` adds target projections over the same validated
+`Contract` the host generator uses: a **`no_std` Rust** payload struct and an
+**Arduino/C++** header, each with fixed little-endian `encode`/`decode`, plus
+deterministic **golden encode/decode vectors** that anchor cross-language
+agreement. The wire is a fixed layout (each scalar field in declaration order,
+little-endian; variable-length fields rejected), so a frame's size is known at
+compile time. Conformance is *executed*, not asserted: the generated C++ is
+compiled with `g++ -Werror` and run against the golden vectors, and the
+generated `no_std` Rust is compiled (`include!`) and run against the same
+vectors — so the host reference, MCU Rust and C++ all agree byte-for-byte.
+`neuradix contract generate --language nostd-rust|cpp` exposes both. Embedded C
+and topology/memory-report generation remain future.
 
 ## Implemented in increment 13 (WP2 — embedded-core)
 

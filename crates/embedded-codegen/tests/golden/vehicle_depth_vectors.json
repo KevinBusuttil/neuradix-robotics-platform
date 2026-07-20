@@ -1,0 +1,71 @@
+{
+  "contract": "io.neuradix.navigation/vehicle-depth@1.0.0",
+  "schema_id": "sha256:4c9c5d9381658f7779ef0d3ef11eda3f29006f7e751d06dba40a12d6f4ce2a73",
+  "wire_len": 16,
+  "vectors": [
+    {
+      "name": "zeros",
+      "fields": [
+        {
+          "name": "depth",
+          "ty": "float64",
+          "value": "0"
+        },
+        {
+          "name": "uncertainty",
+          "ty": "float64",
+          "value": "0"
+        }
+      ],
+      "bytes_hex": "00000000000000000000000000000000"
+    },
+    {
+      "name": "units",
+      "fields": [
+        {
+          "name": "depth",
+          "ty": "float64",
+          "value": "1"
+        },
+        {
+          "name": "uncertainty",
+          "ty": "float64",
+          "value": "1"
+        }
+      ],
+      "bytes_hex": "000000000000f03f000000000000f03f"
+    },
+    {
+      "name": "ramp",
+      "fields": [
+        {
+          "name": "depth",
+          "ty": "float64",
+          "value": "0.25"
+        },
+        {
+          "name": "uncertainty",
+          "ty": "float64",
+          "value": "1.25"
+        }
+      ],
+      "bytes_hex": "000000000000d03f000000000000f43f"
+    },
+    {
+      "name": "edges",
+      "fields": [
+        {
+          "name": "depth",
+          "ty": "float64",
+          "value": "-9.75"
+        },
+        {
+          "name": "uncertainty",
+          "ty": "float64",
+          "value": "-9.75"
+        }
+      ],
+      "bytes_hex": "00000000008023c000000000008023c0"
+    }
+  ]
+}

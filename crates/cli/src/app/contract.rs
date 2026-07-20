@@ -11,8 +11,12 @@ use crate::exit::ExitCode;
 /// The supported target languages for `contract generate`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum Language {
-    /// Generate a Rust module.
+    /// Generate a host Rust module.
     Rust,
+    /// Generate a `no_std` Rust module with fixed little-endian encode/decode.
+    NostdRust,
+    /// Generate an Arduino/C++ header with fixed little-endian encode/decode.
+    Cpp,
 }
 
 /// `neuradix contract validate <file-or-directory>`
@@ -88,17 +92,32 @@ pub fn hash(file: &Path) -> Result<Outcome, AppError> {
     })))
 }
 
-/// `neuradix contract generate <file> --language rust --out-dir <dir>`
+/// `neuradix contract generate <file> --language <rust|nostd-rust|cpp> --out-dir <dir>`
 pub fn generate(file: &Path, language: Language, out_dir: &Path) -> Result<Outcome, AppError> {
-    // Only Rust is supported; the `Language` enum already rejects other values
-    // at parse time, but match explicitly so adding languages cannot silently
-    // no-op.
-    match language {
-        Language::Rust => {}
-    }
-
     let contract = load_file(file).map_err(map_contract_error)?;
-    let generated = generate_rust(&contract).map_err(map_contract_error)?;
+
+    // Each language produces (output file name, source, type name, label).
+    let (file_name, code, type_name, label) = match language {
+        Language::Rust => {
+            let g = generate_rust(&contract).map_err(map_contract_error)?;
+            (format!("{}.rs", g.module_name), g.code, g.type_name, "rust")
+        }
+        Language::NostdRust => {
+            let g = neuradix_embedded_codegen::generate_nostd_rust(&contract)
+                .map_err(map_codegen_error)?;
+            (
+                format!("{}.rs", g.module_name),
+                g.code,
+                g.type_name,
+                "nostd-rust",
+            )
+        }
+        Language::Cpp => {
+            let g =
+                neuradix_embedded_codegen::generate_cpp(&contract).map_err(map_codegen_error)?;
+            (format!("{}.h", g.header_name), g.code, g.type_name, "cpp")
+        }
+    };
 
     std::fs::create_dir_all(out_dir).map_err(|e| {
         AppError::message(
@@ -110,8 +129,8 @@ pub fn generate(file: &Path, language: Language, out_dir: &Path) -> Result<Outco
         )
     })?;
 
-    let target = out_dir.join(format!("{}.rs", generated.module_name));
-    std::fs::write(&target, &generated.code).map_err(|e| {
+    let target = out_dir.join(&file_name);
+    std::fs::write(&target, &code).map_err(|e| {
         AppError::message(
             ExitCode::GeneralFailure,
             format!("could not write `{}`: {e}", target.display()),
@@ -120,12 +139,16 @@ pub fn generate(file: &Path, language: Language, out_dir: &Path) -> Result<Outco
 
     Ok(Outcome::new(json!({
         "contract": contract.identifier(),
-        "language": "rust",
-        "type": generated.type_name,
-        "module": generated.module_name,
+        "language": label,
+        "type": type_name,
         "file": target.display().to_string(),
         "schemaId": schema_identity(&contract).as_str(),
     })))
+}
+
+/// Map an embedded-codegen error to an [`AppError`].
+fn map_codegen_error(err: neuradix_embedded_codegen::CodegenError) -> AppError {
+    AppError::message(ExitCode::ContractValidation, err.to_string())
 }
 
 fn contract_to_json(contract: &Contract) -> Value {

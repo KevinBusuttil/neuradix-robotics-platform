@@ -1,0 +1,15 @@
+[package]
+name = "neuradix-embedded-codegen"
+description = "Embedded contract projections: no_std Rust and Arduino/C++ encode/decode over a fixed little-endian wire, with golden vectors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
