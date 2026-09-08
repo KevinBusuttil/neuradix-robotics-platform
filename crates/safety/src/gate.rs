@@ -60,7 +60,8 @@ impl SafetyGate {
         expires: Timestamp,
         now: Timestamp,
     ) -> Result<(), neuradix_command_core::ConfigError> {
-        self.leases.renew(holder, capability, expires, now, &self.clock)
+        self.leases
+            .renew(holder, capability, expires, now, &self.clock)
     }
     /// Most recently applied output.
     pub fn last_applied(&self) -> Option<f64> {

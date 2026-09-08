@@ -149,22 +149,62 @@ fn non_finite_lineage_remains_auditable_and_cannot_poison_numeric_series() {
         })
         .build();
     let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();
-    for (i, value) in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY].into_iter().enumerate() {
-        let mut e = entry(i as u64, i as i128, "rejected", 0.0, Some("NonFiniteCommand"));
+    for (i, value) in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY]
+        .into_iter()
+        .enumerate()
+    {
+        let mut e = entry(
+            i as u64,
+            i as i128,
+            "rejected",
+            0.0,
+            Some("NonFiniteCommand"),
+        );
         e.requested = value;
-        writer.write_record(0, e.trace, Timestamp::new(ClockDomain::Monotonic, e.at_nanos), &e.to_json_bytes()).unwrap();
+        writer
+            .write_record(
+                0,
+                e.trace,
+                Timestamp::new(ClockDomain::Monotonic, e.at_nanos),
+                &e.to_json_bytes(),
+            )
+            .unwrap();
     }
     std::fs::write(&path, writer.finish().unwrap()).unwrap();
     for (at, marker) in [("0", "NaN"), ("1", "Infinity"), ("2", "-Infinity")] {
-        let (stdout, code) = run(&["-o", "json", "explain", "command", path.to_str().unwrap(), "--at", at]);
+        let (stdout, code) = run(&[
+            "-o",
+            "json",
+            "explain",
+            "command",
+            path.to_str().unwrap(),
+            "--at",
+            at,
+        ]);
         assert_eq!(code, 0);
         let env = ParsedEnvelope::parse(&stdout).unwrap();
         assert_eq!(env.data_field("lineage").unwrap()[1]["requested"], marker);
     }
-    let (stdout, code) = run(&["-o", "json", "studio", "series", path.to_str().unwrap(), "--field", "requested"]);
+    let (stdout, code) = run(&[
+        "-o",
+        "json",
+        "studio",
+        "series",
+        path.to_str().unwrap(),
+        "--field",
+        "requested",
+    ]);
     assert_eq!(code, 1);
     assert!(stdout.contains("non-finite"));
-    let (stdout, code) = run(&["-o", "json", "studio", "series", path.to_str().unwrap(), "--field", "applied"]);
+    let (stdout, code) = run(&[
+        "-o",
+        "json",
+        "studio",
+        "series",
+        path.to_str().unwrap(),
+        "--field",
+        "applied",
+    ]);
     assert_eq!(code, 0);
     let env = ParsedEnvelope::parse(&stdout).unwrap();
     assert_eq!(env.data_field("count").unwrap(), 3);
