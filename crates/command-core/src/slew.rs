@@ -40,7 +40,9 @@ impl SlewRate {
         if !value.is_finite() {
             return None;
         }
-        let Some((prev, dt)) = previous else { return Some(value); };
+        let Some((prev, dt)) = previous else {
+            return Some(value);
+        };
         if !prev.is_finite() || dt.as_nanos() < 0 {
             return None;
         }
@@ -57,7 +59,11 @@ impl SlewRate {
         // Inward correction prevents rounded interval endpoints from exceeding
         // the computed budget. Conversion/product rounding remains documented.
         if (result - prev).abs() > max_delta {
-            result = if result > prev { result.next_down() } else { result.next_up() };
+            result = if result > prev {
+                result.next_down()
+            } else {
+                result.next_up()
+            };
         }
         Some(result)
     }

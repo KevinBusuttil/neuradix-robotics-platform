@@ -1,7 +1,7 @@
 //! Validated range and slew-rate limits (§16.4).
 
-use neuradix_time::Duration;
 use neuradix_command_core::SlewRate;
+use neuradix_time::Duration;
 
 use crate::error::SafetyError;
 

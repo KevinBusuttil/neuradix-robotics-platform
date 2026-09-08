@@ -56,7 +56,6 @@ impl Limits {
             None
         }
     }
-
 }
 
 /// Invalid embedded gate configuration. Construction never coerces safe output.
@@ -217,7 +216,11 @@ impl CommandGate {
         }
         let clamped = clamp(input.value, self.limits.min, self.limits.max);
         let range_clamped = clamped != input.value;
-        let Some(applied) = self.limits.rate.apply_f32(clamped, self.last_applied.zip(elapsed)) else {
+        let Some(applied) = self
+            .limits
+            .rate
+            .apply_f32(clamped, self.last_applied.zip(elapsed))
+        else {
             return self.enter_safe(request, now, SafeReason::InvalidOutput);
         };
         let slew_limited = applied != clamped;

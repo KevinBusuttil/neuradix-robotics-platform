@@ -42,7 +42,12 @@ fn command(value: f32, seq: u64, now: i128) -> Command {
     }
 }
 fn gate() -> CommandGate {
-    CommandGate::new(Limits::with_slew_rate(-1.0, 1.0, 25.0).unwrap(), lease(), 0.0).unwrap()
+    CommandGate::new(
+        Limits::with_slew_rate(-1.0, 1.0, 25.0).unwrap(),
+        lease(),
+        0.0,
+    )
+    .unwrap()
 }
 #[test]
 fn limits_reject_invalid_envelopes_and_rates() {
@@ -60,7 +65,11 @@ fn limits_reject_invalid_envelopes_and_rates() {
 fn invalid_safe_outputs_cannot_create_a_gate() {
     for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -1.1, 1.1] {
         assert!(matches!(
-            CommandGate::new(Limits::with_slew_rate(-1.0, 1.0, 0.5).unwrap(), lease(), value),
+            CommandGate::new(
+                Limits::with_slew_rate(-1.0, 1.0, 0.5).unwrap(),
+                lease(),
+                value
+            ),
             Err(neuradix_embedded_core::GateConfigError::InvalidSafeOutput)
         ));
     }
@@ -83,7 +92,12 @@ fn equal_evaluation_times_do_not_allow_slew() {
 #[test]
 fn non_finite_commands_use_configured_safe_output_without_watchdog_feed() {
     for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
-        let mut g = CommandGate::new(Limits::with_slew_rate(-1.0, 1.0, 0.5).unwrap(), lease(), -0.25).unwrap();
+        let mut g = CommandGate::new(
+            Limits::with_slew_rate(-1.0, 1.0, 0.5).unwrap(),
+            lease(),
+            -0.25,
+        )
+        .unwrap();
         let d = g.evaluate(Some(command(bad, 0, 0)), t(0));
         assert_eq!(d.outcome, Outcome::SafeState(R::NonFiniteCommand));
         assert_eq!(d.applied, -0.25);
@@ -106,7 +120,6 @@ fn extreme_binary32_deltas_use_finite_widened_intermediates() {
     assert_eq!(d.outcome, Outcome::Accepted);
     assert_eq!(d.applied, f32::MAX);
     assert_eq!(g.last_accepted_at(), Some(t(2_000_000_000)));
-
 }
 #[test]
 fn propulsion_node_reports_health_and_expires_on_idle_ticks() {
@@ -123,7 +136,6 @@ fn propulsion_node_reports_health_and_expires_on_idle_ticks() {
     );
     let recovered = node.tick(t(110_000_000), Some(command(1.0, 1, 110_000_000)));
     assert!((recovered - 0.25).abs() < 1e-6); // 25 units/s over just under 10ms
-
 }
 #[test]
 fn standalone_watchdog_starts_expired_and_has_inclusive_timeout() {

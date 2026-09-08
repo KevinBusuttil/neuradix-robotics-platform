@@ -52,7 +52,10 @@ impl Pair {
         Self {
             host: SafetyGate::new(
                 table,
-                vec![Constraint::range("range", -1.0, 1.0).unwrap(), Constraint::slew_rate("slew", f32::MAX as f64).unwrap()],
+                vec![
+                    Constraint::range("range", -1.0, 1.0).unwrap(),
+                    Constraint::slew_rate("slew", f32::MAX as f64).unwrap(),
+                ],
                 0.0,
             )
             .unwrap(),
