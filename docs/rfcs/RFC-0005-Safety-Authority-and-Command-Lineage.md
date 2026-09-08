@@ -18,15 +18,17 @@ No ordinary component may directly and unconditionally drive a safety-relevant
 actuator (§16.1). Actuator requests must pass an authority and constraint path,
 and every actuation must be explainable back to its inputs.
 
-## Implemented (increment 4, updated by A04.1)
+## Implemented (increment 4, updated by A04.2)
 
 The `neuradix-safety` crate provides:
 
-- **`AuthorityLease` / `LeaseTable`**: holder identity, capability, priority,
-  `issued`/`expires` (checked against runtime-owned evaluation time) and an
-  optional permitted `CommandEnvelope`. `authorize` returns the winning lease or
-  a typed `AuthorityDenial` (`NoLease` / `NotYetValid` / `Expired` /
-  `OutOfEnvelope` / `ClockDomainMismatch` / `NonFiniteCommand`).
+- **`AuthorityLease` / `LeaseTable`**: a maximum of 32 trusted holder/capability
+  bindings, one validated current session per binding, with optional permitted
+  `CommandEnvelope`. Runtime time authorizes the lease; source age, deadline,
+  generation and sequence are checked independently. Trusted renewal preserves
+  accepted state; replacement requires a greater generation. Revocation retains
+  the replay watermark. Same-binding priority grants are replaced by explicit
+  trusted provisioning; arbitration remains future work.
 - **`Constraint`**: validated private range and units-per-second slew limits, each
   carrying a stable rule id. A rate limit is a no-op on the first command (no
   reference value), so hard limits always govern — a constraint is never
@@ -45,16 +47,23 @@ The `neuradix-safety` crate provides:
 ## A04.1 trusted evaluation and configuration
 
 `SafetyGate::new` is fallible; safe outputs must be finite and satisfy every hard
-range. `evaluate(request, now)` takes runtime-owned evaluation time, and the
-`Processor` implementation passes `TickContext.now`. `CommandRequest.at` remains
-source metadata. Clock-domain changes, time regression and elapsed-time overflow
+range. `evaluate(Some(request), now)` takes runtime-owned evaluation time, and the
+`Processor` implementation passes `TickContext.now`. `CommandRequest.meta.source_at` remains
+source metadata. Idle `evaluate(None, now)` ticks enforce held-command expiry. Clock-domain changes, time regression and elapsed-time overflow
 latch local fallback until gate reconstruction. Non-finite commands and invalid
 constraint/final outputs produce typed rejections. Configuration cannot bypass
 validated constructors through public fields/variants.
 
 See [A04.1 policy, API migration and evidence](../implementation/WP-A04.1-Trusted-Evaluation.md).
-Freshness/epoch/sequence/deadline and host/MCU slew alignment remain future A04
-work. The RFC remains partially implemented; Gate A remains open.
+[A04.2 policy and migration](../implementation/WP-A04.2-Command-Freshness.md)
+define the shared no_std freshness/deadline/sequence/generation checks, trusted
+durable restart allocation, explicit shared timeline, rejected-traffic watchdog
+rules and required periodic scheduling. Sequence/generation identifiers are not
+authentication. Lineage includes source metadata separately from runtime time;
+non-finite requested values use explicit JSON markers. Idle decisions retain a
+reason/time but produce no invented command lineage. Host/MCU slew alignment and
+physical safe-response evidence remain open; this RFC and WP-A04 remain partial.
+Gate A remains open.
 
 ## Scope (future)
 

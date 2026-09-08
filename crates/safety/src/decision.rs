@@ -1,6 +1,7 @@
 //! Command requests and the auditable safety decisions they produce.
 
 use neuradix_time::Timestamp;
+use neuradix_command_core::CommandMeta;
 
 use crate::authority::{Capability, Identity};
 
@@ -13,52 +14,24 @@ pub struct CommandRequest {
     pub capability: Capability,
     /// The requested value.
     pub value: f64,
-    /// Source issue time (domain-tagged), retained for diagnostics and future
-    /// freshness checks. Never used as the runtime evaluation clock.
-    pub at: Timestamp,
+    /// Original source time, deadline, sequence, generation and timeline identity.
+    pub meta: CommandMeta,
 }
 
 impl CommandRequest {
     /// Construct a command request.
-    pub fn new(holder: Identity, capability: Capability, value: f64, at: Timestamp) -> Self {
+    pub fn new(holder: Identity, capability: Capability, value: f64, meta: CommandMeta) -> Self {
         Self {
             holder,
             capability,
             value,
-            at,
+            meta,
         }
     }
 }
 
-/// The reason a command was rejected (and forced to a safe output).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RejectReason {
-    /// Authority was denied.
-    Authority(crate::authority::AuthorityDenial),
-    /// The requested scalar was NaN or infinite.
-    NonFiniteCommand,
-    /// The evaluation clock changed domain after the first evaluation.
-    EvaluationClockMismatch,
-    /// Evaluation time moved backwards. The gate latches this fault.
-    EvaluationTimeRegression,
-    /// The elapsed evaluation time could not be represented.
-    EvaluationTimeOverflow,
-    /// Constraint arithmetic or the final output violated finite hard bounds.
-    InvalidOutput,
-}
-
-impl std::fmt::Display for RejectReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RejectReason::Authority(d) => write!(f, "authority denied: {d}"),
-            RejectReason::NonFiniteCommand => f.write_str("command is not finite"),
-            RejectReason::EvaluationClockMismatch => f.write_str("evaluation clock changed domain"),
-            RejectReason::EvaluationTimeRegression => f.write_str("evaluation time regressed"),
-            RejectReason::EvaluationTimeOverflow => f.write_str("evaluation elapsed time overflow"),
-            RejectReason::InvalidOutput => f.write_str("constraint output is invalid"),
-        }
-    }
-}
+/// Shared host/embedded rejection vocabulary.
+pub use neuradix_command_core::CommandRejection as RejectReason;
 
 /// The outcome of a safety evaluation.
 #[derive(Debug, Clone, PartialEq)]
@@ -88,8 +61,8 @@ impl Outcome {
 /// to explain the decision and to replay it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SafetyDecision {
-    /// The originating command request.
-    pub request: CommandRequest,
+    /// Incoming command, or None on an idle evaluation tick.
+    pub request: Option<CommandRequest>,
     /// The outcome classification.
     pub outcome: Outcome,
     /// The value actually applied (a fail-safe value when rejected).

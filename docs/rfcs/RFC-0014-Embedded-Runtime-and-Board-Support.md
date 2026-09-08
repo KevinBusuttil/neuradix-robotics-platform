@@ -22,6 +22,16 @@ Compact-ID collision handling and legacy recording migration remain open.
 The note preserves the exact tested commit, toolchain, memory measurements and
 remaining WP-A01/A02/A03 acceptance work.
 
+A04.2 adds a shared `neuradix-command-core` validator and an 87-byte versioned
+command payload inside the existing serial frame. Both endpoints must preserve
+original source time, deadline, holder/capability, sequence, timeline and generation;
+legacy scalar command payloads cannot enter the new gate. Trusted provisioning
+must establish the shared timeline and durably reserve generations before ingress.
+Periodic idle ticks enforce local expiry without incoming packets. See
+[A04.2 design, compatibility and evidence](../implementation/WP-A04.2-Command-Freshness.md).
+These are host-tested native Rust semantics, not generated AVR gate firmware or
+physical reset/timing evidence. The existing scalar AVR codec checks are preserved.
+
 The earlier ESP32-C3 first-board choice remains historical; the current plan uses
 Uno R3 plus one selected RP2040 board for physical Gate B acceptance.
 

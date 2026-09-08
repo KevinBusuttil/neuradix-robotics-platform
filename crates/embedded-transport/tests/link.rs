@@ -1,103 +1,86 @@
-//! Integration: a framed command link feeding the embedded propulsion node.
-//!
-//! Demonstrates the WP4 ↔ WP2 tie-in — a corrupted frame is rejected by the CRC,
-//! so no fresh command reaches the node, and once the corruption outlasts the
-//! watchdog the node falls back to its **local safe state**. A noisy link can
-//! never drive an unsafe command through.
-
-use neuradix_embedded_core::{
-    AuthorityLease, CommandGate, EmbeddedComponent, Limits, NodeId, Outcome, PropulsionNode,
-    SafeReason, Watchdog,
-};
-use neuradix_embedded_transport::{FrameDecoder, FrameEvent, OVERHEAD, encode};
+//! Actual versioned command payload through existing CRC framing into the local gate.
+use neuradix_embedded_core::{AuthorityLease, Command, CommandGate, CommandMeta, CommandPolicy, EmbeddedComponent, Generation, Limits, NodeId, Outcome, PropulsionNode, SafeReason, SessionConfig, SharedTimeline};
+use neuradix_embedded_transport::{COMMAND_BYTES, FrameDecoder, FrameEvent, OVERHEAD, decode_command, encode, encode_command};
 use neuradix_time::{ClockDomain, Duration, Timestamp};
-
-fn t(ns: i128) -> Timestamp {
-    Timestamp::new(ClockDomain::Monotonic, ns)
+fn t(n: i128) -> Timestamp { Timestamp::new(ClockDomain::Monotonic, n) }
+fn command(sequence: u64, source: i128) -> Command {
+    Command { holder: 1, capability: 2, value: 0.5,
+        meta: CommandMeta { generation: Generation::new(7).unwrap(), sequence, source_at: t(source), deadline: t(source + 1_000_000_000), timeline: 1 } }
 }
-
-/// Encode a thrust command (`f32` little-endian) into a frame.
-fn frame_command(seq: u16, thrust: f32) -> ([u8; OVERHEAD + 4], usize) {
-    let mut buf = [0u8; OVERHEAD + 4];
-    let n = encode(seq, &thrust.to_le_bytes(), &mut buf).unwrap();
-    (buf, n)
+fn node() -> PropulsionNode {
+    let policy = CommandPolicy::new(SharedTimeline::new(1, ClockDomain::Monotonic).unwrap(), Duration::from_secs(1), Duration::ZERO, Duration::from_millis(100)).unwrap();
+    let lease = AuthorityLease::new(1, 2, SessionConfig::new(Generation::new(7).unwrap(), t(0), t(10_000_000_000), policy).unwrap());
+    PropulsionNode::new(NodeId::new("thruster"), CommandGate::new(Limits::new(-1.0, 1.0, 1.0).unwrap(), lease, 0.0).unwrap())
 }
-
-/// Push a frame's bytes through the decoder and, if a verified frame completes,
-/// decode the `f32` thrust command it carries.
-fn receive(decoder: &mut FrameDecoder<32>, bytes: &[u8]) -> Option<f32> {
+fn frame(transport_seq: u16, command: Command) -> ([u8; OVERHEAD + COMMAND_BYTES], usize) {
+    let mut out = [0; OVERHEAD + COMMAND_BYTES];
+    let n = encode(transport_seq, &encode_command(command), &mut out).unwrap();
+    (out, n)
+}
+fn receive(decoder: &mut FrameDecoder<128>, bytes: &[u8]) -> Option<Command> {
     let mut command = None;
-    for &b in bytes {
-        if let Some(FrameEvent::Frame(_)) = decoder.push(b) {
-            let p = decoder.payload();
-            if p.len() == 4 {
-                command = Some(f32::from_le_bytes([p[0], p[1], p[2], p[3]]));
-            }
-        }
+    for &byte in bytes {
+        if let Some(FrameEvent::Frame(_)) = decoder.push(byte) { command = decode_command(decoder.payload()); }
     }
     command
 }
-
 #[test]
-fn a_clean_link_applies_commands() {
-    let gate = CommandGate::new(
-        Limits::new(-1.0, 1.0, 1.0).unwrap(),
-        AuthorityLease::until(t(10_000_000_000)),
-        Watchdog::new(Duration::from_millis(100)),
-        0.0,
-    )
-    .unwrap();
-    let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
-    let mut decoder = FrameDecoder::<32>::new();
-
-    let (buf, n) = frame_command(0, 0.5);
-    let command = receive(&mut decoder, &buf[..n]);
-    assert_eq!(node.tick(t(0), command), 0.5);
+fn clean_link_preserves_source_metadata_and_applies_commands() {
+    let mut node = node(); let mut decoder = FrameDecoder::<128>::new();
+    let original = command(42, 0); let (bytes, n) = frame(0, original);
+    let received = receive(&mut decoder, &bytes[..n]);
+    assert_eq!(received, Some(original));
+    assert_eq!(node.tick(t(10_000_000), received), 0.5);
+    assert_eq!(node.last_decision().unwrap().request.unwrap().meta.source_at, t(0));
     assert_eq!(node.last_decision().unwrap().outcome, Outcome::Accepted);
 }
-
 #[test]
-fn sustained_corruption_drives_the_node_to_safe_state() {
-    let gate = CommandGate::new(
-        Limits::new(-1.0, 1.0, 1.0).unwrap(),
-        AuthorityLease::until(t(10_000_000_000)),
-        Watchdog::new(Duration::from_millis(100)), // 100 ms link timeout
-        0.0,
-    )
-    .unwrap();
-    let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
-    let mut decoder = FrameDecoder::<32>::new();
-
-    let step = 20_000_000i128; // 20 ms ticks (50 Hz)
-    let mut entered_safe_at = None;
-
+fn sustained_corruption_cannot_feed_the_actuator_watchdog() {
+    let mut node = node(); let mut decoder = FrameDecoder::<128>::new(); let mut entered = None;
     for i in 0..20u16 {
-        let now = t(i as i128 * step);
-        let (mut buf, n) = frame_command(i, 0.6);
-
-        // From 60 ms onward every frame is corrupted (a bit flipped in the
-        // payload), so the CRC rejects it and no command is delivered.
-        if now.as_nanos() >= 60_000_000 {
-            buf[7] ^= 0x01;
-        }
-
-        let command = receive(&mut decoder, &buf[..n]);
-        node.tick(now, command);
-
-        if node.in_safe_state() && entered_safe_at.is_none() {
-            entered_safe_at = Some(now.as_nanos());
-            assert_eq!(
-                node.last_decision().unwrap().outcome,
-                Outcome::SafeState(SafeReason::LinkLost),
-            );
+        let now = i as i128 * 20_000_000;
+        let (mut bytes, n) = frame(i, command(i as u64, now));
+        if now >= 60_000_000 { bytes[7] ^= 1; }
+        node.tick(t(now), receive(&mut decoder, &bytes[..n]));
+        if node.in_safe_state() && entered.is_none() {
+            entered = Some(now);
+            assert_eq!(node.last_decision().unwrap().outcome, Outcome::SafeState(SafeReason::WatchdogExpired));
         }
     }
-
-    // Corruption started at 60 ms; the 100 ms watchdog trips ~160 ms in.
-    let at = entered_safe_at.expect("node must reach safe state under corruption");
-    assert!(
-        at >= 160_000_000,
-        "safe state should follow the watchdog timeout, entered at {at} ns"
-    );
-    assert!(node.in_safe_state());
+    assert_eq!(entered, Some(160_000_000)); assert!(node.in_safe_state());
+}
+#[test]
+fn fresh_outer_frame_numbers_do_not_make_replayed_commands_fresh() {
+    let mut node = node(); let mut decoder = FrameDecoder::<128>::new();
+    let original = command(0, 0);
+    for frame_seq in 0..8 {
+        let (bytes, n) = frame(frame_seq, original);
+        node.tick(t(frame_seq as i128 * 20_000_000), receive(&mut decoder, &bytes[..n]));
+        if frame_seq > 0 { assert_eq!(node.last_decision().unwrap().outcome, Outcome::SafeState(SafeReason::Duplicate)); }
+    }
+    node.tick(t(160_000_000), None);
+    assert_eq!(node.last_decision().unwrap().outcome, Outcome::SafeState(SafeReason::WatchdogExpired));
+}
+#[test]
+fn unsupported_payloads_never_become_arrival_stamped_commands() {
+    assert!(decode_command(&0.5f32.to_le_bytes()).is_none()); // incompatible legacy format
+    let original = encode_command(command(0, 0));
+    for size in [0, COMMAND_BYTES - 1] { assert!(decode_command(&original[..size]).is_none()); }
+    let mut bad = original; bad[0] = 2; assert!(decode_command(&bad).is_none());
+    let mut bad = original; bad[49] = 255; assert!(decode_command(&bad).is_none());
+    let mut bad = original; bad[17..33].fill(0); assert!(decode_command(&bad).is_none());
+    let mut bad_value = command(0, 0); bad_value.value = f32::NAN;
+    let received = decode_command(&encode_command(bad_value)).unwrap();
+    assert!(received.value.is_nan()); // numeric rejection remains auditable at gate
+}
+#[test]
+fn delayed_previous_generation_and_stale_payloads_are_rejected_after_decode() {
+    let mut decoder = FrameDecoder::<128>::new();
+    let mut node = node();
+    let mut old = command(0, 0); old.meta.generation = Generation::new(6).unwrap();
+    let (bytes, n) = frame(0, old); node.tick(t(0), receive(&mut decoder, &bytes[..n]));
+    assert_eq!(node.last_decision().unwrap().outcome, Outcome::SafeState(SafeReason::GenerationMismatch));
+    let mut stale = command(1, 0); stale.meta.deadline = t(3_000_000_000);
+    let (bytes, n) = frame(1, stale); node.tick(t(2_000_000_000), receive(&mut decoder, &bytes[..n]));
+    assert_eq!(node.last_decision().unwrap().outcome, Outcome::SafeState(SafeReason::StaleCommand));
 }

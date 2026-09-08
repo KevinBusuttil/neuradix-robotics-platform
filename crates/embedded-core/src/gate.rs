@@ -1,16 +1,16 @@
 //! The local command gate — the embedded safety heart.
 //!
-//! Every actuator command passes through the gate, which enforces, in order:
-//! authority (a valid lease), link liveness (the watchdog), command validity,
-//! and the actuator envelope (range + slew). When authority or the link is lost,
-//! or a command is not finite, the gate applies a **local safe output** without
+//! Every actuator command passes through runtime clock, binding/lease, source
+//! validity/sequence and numeric/output checks. Only complete acceptance feeds
+//! the command watchdog; idle ticks check all held-command expiry conditions.
+//! Rejection applies a **local safe output** without
 //! any dependency on the host — the §16.1 / NRX-EMB-004 rule that a node can
 //! always reach a safe state on its own.
 
 use neuradix_time::Timestamp;
 
 use crate::lease::AuthorityLease;
-use crate::watchdog::Watchdog;
+use neuradix_command_core::{CommandMeta, ConfigError, EvaluationClock, Generation};
 
 /// The actuator envelope a command must satisfy.
 ///
@@ -76,205 +76,127 @@ impl core::fmt::Display for GateConfigError {
 
 impl core::error::Error for GateConfigError {}
 
-/// Why the gate applied the safe output instead of a command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SafeReason {
-    /// The authority lease had expired (or was cross-domain).
-    LeaseExpired,
-    /// No fresh command arrived within the watchdog timeout (link loss).
-    LinkLost,
-    /// The command value was not a finite number.
-    BadCommand,
-    /// The evaluation clock changed domain; latched until gate reconstruction.
-    EvaluationClockMismatch,
-    /// Evaluation time regressed; latched until gate reconstruction.
-    EvaluationTimeRegression,
-    /// Constraint arithmetic or the final output violated finite hard bounds.
-    InvalidOutput,
+/// Shared host/embedded rejection vocabulary.
+pub use neuradix_command_core::CommandRejection as SafeReason;
+
+/// A source command bound to a provisioned holder/capability and session.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Command {
+    /// Source holder identifier; compared with the trusted lease binding.
+    pub holder: u64,
+    /// Actuator capability identifier.
+    pub capability: u64,
+    /// Untrusted scalar value.
+    pub value: f32,
+    /// Source freshness, deadline, sequence, timeline and generation metadata.
+    pub meta: CommandMeta,
 }
 
 /// The disposition of a gate evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
-    /// The command was applied unchanged (or a held value was kept).
+    /// Applied unchanged, or a still-valid output held during an idle tick.
     Accepted,
-    /// The command was applied but modified by the range or slew limit.
+    /// Applied after range or per-evaluation slew limiting.
     Modified,
-    /// The safe output was applied for the given reason.
+    /// Local safe output with an auditable reason.
     SafeState(SafeReason),
 }
 
-/// The result of one gate evaluation.
+/// Result of one evaluation, including idle expiry and source provenance.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GateDecision {
-    /// The value actually applied to the actuator.
+    /// Incoming source command; None for a runtime idle tick.
+    pub request: Option<Command>,
+    /// Runtime evaluation time, never a source timestamp substitution.
+    pub at: Timestamp,
+    /// Finite applied output inside the configured hard bounds.
     pub applied: f32,
-    /// The disposition.
+    /// Disposition and rejection reason.
     pub outcome: Outcome,
-    /// Whether the range limit acted.
+    /// Whether range limiting acted.
     pub range_clamped: bool,
-    /// Whether the slew limit acted.
+    /// Whether per-evaluation slew limiting acted.
     pub slew_limited: bool,
 }
 
-/// The local command gate: lease + watchdog + envelope + safe output.
+/// Allocation-free gate: binding/lease, command validity, numeric limits, fallback.
+/// Runtime must call evaluate periodically, including with None when no input arrives.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandGate {
     limits: Limits,
     lease: AuthorityLease,
-    watchdog: Watchdog,
     safe_output: f32,
     last_applied: Option<f32>,
-    last_evaluated: Option<Timestamp>,
-    time_fault: Option<SafeReason>,
+    clock: EvaluationClock,
+    active_generation: Option<Generation>,
+    fallback_reason: Option<SafeReason>,
 }
-
 impl CommandGate {
-    /// Build a gate with a finite safe output inside the validated envelope.
-    /// Invalid safe outputs are rejected, never clamped or replaced silently.
-    pub fn new(
-        limits: Limits,
-        lease: AuthorityLease,
-        watchdog: Watchdog,
-        safe_output: f32,
-    ) -> Result<Self, GateConfigError> {
-        if !limits.permits(safe_output) {
-            return Err(GateConfigError::InvalidSafeOutput);
-        }
-        Ok(Self {
-            limits,
-            lease,
-            watchdog,
-            safe_output,
-            last_applied: None,
-            last_evaluated: None,
-            time_fault: None,
-        })
+    /// Reject non-finite/out-of-range safe configuration explicitly. The accepted
+    /// command watchdog is configured in the lease's CommandPolicy.
+    pub fn new(limits: Limits, lease: AuthorityLease, safe_output: f32) -> Result<Self, GateConfigError> {
+        if !limits.permits(safe_output) { return Err(GateConfigError::InvalidSafeOutput); }
+        Ok(Self { limits, lease, safe_output, last_applied: None, clock: EvaluationClock::default(), active_generation: None, fallback_reason: None })
     }
-
-    /// The safe output value.
-    pub fn safe_output(&self) -> f32 {
-        self.safe_output
-    }
-
-    /// The last applied value, if the gate has evaluated at least once.
-    pub fn last_applied(&self) -> Option<f32> {
-        self.last_applied
-    }
-
-    /// Evaluate a (possibly absent) command request at `now`.
-    ///
-    /// `request` is `Some` when a fresh command arrived this tick (which feeds
-    /// the watchdog) and `None` otherwise. The order is deliberate: authority is
-    /// checked before the link, and both before the command is shaped, so a
-    /// lapsed lease or a lost link always wins over any requested value.
-    /// `now` must come from the local runtime, never the command source. A clock
-    /// domain change or regression latches a safe state before watchdog feeding.
-    /// Equal times are allowed; slew remains per evaluation in this increment.
-    pub fn evaluate(&mut self, request: Option<f32>, now: Timestamp) -> GateDecision {
-        if self.time_fault.is_none()
-            && let Some(previous) = self.last_evaluated
-        {
-            if now.domain() != previous.domain() {
-                self.time_fault = Some(SafeReason::EvaluationClockMismatch);
-            } else if now.as_nanos() < previous.as_nanos() {
-                self.time_fault = Some(SafeReason::EvaluationTimeRegression);
-            }
-        }
-        if let Some(reason) = self.time_fault {
-            return self.enter_safe(reason);
-        }
-        self.last_evaluated = Some(now);
-        if request.is_some() {
-            self.watchdog.feed(now);
-        }
-
-        // 1. Authority.
-        if !self.lease.grants_at(now) {
-            return self.enter_safe(SafeReason::LeaseExpired);
-        }
-        // 2. Link liveness.
-        if self.watchdog.is_expired(now) {
-            return self.enter_safe(SafeReason::LinkLost);
-        }
-        // 3. Command presence: with valid authority and a live link, a tick with
-        //    no new command holds the last applied value (the watchdog, not a
-        //    single missing sample, governs staleness).
-        let Some(requested) = request else {
-            let applied = self.last_applied.unwrap_or(self.safe_output);
-            self.last_applied = Some(applied);
-            return GateDecision {
-                applied,
-                outcome: Outcome::Accepted,
-                range_clamped: false,
-                slew_limited: false,
+    /// Trusted lease replacement; requires a strictly greater generation. Does
+    /// not clear the gate-wide evaluation-clock fault. Evaluate before actuating.
+    pub fn replace_lease(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> { self.lease.replace(lease) }
+    /// Trusted renewal preserves sequence and all accepted-command validity times.
+    pub fn renew_lease(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> { self.lease.session.renew(expires, now) }
+    /// Trusted revocation; the next evaluation applies the safe output.
+    pub fn revoke_lease(&mut self) { self.lease.session.revoke(); }
+    /// Validated local safe output.
+    pub fn safe_output(&self) -> f32 { self.safe_output }
+    /// Last applied value, if evaluated.
+    pub fn last_applied(&self) -> Option<f32> { self.last_applied }
+    /// Receiver time of the last fully accepted command, for watchdog diagnostics.
+    pub fn last_accepted_at(&self) -> Option<Timestamp> { self.lease.session.last_accepted_at() }
+    /// Evaluate at trusted runtime time. No rejected command refreshes session
+    /// sequence, source age, deadline or the accepted-command watchdog.
+    pub fn evaluate(&mut self, request: Option<Command>, now: Timestamp) -> GateDecision {
+        if let Err(reason) = self.clock.observe(now) { return self.enter_safe(request, now, reason); }
+        let Some(input) = request else {
+            let validity = match self.active_generation {
+                Some(generation) if generation != self.lease.config().generation() => Err(SafeReason::GenerationMismatch),
+                Some(_) => self.lease.session.check_held(now),
+                None => Err(SafeReason::NoCommand),
             };
+            if let Err(reason) = validity { return self.enter_safe(None, now, reason); }
+            if let Some(reason) = self.fallback_reason { return self.enter_safe(None, now, reason); }
+            return GateDecision { request: None, at: now, applied: self.last_applied.unwrap_or(self.safe_output), outcome: Outcome::Accepted, range_clamped: false, slew_limited: false };
         };
-        // 4. Command validity.
-        if !requested.is_finite() {
-            return self.enter_safe(SafeReason::BadCommand);
-        }
-
-        // 5. Envelope: range clamp, then slew from the last applied value. The
-        //    first command is not slew-limited (there is no previous output to
-        //    rate-limit against) — the same rule the host gate enforces.
-        let clamped = clamp(requested, self.limits.min, self.limits.max);
-        let range_clamped = clamped != requested;
-
+        if let Err(reason) = self.lease.validate(input.holder, input.capability, input.meta, now) { return self.enter_safe(request, now, reason); }
+        if !input.value.is_finite() { return self.enter_safe(request, now, SafeReason::NonFiniteCommand); }
+        let clamped = clamp(input.value, self.limits.min, self.limits.max);
+        let range_clamped = clamped != input.value;
         let (applied, slew_limited) = match self.last_applied {
             Some(prev) => {
                 let delta = clamped - prev;
-                if !delta.is_finite() {
-                    return self.enter_safe(SafeReason::InvalidOutput);
-                }
-                if delta > self.limits.max_step {
-                    (prev + self.limits.max_step, true)
-                } else if delta < -self.limits.max_step {
-                    (prev - self.limits.max_step, true)
-                } else {
-                    (clamped, false)
-                }
+                if !delta.is_finite() { return self.enter_safe(request, now, SafeReason::InvalidOutput); }
+                if delta > self.limits.max_step { (prev + self.limits.max_step, true) }
+                else if delta < -self.limits.max_step { (prev - self.limits.max_step, true) }
+                else { (clamped, false) }
             }
             None => (clamped, false),
         };
-
-        // Check after all arithmetic, including rounding/overflow in slew.
-        if !self.limits.permits(applied) {
-            return self.enter_safe(SafeReason::InvalidOutput);
-        }
+        if !self.limits.permits(applied) { return self.enter_safe(request, now, SafeReason::InvalidOutput); }
+        if let Err(reason) = self.lease.session.accept(input.meta, now) { return self.enter_safe(request, now, reason); }
         self.last_applied = Some(applied);
-        let outcome = if range_clamped || slew_limited {
-            Outcome::Modified
-        } else {
-            Outcome::Accepted
-        };
-        GateDecision {
-            applied,
-            outcome,
-            range_clamped,
-            slew_limited,
-        }
+        self.active_generation = Some(input.meta.generation);
+        self.fallback_reason = None;
+        GateDecision { request, at: now, applied, outcome: if range_clamped || slew_limited { Outcome::Modified } else { Outcome::Accepted }, range_clamped, slew_limited }
     }
-
-    fn enter_safe(&mut self, reason: SafeReason) -> GateDecision {
+    fn enter_safe(&mut self, request: Option<Command>, now: Timestamp, reason: SafeReason) -> GateDecision {
         self.last_applied = Some(self.safe_output);
-        GateDecision {
-            applied: self.safe_output,
-            outcome: Outcome::SafeState(reason),
-            range_clamped: false,
-            slew_limited: false,
-        }
+        self.fallback_reason = Some(reason);
+        GateDecision { request, at: now, applied: self.safe_output, outcome: Outcome::SafeState(reason), range_clamped: false, slew_limited: false }
     }
 }
 
-/// Clamp finite input to the private, validated envelope without allocation.
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
     let mut v = value;
-    if v < min {
-        v = min;
-    }
-    if v > max {
-        v = max;
-    }
+    if v < min { v = min; }
+    if v > max { v = max; }
     v
 }

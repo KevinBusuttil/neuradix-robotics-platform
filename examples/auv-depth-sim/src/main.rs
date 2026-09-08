@@ -17,7 +17,7 @@ use std::error::Error;
 
 use neuradix_safety::{
     AuthorityLease, Capability, CommandRequest, Constraint, Identity, LeaseTable, Outcome,
-    SafetyGate,
+    SafetyGate, CommandMeta, CommandPolicy, Generation, SessionConfig, SharedTimeline,
 };
 use neuradix_sim::{
     Controller, DepthPlant, DepthSensor, PlantParams, PlantState, Simulation, StepContext,
@@ -53,15 +53,18 @@ impl SafetyGatedController {
         let capability = Capability::new("propulsion/vertical-thrust");
 
         let mut leases = LeaseTable::new();
-        leases.grant(AuthorityLease {
-            holder: holder.clone(),
-            capability: capability.clone(),
-            priority: 10,
-            issued: Timestamp::new(ClockDomain::Simulation, 0),
-            // Authority for the whole mission.
-            expires: Timestamp::new(ClockDomain::Simulation, i128::MAX),
-            envelope: None,
-        });
+        // Fixed generation/timeline are for this isolated simulation only.
+        // Live startup must durably reserve a non-reused generation before ingress.
+        let session = SessionConfig::new(
+            Generation::new(1).unwrap(),
+            Timestamp::new(ClockDomain::Simulation, 0),
+            Timestamp::new(ClockDomain::Simulation, i128::MAX),
+            CommandPolicy::new(
+                SharedTimeline::new(1, ClockDomain::Simulation).unwrap(),
+                Duration::from_millis(100), Duration::ZERO, Duration::from_millis(100),
+            ).unwrap(),
+        ).unwrap();
+        leases.grant(AuthorityLease::new(holder.clone(), capability.clone(), session, None)).unwrap();
 
         // The raw control law may demand far more than the actuator envelope; the
         // range constraint clamps it to +/-0.8, and the slew constraint bounds
@@ -90,8 +93,11 @@ impl Controller for SafetyGatedController {
         let raw = self.gain * (self.setpoint - measured_depth);
 
         let request =
-            CommandRequest::new(self.holder.clone(), self.capability.clone(), raw, ctx.now);
-        let decision = self.gate.evaluate(request, ctx.now);
+            CommandRequest::new(self.holder.clone(), self.capability.clone(), raw, CommandMeta {
+                generation: Generation::new(1).unwrap(), sequence: ctx.step,
+                source_at: ctx.now, deadline: ctx.now.checked_add(Duration::from_millis(100)).unwrap(), timeline: 1,
+            });
+        let decision = self.gate.evaluate(Some(request), ctx.now);
         match decision.outcome {
             Outcome::Accepted => self.accepted += 1,
             Outcome::Modified => self.modified += 1,

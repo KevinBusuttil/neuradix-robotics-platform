@@ -13,6 +13,7 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 - [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
 - [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
 - [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
+- [A04.2 command freshness, generations and API migration](docs/implementation/WP-A04.2-Command-Freshness.md)
 - [A04.1 trusted evaluation, numeric validation and API migration](docs/implementation/WP-A04.1-Trusted-Evaluation.md)
 - [Gate A codec implementation and validation](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
 - [Embedded Plan v0.2](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Studio Plan v0.2](docs/Neuradix_Studio_Implementation_Plan_v0.2.md), [CLI Specification v0.2](docs/Neuradix_CLI_Command_Specification_v0.2.md)
@@ -22,7 +23,7 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 
 Main now includes the six development increments and the first Gate A codec fixes,
 integrated through [PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6) and [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7).
-The workspace remains an experimental foundation: **15 library/tool crates and
+The workspace remains an experimental foundation: **16 library/tool crates (including this branch's shared command validator) and
 four executable examples**, version 0.0.1.
 
 Implemented foundations include scalar contracts and semantic identity, tagged
@@ -45,7 +46,7 @@ Current limits:
 
 - `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
-- A04.1 in this branch implements trusted evaluation time and validated numeric configuration; command freshness/epoch/deadline, slew alignment and physical safety evidence remain open. Python I/O, cleanup and resource bounds still require Gate A fixes.
+- A04.1 is integrated through PR #8. This branch adds A04.2 freshness, deadline, sequence/generation and idle-expiry checks. Trusted durable startup and a shared reference clock are required; A04.3 slew alignment and physical safety evidence remain open. Python I/O, cleanup and resource bounds still require Gate A fixes.
 - MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
@@ -160,13 +161,14 @@ crates/
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
   runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
   record/           # neuradix-record: deterministic recording + replay digest
+  command-core/     # no_std shared freshness, deadline, sequence and generation checks
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler
   sim/              # neuradix-sim: fixed-step AUV depth fixture
   studio/           # neuradix-studio: headless recording inspection
   embedded-core/    # no_std identity, health, authority and watchdog primitives
-  embedded-transport/ # no_std serial framing, CRC and sequence tracking
+  embedded-transport/ # no_std serial framing, CRC and command metadata binding
   embedded-codegen/ # canonical scalar Rust/C++ codec and target ABI checks
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities

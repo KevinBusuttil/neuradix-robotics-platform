@@ -1,6 +1,6 @@
 [package]
-name = "neuradix-embedded-transport"
-description = "no_std framing for MCU links: CRC-checked, resync-capable frames with sequence tracking (serial-first)."
+name = "neuradix-command-core"
+description = "Bounded no_std command freshness, lease generation and sequence validation."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,5 +9,4 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-neuradix-embedded-core = { workspace = true }
 neuradix-time = { path = "../time", version = "0.0.1", default-features = false }

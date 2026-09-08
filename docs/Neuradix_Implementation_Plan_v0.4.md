@@ -133,7 +133,9 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Confusing sender timestamps or CRC with trusted authority.
 
-**A04.1 progress (this branch):** Trusted runtime evaluation time, private validated numeric configuration, explicit safe-output rejection and final-output checks are implemented with focused regressions. See [A04.1 evidence and API migration](implementation/WP-A04.1-Trusted-Evaluation.md). This completes only the trusted-evaluation/numeric portion. Source freshness/future skew, sequence/epoch/deadline protocols, host/MCU slew alignment and physical response evidence remain open; WP-A04 is partial and Gate A remains open.
+**A04.1 integrated:** PR #8 merged as `b4aae739`; trusted runtime evaluation time, private validated numeric configuration, explicit safe-output rejection and final-output checks are implemented. See [A04.1 evidence](implementation/WP-A04.1-Trusted-Evaluation.md).
+
+**A04.2 progress (this branch):** Shared host/no_std validation now enforces source age/future skew, exclusive deadlines, increasing sequences, current lease/session generations and accepted-command watchdog expiry, including idle evaluation ticks. Trusted startup must durably reserve a non-reused generation and provision a supported shared timeline. See [A04.2 policy, API migration and evidence](implementation/WP-A04.2-Command-Freshness.md). WP-A04 remains **partial**. **A04.3** owns host/MCU slew alignment and changing-period conformance; actual rig response and board integration remain unqualified. **Gate A remains open.**
 
 <a name="wp-a05"></a>
 

@@ -2,7 +2,7 @@
 //!
 //! This crate turns a noisy byte stream (a UART, later CAN) into a sequence of
 //! integrity-checked messages, and back. It is `#![no_std]`, allocation-free and
-//! dependency-free (only `core`), so the encoder and the byte-at-a-time decoder
+//! uses no_std command/time types for its command binding; framing and decoding
 //! run unchanged inside an interrupt handler on the board and in host tests.
 //!
 //! - [`encode`] frames a payload (sync + seq + len + CRC-32) into a caller
@@ -13,9 +13,8 @@
 //!   duplicate, gapped (frames lost) or reordered.
 //!
 //! Integrity (CRC) and ordering (sequence) live here; **freshness** is enforced
-//! upstream by the `neuradix-embedded-core` watchdog — a corrupt or missing
-//! frame simply means no fresh command arrived, which drives the node's local
-//! safe state. A wired/wireless link is never trusted as a safety channel.
+//! by the gate's source age, deadline and accepted-command watchdog checks.
+//! Corrupt/missing frames do not feed liveness. Runtime idle ticks enforce expiry. A wired/wireless link is never trusted as a safety channel.
 //!
 //! # Example — round trip
 //!
@@ -41,6 +40,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod command;
 pub mod crc;
 pub mod frame;
 pub mod sequence;
@@ -48,3 +48,5 @@ pub mod sequence;
 pub use crc::{Crc32, crc32};
 pub use frame::{Frame, FrameDecoder, FrameEvent, OVERHEAD, SYNC, TransportError, encode};
 pub use sequence::{SeqStatus, SequenceTracker};
+
+pub use command::{COMMAND_BYTES, COMMAND_VERSION, decode_command, encode_command};

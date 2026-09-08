@@ -224,6 +224,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-command-core"
+version = "0.0.1"
+dependencies = [
+ "neuradix-time",
+]
+
+[[package]]
 name = "neuradix-contracts"
 version = "0.0.1"
 dependencies = [
@@ -250,6 +257,7 @@ dependencies = [
 name = "neuradix-embedded-core"
 version = "0.0.1"
 dependencies = [
+ "neuradix-command-core",
  "neuradix-time",
 ]
 
@@ -351,6 +359,8 @@ dependencies = [
 name = "neuradix-safety"
 version = "0.0.1"
 dependencies = [
+ "neuradix-command-core",
+ "neuradix-embedded-core",
  "neuradix-runtime",
  "neuradix-time",
  "serde",
