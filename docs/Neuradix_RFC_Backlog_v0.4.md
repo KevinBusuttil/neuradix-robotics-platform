@@ -19,15 +19,15 @@
 | [0018](rfcs/RFC-0018-Python-Worker-SDK-and-Isolation.md) | Python workers | Full-request deadlines, bounded I/O and cleanup, A05 |
 | [0019](rfcs/RFC-0019-Deployment-Graph-Validation.md) | Graph validation | Resolved manifest identity and runtime enforcement distinction, A08/B02 |
 
-## Development-only RFCs: review before integration
+## Integrated prototype RFCs: retain IDs and qualification work
 
-These identifiers are already used on development `c8aa467`; do not reuse them. They are not files in the main baseline.
+PR #7 integrated these RFCs and their prototype implementations into main. Their IDs remain reserved for these subjects; the qualification work below is still open.
 
-| RFC | Development source | Review focus |
+| RFC | Integrated source | Remaining work |
 |---|---|---|
-| 0020 | [Deterministic Vehicle Simulation](https://github.com/KevinBusuttil/neuradix-robotics-platform/blob/c8aa4671bcee8739354beb7880551db7f64314fa/docs/rfcs/RFC-0020-Deterministic-Vehicle-Simulation.md) | Preserve fast fixture, add native backend scope under C01/C02 |
-| 0021 | [MCAP Recording Backend](https://github.com/KevinBusuttil/neuradix-robotics-platform/blob/c8aa4671bcee8739354beb7880551db7f64314fa/docs/rfcs/RFC-0021-MCAP-Recording-Backend.md) | Replace private subset/interchange assumptions under A06 |
-| 0022 | [Studio Inspection Model](https://github.com/KevinBusuttil/neuradix-robotics-platform/blob/c8aa4671bcee8739354beb7880551db7f64314fa/docs/rfcs/RFC-0022-Studio-Inspection-Model.md) | Reuse headless semantics in graphical shared-service workflow |
+| 0020 | [Deterministic Vehicle Simulation](rfcs/RFC-0020-Deterministic-Vehicle-Simulation.md) | Preserve fast fixture, add native backend scope under C01/C02 |
+| 0021 | [MCAP Recording Backend](rfcs/RFC-0021-MCAP-Recording-Backend.md) | Replace private subset/interchange assumptions under A06 |
+| 0022 | [Studio Inspection Model](rfcs/RFC-0022-Studio-Inspection-Model.md) | Reuse headless semantics in graphical shared-service workflow |
 
 ## New reserved decision slots
 
@@ -38,6 +38,8 @@ These identifiers are already used on development `c8aa467`; do not reuse them. 
 | 0025 | Native Simulation and Studio Service Boundaries | C01/C03: stepping/reset, device binding, import fidelity, shared UI/CLI API |
 | 0026 | Durable Runs, Workers and Artifact Identity | D01/D02: leases, retry/cancel, duplicate completion, partial results and retention |
 | 0027 | Site Independence and Enterprise Operations | D03/D04/F01: discovery, freshness, access/quotas, backup and HA evidence |
+
+The [Gate A implementation note](implementation/Gate-A-Embedded-Wire-and-ABI.md) records the implemented scalar v2 wire/ABI decision, compatibility rules and evidence for part of 0024. A complete RFC covering transport binding, compact IDs and migration remains open.
 
 Reserved slots are backlog entries; their RFC files do not yet exist. Each implementation package must submit the needed decision text and alternatives before stabilising its public contract.
 

@@ -3209,4 +3209,3 @@ The recommended foundations are selected because they provide existing, actively
 20. ECSS-E-ST-40-07C Rev.1, Simulation modelling platform Level 1, 5 August 2025: https://ecss.nl/standard/ecss-e-st-40-07c-rev-1-simulation-modelling-platform-level-1-5-august-2025/
 21. Ferrocene qualified Rust toolchain documentation: https://ferrocene.dev/
 22. Khronos OpenXR overview and specification: https://www.khronos.org/openxr/
-

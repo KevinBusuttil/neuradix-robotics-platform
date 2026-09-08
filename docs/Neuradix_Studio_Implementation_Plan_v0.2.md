@@ -3,7 +3,7 @@ title: "Neuradix Studio — Integrated Engineering Plan"
 author: "Busuttil Technologies Limited"
 date: "8 September 2026"
 version: "0.2 Draft"
-status: "Proposed documentation baseline; implementation status is separate"
+status: "Current planning baseline; implementation status is separate"
 supersedes: "Neuradix_Studio_Implementation_Plan_v0.1.md"
 ---
 
@@ -15,7 +15,7 @@ Studio is the integrated environment for modelling, programming, simulating, dep
 
 The initial implementation is a local web UI backed by Rust application/query services shared with the CLI. This supersedes the earlier requirement to prove identical WASM/native rendering, a desktop wrapper and XR before the basic workflow is complete. Those remain possible implementations or extensions, subject to measured need and supported-device evidence.
 
-The current development branch has a headless inspection library/CLI only. No graphical Studio, editor, live graph supervisor or complete simulator integration is established. Reuse reviewed query semantics; do not confuse library presence with a delivered user interface.
+Main includes the headless inspection library/CLI from PR #7. No graphical Studio, editor, live graph supervisor or complete simulator integration is established. Reuse reviewed query semantics; do not confuse library presence with a delivered user interface.
 
 # 2. Architecture and boundaries
 

@@ -3,7 +3,7 @@ title: "Neuradix Embedded — Implementation Plan"
 author: "Busuttil Technologies Limited"
 date: "8 September 2026"
 version: "0.2 Draft"
-status: "Proposed documentation baseline; implementation status is separate"
+status: "Current planning baseline; implementation status is separate"
 supersedes: "Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md"
 ---
 
@@ -15,11 +15,11 @@ Make Tiny and MCU first-class participants in the unified project/compiler, simu
 
 Tiny uses generated bounded C/C++; MCU supports no_std Rust or qualified generated C/C++. Connected/High are MCU capability variants. Keep executor, HAL and transport types outside portable component interfaces. Rich schemas, registry resolution and heavyweight data processing remain on capable hosts.
 
-# 2. Current baseline and immediate defects
+# 2. Current baseline and remaining work
 
-Main has no physical embedded implementation. Development `c8aa467` adds host-tested embedded core, serial framing and generated projections. Those changes require review under WP-A01 and are not integrated by this documentation update.
+Main includes embedded core, serial framing and generated projections through PR #7. PR #6 adds canonical wire identity and target ABI validation with passing host and actual AVR compiler checks. See [Gate A implementation evidence](implementation/Gate-A-Embedded-Wire-and-ABI.md). Physical embedded execution is still unverified.
 
-WP-A02 fixes semantic hash versus field-order wire layout; WP-A03 fixes target numeric representation. The current C++ generator uses eight-byte copies for Float64 mapped to double, while standard Uno double is four bytes. Add actual target checks before advertising Arduino compatibility. WP-A04 aligns local authority and numeric limits; WP-B03 handles clocks/rollover/reboot.
+WP-A02 now has canonical v2 scalar layouts and full wire identities; transport binding, compact-ID collisions and recording migration remain. WP-A03 now rejects unsupported binary64 for the Uno and checks the actual compiler ABI; physical vectors and runtime memory/timing remain. WP-A04 must still align local authority and numeric limits; WP-B03 handles clocks/rollover/reboot. The `avr-uno` numeric profile is not a complete Arduino board package.
 
 # 3. Board and executor policy
 

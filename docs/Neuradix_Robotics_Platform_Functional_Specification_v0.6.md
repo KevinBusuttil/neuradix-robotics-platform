@@ -4,7 +4,7 @@ subtitle: "Product, Functional and Technical Specification"
 author: "Busuttil Technologies Limited"
 date: "8 September 2026"
 version: "0.6 Draft"
-status: "Proposed documentation baseline; implementation status is separate"
+status: "Current planning baseline; implementation status is separate"
 ---
 
 <!-- GENERATED CONTENTS START -->
@@ -56,9 +56,9 @@ status: "Proposed documentation baseline; implementation status is separate"
 | Expansion domains | Marine, aerial, ground, industrial automation, fleet/enterprise operations, AI, XR, heterogeneous swarms and project-qualified space/flight profiles |
 | Primary implementation languages | Rust and Python, with generated C/C++ for constrained embedded targets |
 
-This v0.6 draft is the proposed authoritative functional specification, aligned with the [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) and [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md). It supersedes v0.5. Existing detailed subsystem requirements are retained; the revised product scope, execution profiles, release gates and first implementation sequence below govern this version.
+This v0.6 draft is the current functional planning specification, aligned with the [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) and [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md). It supersedes v0.5. Existing detailed subsystem requirements are retained; the revised product scope, execution profiles, release gates and first implementation sequence below govern this version.
 
-Normative requirements define the intended product. The first supported release is the explicit scope in Section 45; other subsystem requirements become release obligations when their capability or profile is claimed. Domain, Swarm, XR and Flight features have separately gated releases. Neither the existence of this document nor a requirement's wording establishes implementation maturity: use [Capability Status](Neuradix_Capability_Status.md). The code review baseline is main `e39da5e` and development `c8aa467`; this documentation update integrates no code changes.
+Normative requirements define the intended product. The first supported release is the explicit scope in Section 45; other subsystem requirements become release obligations when their capability or profile is claimed. Domain, Swarm, XR and Flight features have separately gated releases. Neither the existence of this document nor a requirement's wording establishes implementation maturity: use [Capability Status](Neuradix_Capability_Status.md). The original review assessed main `e39da5e` and development `c8aa467`. PR #7 subsequently integrated those foundations plus the PR #6 wire/ABI fixes; the exact integrated revision and fresh CI evidence are in the capability register.
 
 This document defines the product architecture, sub-platform functions, interfaces, normative requirements, non-functional requirements, developer experience, security model, safety and FDIR model, swarm coordination, marine and aerial profiles, immersive XR supervision, packaging, interoperability, space/flight profile and phased delivery plan for Neuradix.
 
@@ -3255,7 +3255,7 @@ Core releases SHOULD require:
 
 # 40. Repository architecture
 
-The layout below is an intended architecture, not the current crate inventory. [Capability Status](Neuradix_Capability_Status.md) records main and development state separately. Add modules when their work package has executable behaviour and tests; directory scaffolding does not count as capability delivery.
+The layout below is an intended architecture, not the current crate inventory. [Capability Status](Neuradix_Capability_Status.md) records the integrated implementation and remaining work. Add modules when their work package has executable behaviour and tests; directory scaffolding does not count as capability delivery.
 
 Recommended initial organisation:
 
@@ -3516,7 +3516,7 @@ Gate B and C are previews/alphas, not version 1.0. A release SHALL not count mis
 
 Adopt the unified platform scope, shared project/compiler, five execution profiles and independent local operation as the documentation baseline. Use the working defaults and validation points in [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md#2-planning-defaults-and-decision-ownership). Default selections are planning choices, not proof of board/backend qualification.
 
-Before dependent implementation, resolve semantic/wire identity, target ABI, trusted command time, feedback semantics, worker resource policy, simulator stepping/imports, Studio service boundaries and distributed retry/identity rules through the RFC backlog. Preserve existing RFC numbers; development-only RFC-0020–0022 must be reviewed before integration. New decision slots start at RFC-0023.
+Before dependent implementation, resolve semantic/wire identity, target ABI, trusted command time, feedback semantics, worker resource policy, simulator stepping/imports, Studio service boundaries and distributed retry/identity rules through the RFC backlog. Preserve existing RFC numbers; RFC-0020–0022 are integrated prototype decisions whose remaining qualification work is tracked in the backlog. New decision slots start at RFC-0023.
 
 Assign a role owner and independent reviewer per work package. Update the capability register only with implementation/evidence at an integrated revision. No code defect is considered fixed by this specification update.
 

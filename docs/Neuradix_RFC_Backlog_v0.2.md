@@ -150,4 +150,3 @@ Define:
 - OTA plan;
 - audit trail;
 - command dictionary.
-

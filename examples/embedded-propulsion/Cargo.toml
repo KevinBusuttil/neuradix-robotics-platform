@@ -1,0 +1,18 @@
+[package]
+name = "neuradix-example-embedded-propulsion"
+description = "Host simulation of the embedded AUV propulsion node: command, link loss -> safe state, lease expiry -> safe state."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "embedded-propulsion"
+path = "src/main.rs"
+
+[dependencies]
+neuradix-embedded-core = { workspace = true }
+neuradix-time = { workspace = true }

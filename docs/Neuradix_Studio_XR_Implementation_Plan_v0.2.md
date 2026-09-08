@@ -228,4 +228,3 @@ Studio v0.2 implementation is correctly scoped when it can:
 8. use the same backend service as the CLI for embedded build/flash operations;
 9. remain read-only by default;
 10. disconnect without affecting robot safety.
-

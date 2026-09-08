@@ -28,13 +28,17 @@
 pub mod codec;
 pub mod digest;
 pub mod error;
+pub mod mcap;
 pub mod model;
 pub mod native;
+pub mod recording;
 
 pub use codec::RecordCodec;
 pub use digest::replay_digest;
 pub use error::{RecordError, Result};
+pub use mcap::{MCAP_MAGIC, McapRecording, McapWriter};
 pub use model::{
     Channel, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };
 pub use native::{MAGIC, NativeRecordWriter, NativeRecording};
+pub use recording::Recording;

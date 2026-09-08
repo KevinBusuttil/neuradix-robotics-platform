@@ -389,4 +389,3 @@ Neuradix Studio reaches "Foxglove-equivalent-and-better" when:
    in stereo to one WebXR headset and one native OpenXR headset, proving the engine's
    renderer extends to XR before any XR-specific UI is built.
 7. Keep Foxglove as the documented stopgap until Studio S3 parity.
-

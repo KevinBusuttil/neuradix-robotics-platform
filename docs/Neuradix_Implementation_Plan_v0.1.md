@@ -581,4 +581,3 @@ zero-copy spikes underway.
 The next concrete step is §9: lock the §43 decisions as ADRs, bootstrap the workspace
 with green CI, write RFC-0002/0004 first, and start the Phase-0 zero-copy and
 determinism spikes.
-

@@ -522,4 +522,3 @@ A preview is credible when it demonstrates:
 4. Define the CLI JSON result envelope.
 5. Implement `DepthMeasurement` through Rust/Python/embedded projections.
 6. Preserve the Phase 3 single-AUV gate before broad embedded work.
-

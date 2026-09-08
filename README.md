@@ -9,44 +9,68 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 ## Current documentation
 
 - [Documentation index and precedence](docs/README.md)
-- [Product, Functional and Technical Specification v0.6](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) — proposed authoritative specification
+- [Product, Functional and Technical Specification v0.6](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) — current functional and technical planning baseline
 - [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
 - [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
 - [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
+- [Gate A codec implementation and validation](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
 - [Embedded Plan v0.2](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Studio Plan v0.2](docs/Neuradix_Studio_Implementation_Plan_v0.2.md), [CLI Specification v0.2](docs/Neuradix_CLI_Command_Specification_v0.2.md)
 - [RFC Backlog v0.4](docs/Neuradix_RFC_Backlog_v0.4.md), [architecture RFCs](docs/rfcs/), [decision records](docs/decisions/)
 
 ## Implementation status
 
-Main `e39da5e` implements scalar contract parsing/validation/hash and Rust generation; tagged clocks; bounded in-process streams; lifecycle and input-driven lockstep execution; native recording and digest; scalar authority/constraints/lineage/FDIR; supervised Python processes; offline graph validation; CLI and test utilities.
+Main now includes the six development increments and the first Gate A codec fixes,
+integrated through [PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6) and [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7).
+The workspace remains an experimental foundation: **15 library/tool crates and
+four executable examples**, version 0.0.1.
 
-The reviewed development branch [`claude/gifted-albattani-i7t2wc` at `c8aa467`](https://github.com/KevinBusuttil/neuradix-robotics-platform/tree/c8aa4671bcee8739354beb7880551db7f64314fa) is six commits ahead. It adds a one-dimensional closed-loop AUV model, handwritten MCAP backend, headless Studio inspection, no_std embedded primitives, serial framing and fixed scalar Rust/C++ generation. These additions are not part of main until reviewed and integrated.
+Implemented foundations include scalar contracts and semantic identity, tagged
+clocks, bounded local streams, lifecycle/lockstep processing, graph validation,
+scalar authority/lineage/FDIR and supervised Python workers. The integrated work
+adds the one-dimensional AUV simulation fixture, experimental MCAP recording,
+headless Studio inspection, no_std embedded primitives and serial framing.
+
+Embedded Rust/C++ generation uses canonical field order, the versioned
+`neuradix.scalar-le.v2` codec, full wire identities and JSON manifests. Decoders
+require the producer's bound wire identity. `--cpp-target avr-uno` rejects
+binary64, and generated C++ checks the actual compiler ABI.
+
+Validation passed: **191 workspace tests plus two AVR checks**, formatting,
+Clippy and the documentation build. The actual ATmega328P compiler built/linked
+supported scalar code and rejected binary64 with the intended diagnostic.
+See [the implementation evidence](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md).
 
 Current limits:
 
-- `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. There is no CLI runner for an arbitrary changed deployment graph.
-- Graph validation checks declarations; it does not launch a runtime supervisor or prove physical actuator enforcement. The current deployment hash does not fully pin resolved behaviour.
-- Python process separation and request timeout logic do not yet bound all I/O, cleanup and resources.
-- Development MCAP is a private subset; host C++/no_std conformance is not actual Arduino/MCU deployment evidence.
-- Graphical Studio, integrated general simulation, physical board build/flash, native networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
+- `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
+- Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
+- Host authority/finite-value checks and Python I/O, cleanup and resource bounds require the remaining Gate A fixes.
+- MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
+- AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
+- Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
 
-[Capability Status](docs/Neuradix_Capability_Status.md) records the open identity, AVR, safety, worker and interchange findings with work-package ownership. Historical CI success is not a fresh hardware, timing or scalability validation. The documentation update does not fix those code issues.
+[Capability Status](docs/Neuradix_Capability_Status.md) distinguishes implemented
+codec fixes from the remaining acceptance work. Gate A is still open.
 
 ## Prerequisites
 
 - Rust toolchain **1.94.1** (pinned in `rust-toolchain.toml`; `rustup` installs it
   automatically). Edition 2024.
-- `python3` (optional) — only for the `neuradix-python` worker tests and the
-  `python-worker` example; those tests skip cleanly when it is absent.
+- A host C++ compiler (`g++`, `c++` or `clang++`) is required by the code-generation conformance tests.
+- `python3` is required for complete CI/worker validation and the Python example. Local worker tests can still skip when it is absent; that is incomplete validation.
+- `gcc-avr`, `avr-libc` and `binutils-avr` are required for the separate ATmega328P conformance gate.
 
 ## Build and test
 
 ```bash
-cargo build --workspace
-cargo test  --workspace
-cargo fmt   --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo doc   --workspace --no-deps
+cargo build --locked --workspace
+cargo test --locked --workspace
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo doc --locked --workspace --no-deps
+
+# Explicit AVR gate (compile/link and ABI rejection; requires AVR tools):
+cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture
 ```
 
 ## CLI examples
@@ -65,6 +89,14 @@ cargo run -p neuradix-cli -- contract inspect contracts/standard/navigation/vehi
 cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
     --language rust --out-dir /tmp/nrx-generated
 
+# Generate a no_std Rust payload and its wire manifest:
+cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
+    --language nostd-rust --out-dir target/nrx-generated
+
+# Generate an Uno-compatible scalar conformance fixture (not complete firmware):
+cargo run -p neuradix-cli -- contract generate crates/embedded-codegen/tests/fixtures/tiny-telemetry.yaml \
+    --language cpp --cpp-target avr-uno --out-dir target/tiny-codegen
+
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
 
@@ -72,6 +104,13 @@ cargo run -p neuradix-cli -- doctor
 cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + digest
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
+
+# Experimental MCAP export; broad external interchange remains unqualified:
+cargo run -p neuradix-cli -- record export /tmp/neuradix-depth-mission.nrec --out /tmp/mission.mcap
+
+# Headless Studio inspection:
+cargo run -p neuradix-cli -- studio timeline /tmp/neuradix-depth-mission.nrec
+cargo run -p neuradix-cli -- studio series /tmp/neuradix-depth-lineage.nrec --field applied
 
 # Explain the causal chain (sensor -> control -> authority/constraints -> applied)
 # of the command nearest a given time:
@@ -97,6 +136,12 @@ cargo run -p neuradix-example-minimal-depth-stream
 # An isolated Python worker: detection, a Python crash that is isolated and
 # drives FDIR to a safe mode, then a supervised restart (requires python3):
 cargo run -p neuradix-example-python-worker
+
+# Deterministic one-dimensional closed-loop AUV fixture:
+cargo run -p neuradix-example-auv-depth-sim
+
+# Embedded gate/watchdog/serial behavior exercised on the host:
+cargo run -p neuradix-example-embedded-propulsion
 ```
 
 It loads the authored contract, derives the stream's capacity and overflow policy
@@ -117,11 +162,16 @@ crates/
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler
+  sim/              # neuradix-sim: fixed-step AUV depth fixture
+  studio/           # neuradix-studio: headless recording inspection
+  embedded-core/    # no_std identity, health, authority and watchdog primitives
+  embedded-transport/ # no_std serial framing, CRC and sequence tracking
+  embedded-codegen/ # canonical scalar Rust/C++ codec and target ABI checks
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (navigation, perception, control, actuation)
-examples/           # minimal-depth-stream, python-worker, reference-auv (deployment manifest)
+examples/           # minimal-depth-stream, python-worker, auv-depth-sim, embedded-propulsion; reference-auv manifest
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)
 ```

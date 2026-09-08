@@ -3,7 +3,7 @@ title: "Neuradix CLI Command Specification"
 author: "Engineering"
 date: "8 September 2026"
 version: "0.2 Draft"
-status: "For review"
+status: "Current planning baseline; implemented subset identified below"
 ---
 
 # Version and implementation scope
@@ -12,9 +12,29 @@ This v0.2 draft supersedes v0.1 and aligns with [Neuradix_Robotics_Platform_Func
 
 Current `replay run --expect-digest` verifies recorded data integrity; it does not run a changed component graph. Keep that behaviour compatible until an explicit CLI version/migration decision. Proposed program replay uses a separately named test operation below. Preserve existing structured result/exit-code contracts; any extension requires fixtures and a documented compatibility policy.
 
+# Implemented embedded generation
+
+Main includes `contract generate <file> --language rust|nostd-rust|cpp --out-dir <dir>`.
+For C++ only, `--cpp-target portable|avr-uno` selects the numeric profile;
+the default is `portable`. Selecting it with another language returns exit code 2.
+An unsupported Uno binary64 field returns exit code 3 before creating output.
+
+The embedded languages (`nostd-rust`, `cpp`) produce source plus
+`<stem>.wire.json` with codec, schema and full wire identity, exact payload length
+and ordered fields/offsets. Result data includes `wireId`, `codecId`,
+`wireManifest` and `cppTarget` (null where inapplicable). Host `rust` generation
+has no embedded codec manifest. The decoder signature now requires the producer's
+wire identity; [migration rules](implementation/Gate-A-Embedded-Wire-and-ABI.md#wire-binding-and-migration)
+cover upgrading both endpoints and preserving legacy provenance.
+
+Main also includes `record export` for the experimental MCAP subset and
+`studio timeline|series` for headless inspection. These commands do not establish
+general MCAP interoperability or a graphical Studio. Project build/flash/run and
+the broader command tree below remain planned.
+
 # Purpose
 
-This document defines the stable command language and automation contract for the `neuradix` CLI.
+This document defines the target command language and automation contract for the `neuradix` CLI; the implemented subset is identified above.
 
 # Command tree
 

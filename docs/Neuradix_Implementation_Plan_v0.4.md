@@ -3,7 +3,7 @@ title: "Neuradix Robotics Platform — Detailed Implementation Plan"
 author: "Busuttil Technologies Limited"
 date: "8 September 2026"
 version: "0.4 Draft"
-status: "Proposed documentation baseline; implementation status is separate"
+status: "Current planning baseline; implementation status is separate"
 supersedes: "Neuradix_Implementation_Plan_v0.3.md"
 ---
 
@@ -11,7 +11,7 @@ supersedes: "Neuradix_Implementation_Plan_v0.3.md"
 
 Implement the [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) and [Functional Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) as a unified robotics development and operations platform from Arduino to enterprise. AI is optional. This plan supersedes the earlier AUV-first/embedded-later sequence and the earlier AI-workbench estimate.
 
-This is a proposed implementation baseline, not a record of delivered features. [Capability Status](Neuradix_Capability_Status.md) is the sole current maturity register. Main remains `e39da5e31709259b3fd876a9ed2fd350263c2bb3`; the reviewed development head is `c8aa4671bcee8739354beb7880551db7f64314fa`, six commits ahead. This documentation change does not merge that code or fix its defects.
+This is the current planning baseline, with delivery evidence tracked in [Capability Status](Neuradix_Capability_Status.md). [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7) integrated the six development increments and the [PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6) codec fixes into main at `d5fbd69b7b901ad8899b9c911ad09e265ff76636`. The [first Gate A increment](implementation/Gate-A-Embedded-Wire-and-ABI.md) has passing host and AVR compiler evidence. WP-A01/A02/A03 remain partial; Gate A is open. Estimates below retain the original planning basis and must be revised from measured remaining work rather than treating one merged increment as a completed work package.
 
 The acceptance horizon is one complete instrumented system spanning an actual Uno, one 32-bit MCU, Edge, integrated simulation/Studio and distributed workers. Broader domain and enterprise packs remain part of the programme through Gate F with their own release evidence.
 
@@ -91,6 +91,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Unreviewed prototype work being described as supported functionality.
 
+**Progress:** Development and codec fixes are integrated through PR #7; exact baseline and compiler evidence are recorded in Capability Status. Finish the broader evidence inventory and optional-tool audit.
+
 <a name="wp-a02"></a>
 
 ## WP-A02: Semantic and wire identities
@@ -103,6 +105,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Fixing a hash without versioning existing encoded data.
 
+**Progress:** Canonical v2 scalar layout, full wire identity, manifests and identity-aware decoders are integrated. Reordered independent endpoints and codec mismatch rejection pass. Transport binding, compact-ID collision enforcement and existing-recording migration remain open.
+
 <a name="wp-a03"></a>
 
 ## WP-A03: Target-aware numeric projections
@@ -114,6 +118,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 **Acceptance:** Actual Uno-toolchain builds reject unsupported binary64 safely. Board-generated supported payloads match host golden vectors, including boundaries, non-finite values where allowed and endianness. No eight-byte copy targets a four-byte double.
 
 **Primary risk:** Host compiler conformance hiding AVR memory corruption.
+
+**Progress:** Uno numeric selection and actual AVR compile/link/rejection tests are integrated. Host boundary vectors pass. Physical Uno vectors, stack/timing measurements and the selected native MCU profile remain open.
 
 <a name="wp-a04"></a>
 

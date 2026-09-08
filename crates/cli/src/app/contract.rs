@@ -11,8 +11,21 @@ use crate::exit::ExitCode;
 /// The supported target languages for `contract generate`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum Language {
-    /// Generate a Rust module.
+    /// Generate a host Rust module.
     Rust,
+    /// Generate a `no_std` Rust module with fixed little-endian encode/decode.
+    NostdRust,
+    /// Generate an Arduino/C++ header with fixed little-endian encode/decode.
+    Cpp,
+}
+
+/// Numeric ABI selected for C++ generation (not a complete board support pack).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum CppTarget {
+    /// Validate the actual ABI when the generated header is compiled.
+    Portable,
+    /// Reject float64 before emitting code for a classic Arduino Uno R3.
+    AvrUno,
 }
 
 /// `neuradix contract validate <file-or-directory>`
@@ -88,17 +101,56 @@ pub fn hash(file: &Path) -> Result<Outcome, AppError> {
     })))
 }
 
-/// `neuradix contract generate <file> --language rust --out-dir <dir>`
-pub fn generate(file: &Path, language: Language, out_dir: &Path) -> Result<Outcome, AppError> {
-    // Only Rust is supported; the `Language` enum already rejects other values
-    // at parse time, but match explicitly so adding languages cannot silently
-    // no-op.
-    match language {
-        Language::Rust => {}
+/// `neuradix contract generate <file> --language <rust|nostd-rust|cpp> --out-dir <dir>`
+pub fn generate(
+    file: &Path,
+    language: Language,
+    out_dir: &Path,
+    cpp_target: Option<CppTarget>,
+) -> Result<Outcome, AppError> {
+    if cpp_target.is_some() && language != Language::Cpp {
+        return Err(AppError::message(
+            ExitCode::InvalidUse,
+            "--cpp-target requires --language cpp",
+        ));
     }
-
     let contract = load_file(file).map_err(map_contract_error)?;
-    let generated = generate_rust(&contract).map_err(map_contract_error)?;
+    let target = match cpp_target.unwrap_or(CppTarget::Portable) {
+        CppTarget::Portable => neuradix_embedded_codegen::CppTarget::Portable,
+        CppTarget::AvrUno => neuradix_embedded_codegen::CppTarget::AvrUno,
+    };
+
+    // Each language produces (output file name, source, type name, label).
+    let (file_name, code, type_name, label) = match language {
+        Language::Rust => {
+            let g = generate_rust(&contract).map_err(map_contract_error)?;
+            (format!("{}.rs", g.module_name), g.code, g.type_name, "rust")
+        }
+        Language::NostdRust => {
+            let g = neuradix_embedded_codegen::generate_nostd_rust(&contract)
+                .map_err(map_codegen_error)?;
+            (
+                format!("{}.rs", g.module_name),
+                g.code,
+                g.type_name,
+                "nostd-rust",
+            )
+        }
+        Language::Cpp => {
+            let g = neuradix_embedded_codegen::generate_cpp_for_target(&contract, target)
+                .map_err(map_codegen_error)?;
+            (format!("{}.h", g.header_name), g.code, g.type_name, "cpp")
+        }
+    };
+
+    let layout = if language == Language::Rust {
+        None
+    } else {
+        Some(
+            neuradix_embedded_codegen::WireLayout::for_contract(&contract)
+                .map_err(map_codegen_error)?,
+        )
+    };
 
     std::fs::create_dir_all(out_dir).map_err(|e| {
         AppError::message(
@@ -110,22 +162,44 @@ pub fn generate(file: &Path, language: Language, out_dir: &Path) -> Result<Outco
         )
     })?;
 
-    let target = out_dir.join(format!("{}.rs", generated.module_name));
-    std::fs::write(&target, &generated.code).map_err(|e| {
+    let target_file = out_dir.join(&file_name);
+    std::fs::write(&target_file, &code).map_err(|e| {
         AppError::message(
             ExitCode::GeneralFailure,
-            format!("could not write `{}`: {e}", target.display()),
+            format!("could not write `{}`: {e}", target_file.display()),
         )
     })?;
 
+    let manifest = if let Some(layout) = &layout {
+        let manifest = target_file.with_extension("wire.json");
+        let bytes = serde_json::to_string_pretty(layout).expect("wire layout serialization");
+        std::fs::write(&manifest, bytes + "\n").map_err(|e| {
+            AppError::message(
+                ExitCode::GeneralFailure,
+                format!("could not write `{}`: {e}", manifest.display()),
+            )
+        })?;
+        Some(manifest.display().to_string())
+    } else {
+        None
+    };
+
     Ok(Outcome::new(json!({
         "contract": contract.identifier(),
-        "language": "rust",
-        "type": generated.type_name,
-        "module": generated.module_name,
-        "file": target.display().to_string(),
+        "language": label,
+        "type": type_name,
+        "file": target_file.display().to_string(),
         "schemaId": schema_identity(&contract).as_str(),
+        "wireId": layout.as_ref().map(|l| &l.wire_id),
+        "codecId": layout.as_ref().map(|l| &l.codec_id),
+        "wireManifest": manifest,
+        "cppTarget": (language == Language::Cpp).then(|| target.as_str()),
     })))
+}
+
+/// Map an embedded-codegen error to an [`AppError`].
+fn map_codegen_error(err: neuradix_embedded_codegen::CodegenError) -> AppError {
+    AppError::message(ExitCode::ContractValidation, err.to_string())
 }
 
 fn contract_to_json(contract: &Contract) -> Value {

@@ -28,11 +28,37 @@ jobs:
       - name: Format check
         run: cargo fmt --all --check
 
+      - name: Required host conformance tools
+        run: |
+          g++ --version
+          python3 --version
+
       - name: Clippy (deny warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Tests (workspace)
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       - name: Docs (no deps)
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --locked --workspace --no-deps
+
+      - name: Show proposed format and golden changes on failure
+        if: failure()
+        run: |
+          cargo fmt --all
+          UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
+          git diff -- crates
+
+  avr-codegen:
+    name: Arduino Uno codec ABI
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install AVR conformance toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gcc-avr avr-libc binutils-avr
+          avr-g++ --version
+          avr-size --version
+      - name: Verify actual ATmega328P numeric ABI and supported scalar build
+        run: cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture

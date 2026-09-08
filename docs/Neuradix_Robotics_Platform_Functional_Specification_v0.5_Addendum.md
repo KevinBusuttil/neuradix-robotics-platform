@@ -624,4 +624,3 @@ The project should ratify:
 8. the board-support maturity model;
 9. how deployment hashes are encoded in firmware;
 10. the minimum embedded conformance suite.
-

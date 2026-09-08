@@ -1,10 +1,29 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Draft; aligned 8 September 2026. Main and development implementation evidence remains separate.
+- Status: Partially implemented on main; board/runtime expansion remains planned. Updated after PR #7 on 8 September 2026.
 - Governing documents: [Specification v0.6](../Neuradix_Robotics_Platform_Functional_Specification_v0.6.md), [Embedded Plan v0.2](../Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Implementation Plan v0.4](../Neuradix_Implementation_Plan_v0.4.md)
-- Crate design (development-only prototypes exist): `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
+- Integrated prototype crates: `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
 
-> Main has no physical embedded implementation. Development `c8aa467` has host-tested embedded/transport/codegen foundations, with open identity and AVR findings. See [Capability Status](../Neuradix_Capability_Status.md); no actual board support is claimed.
+> Main includes the embedded/transport/codegen foundations and the PR #6 wire/ABI fixes. Host tests and actual AVR compile/link/rejection checks pass; physical board execution is still unverified. See [Capability Status](../Neuradix_Capability_Status.md).
+
+## Implemented wire and ABI decision
+
+The [Gate A implementation note](../implementation/Gate-A-Embedded-Wire-and-ABI.md)
+records `neuradix.scalar-le.v2`: canonical name-sorted scalar offsets, a separate
+full wire identity and generated decoder checks against the producer's binding.
+The CLI emits a wire manifest alongside Rust/C++ source. `--cpp-target avr-uno`
+rejects binary64; every C++ header checks the actual compiler ABI, including
+portable headers compiled for AVR. This replaces the unversioned declaration-order
+codec from development `c8aa467`.
+
+Both endpoints and their channel bindings must be upgraded together. The serial
+CRC/sequence frame format is unchanged and does not negotiate wire identity.
+Compact-ID collision handling and legacy recording migration remain open.
+The note preserves the exact tested commit, toolchain, memory measurements and
+remaining WP-A01/A02/A03 acceptance work.
+
+The earlier ESP32-C3 first-board choice remains historical; the current plan uses
+Uno R3 plus one selected RP2040 board for physical Gate B acceptance.
 
 ## Problem
 
@@ -12,7 +31,7 @@ Constrained MCUs must participate in the same contracts, health, safety and
 simulation ecosystem without running the full Linux runtime, and without leaking a
 particular embedded executor into the SDK.
 
-## Scope (future)
+## Full target scope
 
 `no_std` component API; static topology; bounded memory; health/identity; local
 safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
@@ -42,9 +61,9 @@ safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
 - The Rust code generator is structured so additional target projections
   (`no_std` Rust, C++) are new emitters over the same validated `Contract`.
 
-## Public interfaces affected (future)
+## Public interfaces and remaining extensions
 
-New `embedded-*` crates and an `embedded` CLI subtree, reusing the same
+The integrated `embedded-*` crates and `contract generate` will be extended by an `embedded` CLI subtree, reusing the same
 application services and result schemas as the desktop CLI (Studio/CLI parity).
 
 ## Alternatives considered
@@ -63,7 +82,7 @@ Every actuator controller defines and enforces its local response to lease expir
 Contract projections require independent wire vectors and actual target ABI checks. Semantic identity cannot authorize an incompatible layout, and generated binary64 must not copy eight bytes through a four-byte Uno double. Target support levels and
 conformance tests gate what "supported" means per board.
 
-## Testing strategy (future)
+## Remaining conformance strategy
 
 The embedded conformance suite (Implementation Plan ACC-02/03/04/05/06/12/14/16): encode/decode vectors,
 timestamp/sequence handling, queue overflow, watchdog reset, lease expiry,
@@ -75,4 +94,3 @@ budgets and host-simulation equivalence.
 - Confirm or record changes to the RP2040/Uno/serial planning defaults before dependent implementation.
 - Static memory/timing budget expression in contracts.
 - Deployment-identity representation in firmware.
-

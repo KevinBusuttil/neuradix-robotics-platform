@@ -1079,4 +1079,3 @@ The correct engineering posture is:
 > Build the smallest possible Neuradix that proves the core thesis, while designing the contracts and runtime so Swarm, Aero, Flight and XR can be added without re-architecture.
 
 This keeps the platform ambitious without making the first implementation impossible.
-

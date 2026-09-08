@@ -15,7 +15,8 @@ use crate::exit::ExitCode;
 /// chain: originating sensor input -> requested command -> authority/constraint
 /// outcome -> applied value.
 pub fn command(file: &Path, at_nanos: i128) -> Result<Outcome, AppError> {
-    let recording = load(file)?;
+    let loaded = load(file)?;
+    let recording = loaded.recording();
 
     // Collect lineage records from the well-known lineage channel(s).
     let lineage_channels: Vec<u16> = recording

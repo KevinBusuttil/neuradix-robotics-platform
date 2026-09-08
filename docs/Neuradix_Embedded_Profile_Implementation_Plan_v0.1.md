@@ -90,4 +90,3 @@ An AUV propulsion node receives a thrust request from Edge, validates the author
 - firmware/deployment identity is visible;
 - CLI builds, flashes and monitors;
 - Arduino C++ projection passes golden-vector tests.
-

@@ -10,6 +10,7 @@ pub mod doctor;
 pub mod explain;
 pub mod graph;
 pub mod record;
+pub mod studio;
 pub mod version;
 
 use serde_json::Value;

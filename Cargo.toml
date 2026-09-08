@@ -1,11 +1,11 @@
 # Neuradix Robotics Platform — Cargo workspace.
 #
-# This is the foundation increment: contracts, time, a transport-neutral
-# bounded stream, a minimal component/lifecycle model, the `neuradix` CLI and a
-# reusable testkit. Deployment/domain subsystems (Swarm, Aero, Studio, Flight,
-# Fleet, network transport, shared memory, MCAP, Python bindings, MCU firmware)
-# are intentionally NOT part of this workspace yet. See docs/rfcs and
-# docs/Neuradix_Implementation_Plan_v0.3.md.
+# Experimental integrated foundations: contracts/time, bounded local transport,
+# lifecycle/control, recording, Python workers, graph validation, the AUV fixture,
+# headless Studio, embedded core/framing/codegen, CLI and testkit.
+# Physical board execution, graphical Studio, general simulator integration,
+# networking and enterprise/domain packs remain gated work. See docs/README.md,
+# docs/Neuradix_Capability_Status.md and docs/Neuradix_Implementation_Plan_v0.4.md.
 
 [workspace]
 resolver = "3"
@@ -18,10 +18,17 @@ members = [
     "crates/safety",
     "crates/python",
     "crates/graph",
+    "crates/sim",
+    "crates/studio",
+    "crates/embedded-core",
+    "crates/embedded-transport",
+    "crates/embedded-codegen",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",
     "examples/python-worker",
+    "examples/auv-depth-sim",
+    "examples/embedded-propulsion",
 ]
 
 [workspace.package]
@@ -42,6 +49,11 @@ neuradix-record = { path = "crates/record", version = "0.0.1" }
 neuradix-safety = { path = "crates/safety", version = "0.0.1" }
 neuradix-python = { path = "crates/python", version = "0.0.1" }
 neuradix-graph = { path = "crates/graph", version = "0.0.1" }
+neuradix-sim = { path = "crates/sim", version = "0.0.1" }
+neuradix-studio = { path = "crates/studio", version = "0.0.1" }
+neuradix-embedded-core = { path = "crates/embedded-core", version = "0.0.1" }
+neuradix-embedded-transport = { path = "crates/embedded-transport", version = "0.0.1" }
+neuradix-embedded-codegen = { path = "crates/embedded-codegen", version = "0.0.1" }
 neuradix-testkit = { path = "crates/testkit", version = "0.0.1" }
 
 # Third-party foundations (kept minimal and standard; see docs/decisions).

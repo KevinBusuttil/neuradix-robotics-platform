@@ -144,4 +144,3 @@ neuradix embedded update
 # Safety
 
 Live mutation commands must use authenticated authority and must not bypass onboard Safety. Direct actuator development commands require a hardware-test profile, reason, audit and explicit target.
-

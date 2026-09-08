@@ -17,6 +17,7 @@ use clap::Parser;
 use app::{AppError, Outcome};
 use cli::{
     Cli, Command, ContractCommand, ExplainCommand, GraphCommand, RecordCommand, ReplayCommand,
+    StudioCommand,
 };
 use envelope::CommandResult;
 use exit::ExitCode;
@@ -66,14 +67,18 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
                 file,
                 language,
                 out_dir,
+                cpp_target,
             } => (
                 "contract.generate".to_owned(),
-                app::contract::generate(&file, language, &out_dir),
+                app::contract::generate(&file, language, &out_dir, cpp_target),
             ),
         },
         Command::Record { command } => match command {
             RecordCommand::Inspect { file } => {
                 ("record.inspect".to_owned(), app::record::inspect(&file))
+            }
+            RecordCommand::Export { file, out } => {
+                ("record.export".to_owned(), app::record::export(&file, &out))
             }
         },
         Command::Replay { command } => match command {
@@ -95,6 +100,19 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             GraphCommand::Validate { file, contracts } => (
                 "graph.validate".to_owned(),
                 app::graph::validate(&file, contracts.as_deref()),
+            ),
+        },
+        Command::Studio { command } => match command {
+            StudioCommand::Timeline { file } => {
+                ("studio.timeline".to_owned(), app::studio::timeline(&file))
+            }
+            StudioCommand::Series {
+                file,
+                field,
+                channel,
+            } => (
+                "studio.series".to_owned(),
+                app::studio::series(&file, &field, channel),
             ),
         },
     }

@@ -1,0 +1,20 @@
+[package]
+name = "neuradix-example-auv-depth-sim"
+description = "A closed-loop AUV depth mission: control -> safety gate -> simulated plant, run deterministically."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "auv-depth-sim"
+path = "src/main.rs"
+
+[dependencies]
+neuradix-sim = { workspace = true }
+neuradix-safety = { workspace = true }
+neuradix-time = { workspace = true }
+sha2 = { workspace = true }

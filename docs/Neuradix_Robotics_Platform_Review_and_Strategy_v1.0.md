@@ -1,6 +1,8 @@
 # Neuradix Robotics Platform — Review and Strategy v1.0
 This is the repository-native text of the revised review dated 8 September 2026. It preserves the static findings and research citations. The [Functional Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) turn its recommendations into proposed requirements and work. [Capability Status](Neuradix_Capability_Status.md) records current implementation; this review does not claim the planned system already exists.
 
+> **Integration update — 8 September 2026:** The body below preserves the original static assessment at `e39da5e`/`c8aa467` and its pinned citations. It is historical evidence, not the current implementation inventory. [PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6) fixed the scalar field-order and unsafe AVR binary64 projections; [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7) integrated the development foundations and those fixes into main. Fresh CI and remaining findings are recorded in [Capability Status](Neuradix_Capability_Status.md) and [Gate A evidence](implementation/Gate-A-Embedded-Wire-and-ABI.md). Physical board execution and the other Gate A findings remain open.
+
 ## One platform, from Arduino to enterprise
 **Revised deep research and code review | 8 September 2026**
 
