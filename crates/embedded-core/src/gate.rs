@@ -160,7 +160,7 @@ impl CommandGate {
     }
     /// Trusted renewal preserves sequence and all accepted-command validity times.
     pub fn renew_lease(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> {
-        self.lease.session.renew(expires, now)
+        self.lease.session.renew(expires, now, &self.clock)
     }
     /// Trusted revocation; the next evaluation applies the safe output.
     pub fn revoke_lease(&mut self) {

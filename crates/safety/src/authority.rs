@@ -158,7 +158,7 @@ impl LeaseTable {
         self.leases.len()
     }
     /// Trusted provisioning. Replaces an existing binding only with a greater
-    /// generation; use [`Self::renew`] to extend the same generation's lease.
+    /// generation; use [`crate::SafetyGate::renew_lease`] for guarded renewal.
     pub fn grant(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> {
         if let Some(index) = self.index(&lease.holder, &lease.capability) {
             let old = &mut self.leases[index];
@@ -173,17 +173,18 @@ impl LeaseTable {
         Ok(())
     }
     /// Trusted renewal preserves generation, sequence, age, deadline and watchdog.
-    pub fn renew(
+    pub(crate) fn renew(
         &mut self,
         holder: &Identity,
         capability: &Capability,
         expires: Timestamp,
         now: Timestamp,
+        clock: &neuradix_command_core::EvaluationClock,
     ) -> Result<(), ConfigError> {
         let index = self
             .index(holder, capability)
             .ok_or(ConfigError::UnknownBinding)?;
-        self.leases[index].session.renew(expires, now)
+        self.leases[index].session.renew(expires, now, clock)
     }
     /// Revoke authority while retaining the generation watermark.
     pub fn revoke(&mut self, holder: &Identity, capability: &Capability) {

@@ -34,11 +34,12 @@ fn invalid_configuration_cannot_construct_a_session() {
     assert!(SessionConfig::new(gen1, t(0), Timestamp::new(ClockDomain::Utc, 1), policy).is_err());
     let config = SessionConfig::new(gen1, t(0), t(2), policy).unwrap();
     let mut session = CommandSession::new(config);
+    let clock = neuradix_command_core::EvaluationClock::default();
     assert_eq!(session.replace(config), Err(ConfigError::ReusedGeneration));
-    assert_eq!(session.renew(t(3), t(2)), Err(ConfigError::InactiveLease));
-    assert_eq!(session.renew(t(1), t(0)), Err(ConfigError::InvalidLease));
+    assert_eq!(session.renew(t(3), t(2), &clock), Err(ConfigError::InactiveLease));
+    assert_eq!(session.renew(t(1), t(0), &clock), Err(ConfigError::InvalidLease));
     session.revoke();
-    assert_eq!(session.renew(t(3), t(0)), Err(ConfigError::RevokedSession));
+    assert_eq!(session.renew(t(3), t(0), &clock), Err(ConfigError::RevokedSession));
 }
 #[test]
 fn generation_exhaustion_does_not_wrap_and_policy_is_read_only() {

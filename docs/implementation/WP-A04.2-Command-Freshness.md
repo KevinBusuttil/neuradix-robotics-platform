@@ -94,6 +94,11 @@ insufficient. Example generation `1` is for isolated deterministic demonstration
 Generation `u128::MAX` cannot be replaced in the same namespace; wrapping is forbidden.
 
 Same-generation renewal extends only expiry, while the existing lease is active.
+Renewal is guarded by the gate's latest evaluation time and clock-fault state;
+a delayed control-plane timestamp cannot revive observed expiry. The host entry
+point is `SafetyGate::renew_lease`, not direct `LeaseTable` renewal. Core session
+renewal requires the owning `EvaluationClock`; callers must retain that runtime
+clock rather than constructing a new clock for each administrative request.
 It preserves accepted sequence, source timestamp, deadline and watchdog time.
 Expired or revoked leases require a greater generation. Revocation retains the
 watermark and consumes its host slot; arbitrary eviction cannot reopen replay.
@@ -203,6 +208,23 @@ generations, unknown identities/capabilities, explicit clock relationships,
 latched clock faults, arithmetic extremes, rejected-traffic liveness and idle
 expiry. Core configuration tests, migrated A04.1 numeric suites, lineage JSON
 round trips and serial framing-to-gate tests cover the remaining boundaries.
+
+## PR review corrections
+
+Review of head `48dde8ba` identified two defects corrected before integration:
+- Stale control-plane renewal time could revive an expired generation. Both gate
+  renewal paths now check the owning evaluation clock; stale, incompatible or
+  faulted clock state returns `InvalidEvaluationTime` without changing the lease.
+  Host renewal moved from `LeaseTable` to `SafetyGate::renew_lease`.
+- CLI `explain command` reserialized non-finite requested values as null, and
+  numeric series could aggregate them. Explain now retains the explicit markers;
+  a series selecting a non-finite field returns a decode error with field/time.
+  Valid applied-output series remain available. No Studio feature was added.
+
+Paired gate regressions cover expiry followed by delayed renewal and latched
+faults; an end-to-end CLI test covers all three non-finite markers and series.
+The earlier CI results above describe the pre-review revision; corrected-head
+checks are recorded in PR #9 before merge.
 
 ## Remaining acceptance work
 

@@ -145,6 +145,12 @@ impl<'a> Inspection<'a> {
                 .find(|s| s.name == field)
                 .map(|s| s.value)
                 .ok_or_else(|| StudioError::FieldNotFound(field.to_owned()))?;
+            if !value.is_finite() {
+                return Err(StudioError::Decode(format!(
+                    "field {field} has non-finite value {value} at {}ns; numeric series unavailable",
+                    record.timestamp.as_nanos()
+                )));
+            }
             points.push(SeriesPoint {
                 nanos: record.timestamp.as_nanos(),
                 value,

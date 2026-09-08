@@ -121,7 +121,7 @@ impl Pair {
         h
     }
     fn renew(&mut self, expires: i128, now: i128) -> Result<(), SessionError> {
-        let h = self.host.leases_mut().renew(
+        let h = self.host.renew_lease(
             &Identity::new("controller"),
             &Capability::new("thrust"),
             t(expires),
@@ -441,4 +441,28 @@ fn initial_idle_and_unsupported_evaluation_domain_do_not_grant_authority() {
     // A payload rejection cannot erase the observed runtime clock domain.
     p.send(meta(0, 101, 300), 101, Some(R::EvaluationClockMismatch));
     p.step(None, t(102), Some(R::EvaluationClockMismatch));
+}
+
+#[test]
+fn delayed_renewal_cannot_revive_observed_expiry_on_either_gate() {
+    let mut p = Pair::new(config(7, 1000, 1000));
+    p.send(meta(0, 990, 2000), 990, None);
+    p.step(None, t(1000), Some(R::LeaseExpired));
+    assert_eq!(p.renew(2000, 999), Err(SessionError::InvalidEvaluationTime));
+    assert_eq!(p.renew(2000, 1000), Err(SessionError::InactiveLease));
+    p.send(meta(1, 1001, 2000), 1001, Some(R::LeaseExpired));
+    p.accepted_at(Some(t(990)));
+}
+
+#[test]
+fn renewal_uses_all_runtime_ticks_and_cannot_clear_clock_faults() {
+    let mut p = Pair::new(config(7, 100, 50));
+    p.step(None, t(1000), Some(R::NoCommand));
+    assert_eq!(p.renew(2000, 999), Err(SessionError::InvalidEvaluationTime));
+    let mut p = Pair::new(config(7, 100, 50));
+    p.send(meta(0, 100, 300), 100, None);
+    assert_eq!(p.renew(2000, 99), Err(SessionError::InvalidEvaluationTime));
+    p.send(meta(1, 101, 300), 101, None); // rejected renewal does not fault the gate
+    p.step(None, t(100), Some(R::EvaluationTimeRegression));
+    assert_eq!(p.renew(2000, 102), Err(SessionError::InvalidEvaluationTime));
 }

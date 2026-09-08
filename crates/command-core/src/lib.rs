@@ -184,6 +184,8 @@ pub enum ConfigError {
     RevokedSession,
     /// Same-generation renewal must occur while the existing lease is valid.
     InactiveLease,
+    /// Renewal time predates runtime observation, differs in domain, or the clock faulted.
+    InvalidEvaluationTime,
     /// Trusted host binding capacity was exhausted.
     CapacityExceeded,
     /// Trusted operation named a binding that is not provisioned.
@@ -258,6 +260,21 @@ pub struct EvaluationClock {
     fault: Option<CommandRejection>,
 }
 impl EvaluationClock {
+    /// Check a trusted control-plane timestamp against the gate's runtime clock.
+    /// Does not advance evaluation time or clear a latched fault.
+    pub fn check_control_time(&self, now: Timestamp) -> Result<(), ConfigError> {
+        if self.fault.is_some()
+            || self.last.is_some_and(|last| {
+                now.domain() != last.domain()
+                    || now.as_nanos() < last.as_nanos()
+                    || now.duration_since(last).is_err()
+            })
+        {
+            return Err(ConfigError::InvalidEvaluationTime);
+        }
+        Ok(())
+    }
+
     /// Observe runtime time even for rejected commands and idle ticks. Return
     /// elapsed time from the previous evaluation, or None for the first tick.
     pub fn observe(&mut self, now: Timestamp) -> Result<Option<Duration>, CommandRejection> {
@@ -325,7 +342,13 @@ impl CommandSession {
         self.revoked = true;
     }
     /// Extend only the lease expiry; preserve sequence, source age, deadline and watchdog.
-    pub fn renew(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> {
+    pub fn renew(
+        &mut self,
+        expires: Timestamp,
+        now: Timestamp,
+        clock: &EvaluationClock,
+    ) -> Result<(), ConfigError> {
+        clock.check_control_time(now)?;
         if self.revoked {
             return Err(ConfigError::RevokedSession);
         }

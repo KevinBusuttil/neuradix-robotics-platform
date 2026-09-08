@@ -51,6 +51,17 @@ impl SafetyGate {
     pub fn leases(&self) -> &LeaseTable {
         &self.leases
     }
+    /// Renew active authority using current runtime time. A timestamp older than
+    /// any observed evaluation cannot revive expiry, and clock faults reject renewal.
+    pub fn renew_lease(
+        &mut self,
+        holder: &crate::Identity,
+        capability: &crate::Capability,
+        expires: Timestamp,
+        now: Timestamp,
+    ) -> Result<(), neuradix_command_core::ConfigError> {
+        self.leases.renew(holder, capability, expires, now, &self.clock)
+    }
     /// Most recently applied output.
     pub fn last_applied(&self) -> Option<f64> {
         self.last_applied
