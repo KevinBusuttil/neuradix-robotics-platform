@@ -31,7 +31,9 @@ pub fn encode_command(command: Command) -> [u8; COMMAND_BYTES] {
 /// Decode exact version/size/representation. Source validity and non-finite
 /// scalar values remain the gate's responsibility. Arrival time is not an input.
 pub fn decode_command(bytes: &[u8]) -> Option<Command> {
-    if bytes.len() != COMMAND_BYTES || bytes[0] != COMMAND_VERSION { return None; }
+    if bytes.len() != COMMAND_BYTES || bytes[0] != COMMAND_VERSION {
+        return None;
+    }
     Some(Command {
         holder: u64::from_le_bytes(bytes[1..9].try_into().ok()?),
         capability: u64::from_le_bytes(bytes[9..17].try_into().ok()?),
@@ -40,8 +42,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<Command> {
             generation: Generation::new(u128::from_le_bytes(bytes[17..33].try_into().ok()?))?,
             sequence: u64::from_le_bytes(bytes[33..41].try_into().ok()?),
             timeline: u64::from_le_bytes(bytes[41..49].try_into().ok()?),
-            source_at: Timestamp::new(ClockDomain::from_code(bytes[49])?, i128::from_le_bytes(bytes[50..66].try_into().ok()?)),
-            deadline: Timestamp::new(ClockDomain::from_code(bytes[66])?, i128::from_le_bytes(bytes[67..83].try_into().ok()?)),
+            source_at: Timestamp::new(
+                ClockDomain::from_code(bytes[49])?,
+                i128::from_le_bytes(bytes[50..66].try_into().ok()?),
+            ),
+            deadline: Timestamp::new(
+                ClockDomain::from_code(bytes[66])?,
+                i128::from_le_bytes(bytes[67..83].try_into().ok()?),
+            ),
         },
     })
 }

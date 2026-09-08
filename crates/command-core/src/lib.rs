@@ -25,7 +25,9 @@ impl Generation {
     }
 
     /// The identifier to echo in command metadata.
-    pub const fn get(self) -> u128 { self.0 }
+    pub const fn get(self) -> u128 {
+        self.0
+    }
 }
 
 /// Trusted declaration of a shared reference clock and epoch.
@@ -42,13 +44,19 @@ pub struct SharedTimeline {
 impl SharedTimeline {
     /// Declare a nonzero deployment-owned timeline identity.
     pub fn new(id: u64, domain: ClockDomain) -> Result<Self, ConfigError> {
-        if id == 0 { return Err(ConfigError::InvalidTimeline); }
+        if id == 0 {
+            return Err(ConfigError::InvalidTimeline);
+        }
         Ok(Self { id, domain })
     }
     /// Deployment-owned identity (not a credential).
-    pub const fn id(self) -> u64 { self.id }
+    pub const fn id(self) -> u64 {
+        self.id
+    }
     /// The shared clock domain.
-    pub const fn domain(self) -> ClockDomain { self.domain }
+    pub const fn domain(self) -> ClockDomain {
+        self.domain
+    }
 }
 
 /// Immutable freshness and accepted-command watchdog policy.
@@ -69,19 +77,33 @@ impl CommandPolicy {
         future_skew: Duration,
         watchdog_timeout: Duration,
     ) -> Result<Self, ConfigError> {
-        if max_age.as_nanos() <= 0 || future_skew.as_nanos() < 0 || watchdog_timeout.as_nanos() <= 0 {
+        if max_age.as_nanos() <= 0 || future_skew.as_nanos() < 0 || watchdog_timeout.as_nanos() <= 0
+        {
             return Err(ConfigError::InvalidDurations);
         }
-        Ok(Self { timeline, max_age, future_skew, watchdog_timeout })
+        Ok(Self {
+            timeline,
+            max_age,
+            future_skew,
+            watchdog_timeout,
+        })
     }
     /// The supported source clock relationship.
-    pub const fn timeline(self) -> SharedTimeline { self.timeline }
+    pub const fn timeline(self) -> SharedTimeline {
+        self.timeline
+    }
     /// Maximum inclusive source age.
-    pub const fn max_age(self) -> Duration { self.max_age }
+    pub const fn max_age(self) -> Duration {
+        self.max_age
+    }
     /// Maximum inclusive future displacement.
-    pub const fn future_skew(self) -> Duration { self.future_skew }
+    pub const fn future_skew(self) -> Duration {
+        self.future_skew
+    }
     /// Maximum inclusive gap since a fully accepted command.
-    pub const fn watchdog_timeout(self) -> Duration { self.watchdog_timeout }
+    pub const fn watchdog_timeout(self) -> Duration {
+        self.watchdog_timeout
+    }
 }
 
 /// Source-provided validity metadata. It never supplies evaluation time.
@@ -110,20 +132,41 @@ pub struct SessionConfig {
 
 impl SessionConfig {
     /// Validate `[issued, expires)` on the policy's shared timeline.
-    pub fn new(generation: Generation, issued: Timestamp, expires: Timestamp, policy: CommandPolicy) -> Result<Self, ConfigError> {
-        if issued.domain() != policy.timeline.domain || expires.domain() != issued.domain() || issued.as_nanos() >= expires.as_nanos() {
+    pub fn new(
+        generation: Generation,
+        issued: Timestamp,
+        expires: Timestamp,
+        policy: CommandPolicy,
+    ) -> Result<Self, ConfigError> {
+        if issued.domain() != policy.timeline.domain
+            || expires.domain() != issued.domain()
+            || issued.as_nanos() >= expires.as_nanos()
+        {
             return Err(ConfigError::InvalidLease);
         }
-        Ok(Self { generation, issued, expires, policy })
+        Ok(Self {
+            generation,
+            issued,
+            expires,
+            policy,
+        })
     }
     /// Current trusted generation.
-    pub const fn generation(self) -> Generation { self.generation }
+    pub const fn generation(self) -> Generation {
+        self.generation
+    }
     /// Lease issue time, inclusive.
-    pub const fn issued(self) -> Timestamp { self.issued }
+    pub const fn issued(self) -> Timestamp {
+        self.issued
+    }
     /// Lease expiry, exclusive.
-    pub const fn expires(self) -> Timestamp { self.expires }
+    pub const fn expires(self) -> Timestamp {
+        self.expires
+    }
     /// Validated policy.
-    pub const fn policy(self) -> CommandPolicy { self.policy }
+    pub const fn policy(self) -> CommandPolicy {
+        self.policy
+    }
 }
 
 /// Trusted configuration failures.
@@ -148,7 +191,9 @@ pub enum ConfigError {
 }
 
 impl core::fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { write!(f, "{self:?}") }
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{self:?}")
+    }
 }
 impl core::error::Error for ConfigError {}
 
@@ -201,7 +246,9 @@ pub enum CommandRejection {
     InvalidOutput,
 }
 impl core::fmt::Display for CommandRejection {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { write!(f, "{self:?}") }
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{self:?}")
+    }
 }
 
 /// Gate-wide evaluation time state; trusted session updates never reset it.
@@ -214,13 +261,17 @@ impl EvaluationClock {
     /// Observe runtime time even for rejected commands and idle ticks. Return
     /// elapsed time from the previous evaluation, or None for the first tick.
     pub fn observe(&mut self, now: Timestamp) -> Result<Option<Duration>, CommandRejection> {
-        if let Some(reason) = self.fault { return Err(reason); }
+        if let Some(reason) = self.fault {
+            return Err(reason);
+        }
         let dt = if let Some(last) = self.last {
             let reason = if now.domain() != last.domain() {
                 Some(CommandRejection::EvaluationClockMismatch)
             } else if now.as_nanos() < last.as_nanos() {
                 Some(CommandRejection::EvaluationTimeRegression)
-            } else { None };
+            } else {
+                None
+            };
             if let Some(reason) = reason {
                 self.fault = Some(reason);
                 return Err(reason);
@@ -232,7 +283,9 @@ impl EvaluationClock {
                     return Err(CommandRejection::EvaluationTimeOverflow);
                 }
             }
-        } else { None };
+        } else {
+            None
+        };
         self.last = Some(now);
         Ok(dt)
     }
@@ -248,20 +301,40 @@ pub struct CommandSession {
 impl CommandSession {
     /// Start without any accepted command. Restart generation non-reuse is the
     /// trusted caller's durable initialization obligation (see [`Generation`]).
-    pub const fn new(config: SessionConfig) -> Self { Self { config, revoked: false, accepted: None } }
+    pub const fn new(config: SessionConfig) -> Self {
+        Self {
+            config,
+            revoked: false,
+            accepted: None,
+        }
+    }
     /// Read-only trusted configuration.
-    pub const fn config(&self) -> SessionConfig { self.config }
+    pub const fn config(&self) -> SessionConfig {
+        self.config
+    }
     /// Last fully accepted command's receiver time; rejected traffic cannot set it.
-    pub fn last_accepted_at(&self) -> Option<Timestamp> { self.accepted.map(|(_, at)| at) }
+    pub fn last_accepted_at(&self) -> Option<Timestamp> {
+        self.accepted.map(|(_, at)| at)
+    }
     /// Last fully accepted command sequence.
-    pub fn last_sequence(&self) -> Option<u64> { self.accepted.map(|(meta, _)| meta.sequence) }
+    pub fn last_sequence(&self) -> Option<u64> {
+        self.accepted.map(|(meta, _)| meta.sequence)
+    }
     /// Revoke while retaining the generation and sequence watermark.
-    pub fn revoke(&mut self) { self.revoked = true; }
+    pub fn revoke(&mut self) {
+        self.revoked = true;
+    }
     /// Extend only the lease expiry; preserve sequence, source age, deadline and watchdog.
     pub fn renew(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> {
-        if self.revoked { return Err(ConfigError::RevokedSession); }
-        if self.authorize(now).is_err() { return Err(ConfigError::InactiveLease); }
-        if expires.domain() != self.config.expires.domain() || expires.as_nanos() <= self.config.expires.as_nanos() {
+        if self.revoked {
+            return Err(ConfigError::RevokedSession);
+        }
+        if self.authorize(now).is_err() {
+            return Err(ConfigError::InactiveLease);
+        }
+        if expires.domain() != self.config.expires.domain()
+            || expires.as_nanos() <= self.config.expires.as_nanos()
+        {
             return Err(ConfigError::InvalidLease);
         }
         self.config.expires = expires;
@@ -270,30 +343,56 @@ impl CommandSession {
     /// Trusted replacement of a generation. Payloads must never call this path.
     /// Same/older generations are rejected, including after revocation.
     pub fn replace(&mut self, config: SessionConfig) -> Result<(), ConfigError> {
-        if config.generation <= self.config.generation { return Err(ConfigError::ReusedGeneration); }
+        if config.generation <= self.config.generation {
+            return Err(ConfigError::ReusedGeneration);
+        }
         *self = Self::new(config);
         Ok(())
     }
     /// Check current lease authorization using runtime time.
     pub fn authorize(&self, now: Timestamp) -> Result<(), CommandRejection> {
-        if self.revoked { return Err(CommandRejection::LeaseRevoked); }
-        if now.domain() != self.config.issued.domain() { return Err(CommandRejection::UnsupportedClockRelationship); }
-        if now.as_nanos() < self.config.issued.as_nanos() { return Err(CommandRejection::LeaseNotYetValid); }
-        if now.as_nanos() >= self.config.expires.as_nanos() { return Err(CommandRejection::LeaseExpired); }
+        if self.revoked {
+            return Err(CommandRejection::LeaseRevoked);
+        }
+        if now.domain() != self.config.issued.domain() {
+            return Err(CommandRejection::UnsupportedClockRelationship);
+        }
+        if now.as_nanos() < self.config.issued.as_nanos() {
+            return Err(CommandRejection::LeaseNotYetValid);
+        }
+        if now.as_nanos() >= self.config.expires.as_nanos() {
+            return Err(CommandRejection::LeaseExpired);
+        }
         Ok(())
     }
     fn time_valid(&self, meta: CommandMeta, now: Timestamp) -> Result<(), CommandRejection> {
-        if meta.generation != self.config.generation { return Err(CommandRejection::GenerationMismatch); }
+        if meta.generation != self.config.generation {
+            return Err(CommandRejection::GenerationMismatch);
+        }
         let timeline = self.config.policy.timeline;
-        if meta.timeline != timeline.id || meta.source_at.domain() != timeline.domain || meta.deadline.domain() != timeline.domain {
+        if meta.timeline != timeline.id
+            || meta.source_at.domain() != timeline.domain
+            || meta.deadline.domain() != timeline.domain
+        {
             return Err(CommandRejection::UnsupportedClockRelationship);
         }
-        if meta.deadline.as_nanos() <= meta.source_at.as_nanos() { return Err(CommandRejection::InvalidDeadline); }
-        if now.as_nanos() >= meta.deadline.as_nanos() { return Err(CommandRejection::DeadlineExpired); }
+        if meta.deadline.as_nanos() <= meta.source_at.as_nanos() {
+            return Err(CommandRejection::InvalidDeadline);
+        }
+        if now.as_nanos() >= meta.deadline.as_nanos() {
+            return Err(CommandRejection::DeadlineExpired);
+        }
         // Compare signed values without abs/negation at i128::MIN.
-        let age = now.duration_since(meta.source_at).map_err(|_| CommandRejection::CommandTimeOverflow)?.as_nanos();
-        if age > self.config.policy.max_age.as_nanos() { return Err(CommandRejection::StaleCommand); }
-        if age < -self.config.policy.future_skew.as_nanos() { return Err(CommandRejection::FutureCommand); }
+        let age = now
+            .duration_since(meta.source_at)
+            .map_err(|_| CommandRejection::CommandTimeOverflow)?
+            .as_nanos();
+        if age > self.config.policy.max_age.as_nanos() {
+            return Err(CommandRejection::StaleCommand);
+        }
+        if age < -self.config.policy.future_skew.as_nanos() {
+            return Err(CommandRejection::FutureCommand);
+        }
         Ok(())
     }
     /// Pure validation; it does not feed the watchdog or consume a sequence.
@@ -301,9 +400,15 @@ impl CommandSession {
         self.authorize(now)?;
         self.time_valid(meta, now)?;
         if let Some(last) = self.last_sequence() {
-            if last == u64::MAX { return Err(CommandRejection::SequenceExhausted); }
-            if meta.sequence == last { return Err(CommandRejection::Duplicate); }
-            if meta.sequence < last { return Err(CommandRejection::OutOfOrder); }
+            if last == u64::MAX {
+                return Err(CommandRejection::SequenceExhausted);
+            }
+            if meta.sequence == last {
+                return Err(CommandRejection::Duplicate);
+            }
+            if meta.sequence < last {
+                return Err(CommandRejection::OutOfOrder);
+            }
         }
         Ok(())
     }
@@ -320,9 +425,16 @@ impl CommandSession {
         self.authorize(now)?;
         let (meta, accepted_at) = self.accepted.ok_or(CommandRejection::NoCommand)?;
         self.time_valid(meta, now)?;
-        let elapsed = now.duration_since(accepted_at).map_err(|_| CommandRejection::CommandTimeOverflow)?.as_nanos();
-        if elapsed < 0 { return Err(CommandRejection::EvaluationTimeRegression); }
-        if elapsed > self.config.policy.watchdog_timeout.as_nanos() { return Err(CommandRejection::WatchdogExpired); }
+        let elapsed = now
+            .duration_since(accepted_at)
+            .map_err(|_| CommandRejection::CommandTimeOverflow)?
+            .as_nanos();
+        if elapsed < 0 {
+            return Err(CommandRejection::EvaluationTimeRegression);
+        }
+        if elapsed > self.config.policy.watchdog_timeout.as_nanos() {
+            return Err(CommandRejection::WatchdogExpired);
+        }
         Ok(())
     }
 }

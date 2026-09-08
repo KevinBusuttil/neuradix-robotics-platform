@@ -1,7 +1,7 @@
 //! Command requests and the auditable safety decisions they produce.
 
-use neuradix_time::Timestamp;
 use neuradix_command_core::CommandMeta;
+use neuradix_time::Timestamp;
 
 use crate::authority::{Capability, Identity};
 

@@ -104,7 +104,11 @@ pub struct CommandMetadata {
 impl CommandLineage {
     /// Assemble command lineage, or None for an idle evaluation decision.
     /// Idle decisions still carry an auditable runtime timestamp/reason in SafetyDecision.
-    pub fn from_decision(trace: u64, origin: LineageOrigin, decision: &SafetyDecision) -> Option<Self> {
+    pub fn from_decision(
+        trace: u64,
+        origin: LineageOrigin,
+        decision: &SafetyDecision,
+    ) -> Option<Self> {
         let request = decision.request.as_ref()?;
         let (outcome, reject_reason) = match &decision.outcome {
             Outcome::Accepted => ("accepted".to_owned(), None),
@@ -120,9 +124,13 @@ impl CommandLineage {
             capability: request.capability.as_str().to_owned(),
             requested: request.value,
             command_metadata: Some(CommandMetadata {
-                source_at_nanos: request.meta.source_at.as_nanos(), source_clock_domain: request.meta.source_at.domain().as_str().to_owned(),
-                deadline_nanos: request.meta.deadline.as_nanos(), deadline_clock_domain: request.meta.deadline.domain().as_str().to_owned(),
-                timeline: request.meta.timeline, generation: request.meta.generation.get().to_string(), sequence: request.meta.sequence,
+                source_at_nanos: request.meta.source_at.as_nanos(),
+                source_clock_domain: request.meta.source_at.domain().as_str().to_owned(),
+                deadline_nanos: request.meta.deadline.as_nanos(),
+                deadline_clock_domain: request.meta.deadline.domain().as_str().to_owned(),
+                timeline: request.meta.timeline,
+                generation: request.meta.generation.get().to_string(),
+                sequence: request.meta.sequence,
             }),
             outcome,
             applied: decision.applied,
@@ -151,18 +159,34 @@ impl CommandLineage {
 mod requested_value {
     use serde::{Deserialize, Deserializer, Serializer};
     pub fn serialize<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
-        if value.is_finite() { serializer.serialize_f64(*value) }
-        else { serializer.serialize_str(if value.is_nan() { "NaN" } else if value.is_sign_positive() { "Infinity" } else { "-Infinity" }) }
+        if value.is_finite() {
+            serializer.serialize_f64(*value)
+        } else {
+            serializer.serialize_str(if value.is_nan() {
+                "NaN"
+            } else if value.is_sign_positive() {
+                "Infinity"
+            } else {
+                "-Infinity"
+            })
+        }
     }
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
         #[derive(Deserialize)]
         #[serde(untagged)]
-        enum Value { Number(f64), Marker(String) }
+        enum Value {
+            Number(f64),
+            Marker(String),
+        }
         match Value::deserialize(deserializer)? {
             Value::Number(value) => Ok(value),
             Value::Marker(value) => match value.as_str() {
-                "NaN" => Ok(f64::NAN), "Infinity" => Ok(f64::INFINITY), "-Infinity" => Ok(f64::NEG_INFINITY),
-                _ => Err(serde::de::Error::custom("unknown non-finite command marker")),
+                "NaN" => Ok(f64::NAN),
+                "Infinity" => Ok(f64::INFINITY),
+                "-Infinity" => Ok(f64::NEG_INFINITY),
+                _ => Err(serde::de::Error::custom(
+                    "unknown non-finite command marker",
+                )),
             },
         }
     }
@@ -176,38 +200,77 @@ mod tests {
     fn decision(value: f64) -> SafetyDecision {
         let source = Timestamp::new(ClockDomain::Simulation, 100);
         SafetyDecision {
-            request: Some(CommandRequest::new(Identity::new("controller"), Capability::new("thrust"), value, CommandMeta {
-                generation: Generation::new(7).unwrap(), sequence: 3, source_at: source,
-                deadline: Timestamp::new(ClockDomain::Simulation, 500), timeline: 9,
-            })),
-            outcome: Outcome::Rejected(RejectReason::NonFiniteCommand), applied: 0.0,
-            acted_rules: vec![], at: Timestamp::new(ClockDomain::Simulation, 200),
+            request: Some(CommandRequest::new(
+                Identity::new("controller"),
+                Capability::new("thrust"),
+                value,
+                CommandMeta {
+                    generation: Generation::new(7).unwrap(),
+                    sequence: 3,
+                    source_at: source,
+                    deadline: Timestamp::new(ClockDomain::Simulation, 500),
+                    timeline: 9,
+                },
+            )),
+            outcome: Outcome::Rejected(RejectReason::NonFiniteCommand),
+            applied: 0.0,
+            acted_rules: vec![],
+            at: Timestamp::new(ClockDomain::Simulation, 200),
         }
     }
     #[test]
     fn lineage_keeps_source_and_evaluation_times_separate() {
-        let lineage = CommandLineage::from_decision(7, LineageOrigin::new("depth", "depth", "m", 3.0), &decision(9.0)).unwrap();
+        let lineage = CommandLineage::from_decision(
+            7,
+            LineageOrigin::new("depth", "depth", "m", 3.0),
+            &decision(9.0),
+        )
+        .unwrap();
         assert_eq!(lineage.at_nanos, 200);
         let meta = lineage.command_metadata.as_ref().unwrap();
-        assert_eq!(meta.source_at_nanos, 100); assert_eq!(meta.deadline_nanos, 500);
-        assert_eq!(meta.generation, "7"); assert_eq!(meta.sequence, 3);
-        assert_eq!(CommandLineage::from_json_bytes(&lineage.to_json_bytes()).unwrap(), lineage);
+        assert_eq!(meta.source_at_nanos, 100);
+        assert_eq!(meta.deadline_nanos, 500);
+        assert_eq!(meta.generation, "7");
+        assert_eq!(meta.sequence, 3);
+        assert_eq!(
+            CommandLineage::from_json_bytes(&lineage.to_json_bytes()).unwrap(),
+            lineage
+        );
         let mut old: serde_json::Value = serde_json::from_slice(&lineage.to_json_bytes()).unwrap();
         old.as_object_mut().unwrap().remove("commandMetadata");
-        assert!(CommandLineage::from_json_bytes(&serde_json::to_vec(&old).unwrap()).unwrap().command_metadata.is_none());
+        assert!(
+            CommandLineage::from_json_bytes(&serde_json::to_vec(&old).unwrap())
+                .unwrap()
+                .command_metadata
+                .is_none()
+        );
     }
     #[test]
     fn non_finite_rejections_survive_recording_round_trip() {
         for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            let lineage = CommandLineage::from_decision(0, LineageOrigin::new("depth", "depth", "m", 3.0), &decision(value)).unwrap();
+            let lineage = CommandLineage::from_decision(
+                0,
+                LineageOrigin::new("depth", "depth", "m", 3.0),
+                &decision(value),
+            )
+            .unwrap();
             let back = CommandLineage::from_json_bytes(&lineage.to_json_bytes()).unwrap();
-            assert_eq!(back.applied, 0.0); assert_eq!(back.reject_reason.as_deref(), Some("NonFiniteCommand"));
-            if value.is_nan() { assert!(back.requested.is_nan()); } else { assert_eq!(back.requested, value); }
+            assert_eq!(back.applied, 0.0);
+            assert_eq!(back.reject_reason.as_deref(), Some("NonFiniteCommand"));
+            if value.is_nan() {
+                assert!(back.requested.is_nan());
+            } else {
+                assert_eq!(back.requested, value);
+            }
         }
     }
     #[test]
     fn idle_decision_has_no_invented_command_lineage() {
-        let mut d = decision(0.5); d.request = None;
-        assert!(CommandLineage::from_decision(0, LineageOrigin::new("depth", "depth", "m", 3.0), &d).is_none());
+        let mut d = decision(0.5);
+        d.request = None;
+        assert!(
+            CommandLineage::from_decision(0, LineageOrigin::new("depth", "depth", "m", 3.0), &d)
+                .is_none()
+        );
     }
 }

@@ -1,15 +1,33 @@
-use neuradix_command_core::{CommandPolicy, CommandSession, ConfigError, Generation, SessionConfig, SharedTimeline};
+use neuradix_command_core::{
+    CommandPolicy, CommandSession, ConfigError, Generation, SessionConfig, SharedTimeline,
+};
 use neuradix_time::{ClockDomain, Duration, Timestamp};
-fn t(n: i128) -> Timestamp { Timestamp::new(ClockDomain::Monotonic, n) }
+fn t(n: i128) -> Timestamp {
+    Timestamp::new(ClockDomain::Monotonic, n)
+}
 #[test]
 fn invalid_configuration_cannot_construct_a_session() {
     assert!(Generation::new(0).is_none());
     assert!(SharedTimeline::new(0, ClockDomain::Monotonic).is_err());
     let timeline = SharedTimeline::new(1, ClockDomain::Monotonic).unwrap();
     for (age, skew, timeout) in [(0, 0, 1), (-1, 0, 1), (1, -1, 1), (1, 0, 0), (1, 0, -1)] {
-        assert!(CommandPolicy::new(timeline, Duration::from_nanos(age), Duration::from_nanos(skew), Duration::from_nanos(timeout)).is_err());
+        assert!(
+            CommandPolicy::new(
+                timeline,
+                Duration::from_nanos(age),
+                Duration::from_nanos(skew),
+                Duration::from_nanos(timeout)
+            )
+            .is_err()
+        );
     }
-    let policy = CommandPolicy::new(timeline, Duration::from_nanos(1), Duration::ZERO, Duration::from_nanos(1)).unwrap();
+    let policy = CommandPolicy::new(
+        timeline,
+        Duration::from_nanos(1),
+        Duration::ZERO,
+        Duration::from_nanos(1),
+    )
+    .unwrap();
     let gen1 = Generation::new(1).unwrap();
     assert!(SessionConfig::new(gen1, t(1), t(1), policy).is_err());
     assert!(SessionConfig::new(gen1, t(2), t(1), policy).is_err());
@@ -25,7 +43,13 @@ fn invalid_configuration_cannot_construct_a_session() {
 #[test]
 fn generation_exhaustion_does_not_wrap_and_policy_is_read_only() {
     let timeline = SharedTimeline::new(1, ClockDomain::Monotonic).unwrap();
-    let policy = CommandPolicy::new(timeline, Duration::from_nanos(i128::MAX), Duration::from_nanos(i128::MAX), Duration::from_nanos(i128::MAX)).unwrap();
+    let policy = CommandPolicy::new(
+        timeline,
+        Duration::from_nanos(i128::MAX),
+        Duration::from_nanos(i128::MAX),
+        Duration::from_nanos(i128::MAX),
+    )
+    .unwrap();
     assert_eq!(policy.max_age(), Duration::from_nanos(i128::MAX));
     assert_eq!(policy.future_skew(), Duration::from_nanos(i128::MAX));
     assert_eq!(policy.watchdog_timeout(), Duration::from_nanos(i128::MAX));

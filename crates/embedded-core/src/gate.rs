@@ -135,68 +135,153 @@ pub struct CommandGate {
 impl CommandGate {
     /// Reject non-finite/out-of-range safe configuration explicitly. The accepted
     /// command watchdog is configured in the lease's CommandPolicy.
-    pub fn new(limits: Limits, lease: AuthorityLease, safe_output: f32) -> Result<Self, GateConfigError> {
-        if !limits.permits(safe_output) { return Err(GateConfigError::InvalidSafeOutput); }
-        Ok(Self { limits, lease, safe_output, last_applied: None, clock: EvaluationClock::default(), active_generation: None, fallback_reason: None })
+    pub fn new(
+        limits: Limits,
+        lease: AuthorityLease,
+        safe_output: f32,
+    ) -> Result<Self, GateConfigError> {
+        if !limits.permits(safe_output) {
+            return Err(GateConfigError::InvalidSafeOutput);
+        }
+        Ok(Self {
+            limits,
+            lease,
+            safe_output,
+            last_applied: None,
+            clock: EvaluationClock::default(),
+            active_generation: None,
+            fallback_reason: None,
+        })
     }
     /// Trusted lease replacement; requires a strictly greater generation. Does
     /// not clear the gate-wide evaluation-clock fault. Evaluate before actuating.
-    pub fn replace_lease(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> { self.lease.replace(lease) }
+    pub fn replace_lease(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> {
+        self.lease.replace(lease)
+    }
     /// Trusted renewal preserves sequence and all accepted-command validity times.
-    pub fn renew_lease(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> { self.lease.session.renew(expires, now) }
+    pub fn renew_lease(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> {
+        self.lease.session.renew(expires, now)
+    }
     /// Trusted revocation; the next evaluation applies the safe output.
-    pub fn revoke_lease(&mut self) { self.lease.session.revoke(); }
+    pub fn revoke_lease(&mut self) {
+        self.lease.session.revoke();
+    }
     /// Validated local safe output.
-    pub fn safe_output(&self) -> f32 { self.safe_output }
+    pub fn safe_output(&self) -> f32 {
+        self.safe_output
+    }
     /// Last applied value, if evaluated.
-    pub fn last_applied(&self) -> Option<f32> { self.last_applied }
+    pub fn last_applied(&self) -> Option<f32> {
+        self.last_applied
+    }
     /// Receiver time of the last fully accepted command, for watchdog diagnostics.
-    pub fn last_accepted_at(&self) -> Option<Timestamp> { self.lease.session.last_accepted_at() }
+    pub fn last_accepted_at(&self) -> Option<Timestamp> {
+        self.lease.session.last_accepted_at()
+    }
     /// Evaluate at trusted runtime time. No rejected command refreshes session
     /// sequence, source age, deadline or the accepted-command watchdog.
     pub fn evaluate(&mut self, request: Option<Command>, now: Timestamp) -> GateDecision {
-        if let Err(reason) = self.clock.observe(now) { return self.enter_safe(request, now, reason); }
+        if let Err(reason) = self.clock.observe(now) {
+            return self.enter_safe(request, now, reason);
+        }
         let Some(input) = request else {
             let validity = match self.active_generation {
-                Some(generation) if generation != self.lease.config().generation() => Err(SafeReason::GenerationMismatch),
+                Some(generation) if generation != self.lease.config().generation() => {
+                    Err(SafeReason::GenerationMismatch)
+                }
                 Some(_) => self.lease.session.check_held(now),
                 None => Err(SafeReason::NoCommand),
             };
-            if let Err(reason) = validity { return self.enter_safe(None, now, reason); }
-            if let Some(reason) = self.fallback_reason { return self.enter_safe(None, now, reason); }
-            return GateDecision { request: None, at: now, applied: self.last_applied.unwrap_or(self.safe_output), outcome: Outcome::Accepted, range_clamped: false, slew_limited: false };
+            if let Err(reason) = validity {
+                return self.enter_safe(None, now, reason);
+            }
+            if let Some(reason) = self.fallback_reason {
+                return self.enter_safe(None, now, reason);
+            }
+            return GateDecision {
+                request: None,
+                at: now,
+                applied: self.last_applied.unwrap_or(self.safe_output),
+                outcome: Outcome::Accepted,
+                range_clamped: false,
+                slew_limited: false,
+            };
         };
-        if let Err(reason) = self.lease.validate(input.holder, input.capability, input.meta, now) { return self.enter_safe(request, now, reason); }
-        if !input.value.is_finite() { return self.enter_safe(request, now, SafeReason::NonFiniteCommand); }
+        if let Err(reason) = self
+            .lease
+            .validate(input.holder, input.capability, input.meta, now)
+        {
+            return self.enter_safe(request, now, reason);
+        }
+        if !input.value.is_finite() {
+            return self.enter_safe(request, now, SafeReason::NonFiniteCommand);
+        }
         let clamped = clamp(input.value, self.limits.min, self.limits.max);
         let range_clamped = clamped != input.value;
         let (applied, slew_limited) = match self.last_applied {
             Some(prev) => {
                 let delta = clamped - prev;
-                if !delta.is_finite() { return self.enter_safe(request, now, SafeReason::InvalidOutput); }
-                if delta > self.limits.max_step { (prev + self.limits.max_step, true) }
-                else if delta < -self.limits.max_step { (prev - self.limits.max_step, true) }
-                else { (clamped, false) }
+                if !delta.is_finite() {
+                    return self.enter_safe(request, now, SafeReason::InvalidOutput);
+                }
+                if delta > self.limits.max_step {
+                    (prev + self.limits.max_step, true)
+                } else if delta < -self.limits.max_step {
+                    (prev - self.limits.max_step, true)
+                } else {
+                    (clamped, false)
+                }
             }
             None => (clamped, false),
         };
-        if !self.limits.permits(applied) { return self.enter_safe(request, now, SafeReason::InvalidOutput); }
-        if let Err(reason) = self.lease.session.accept(input.meta, now) { return self.enter_safe(request, now, reason); }
+        if !self.limits.permits(applied) {
+            return self.enter_safe(request, now, SafeReason::InvalidOutput);
+        }
+        if let Err(reason) = self.lease.session.accept(input.meta, now) {
+            return self.enter_safe(request, now, reason);
+        }
         self.last_applied = Some(applied);
         self.active_generation = Some(input.meta.generation);
         self.fallback_reason = None;
-        GateDecision { request, at: now, applied, outcome: if range_clamped || slew_limited { Outcome::Modified } else { Outcome::Accepted }, range_clamped, slew_limited }
+        GateDecision {
+            request,
+            at: now,
+            applied,
+            outcome: if range_clamped || slew_limited {
+                Outcome::Modified
+            } else {
+                Outcome::Accepted
+            },
+            range_clamped,
+            slew_limited,
+        }
     }
-    fn enter_safe(&mut self, request: Option<Command>, now: Timestamp, reason: SafeReason) -> GateDecision {
+    fn enter_safe(
+        &mut self,
+        request: Option<Command>,
+        now: Timestamp,
+        reason: SafeReason,
+    ) -> GateDecision {
         self.last_applied = Some(self.safe_output);
         self.fallback_reason = Some(reason);
-        GateDecision { request, at: now, applied: self.safe_output, outcome: Outcome::SafeState(reason), range_clamped: false, slew_limited: false }
+        GateDecision {
+            request,
+            at: now,
+            applied: self.safe_output,
+            outcome: Outcome::SafeState(reason),
+            range_clamped: false,
+            slew_limited: false,
+        }
     }
 }
 
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
     let mut v = value;
-    if v < min { v = min; }
-    if v > max { v = max; }
+    if v < min {
+        v = min;
+    }
+    if v > max {
+        v = max;
+    }
     v
 }

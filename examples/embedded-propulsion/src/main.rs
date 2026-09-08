@@ -18,8 +18,8 @@
 use std::error::Error;
 
 use neuradix_embedded_core::{
-    AuthorityLease, Command, CommandMeta, CommandPolicy, Generation, SessionConfig, SharedTimeline, CommandGate, EmbeddedComponent, Limits, NodeId, Outcome, PropulsionNode,
-    SafeReason,
+    AuthorityLease, Command, CommandGate, CommandMeta, CommandPolicy, EmbeddedComponent,
+    Generation, Limits, NodeId, Outcome, PropulsionNode, SafeReason, SessionConfig, SharedTimeline,
 };
 use neuradix_time::{ClockDomain, Duration, Timestamp};
 
@@ -42,11 +42,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Simulation-only generation. Live startup requires a durable non-reused value.
     let gate = CommandGate::new(
         Limits::new(-1.0, 1.0, 0.2).ok_or("invalid limits")?,
-        AuthorityLease::new(1, 2, SessionConfig::new(
-            Generation::new(1).unwrap(), Timestamp::new(ClockDomain::Monotonic, 0),
-            Timestamp::new(ClockDomain::Monotonic, LEASE_NANOS),
-            CommandPolicy::new(SharedTimeline::new(1, ClockDomain::Monotonic)?, Duration::from_secs(1), Duration::ZERO, WATCHDOG)?,
-        )?),
+        AuthorityLease::new(
+            1,
+            2,
+            SessionConfig::new(
+                Generation::new(1).unwrap(),
+                Timestamp::new(ClockDomain::Monotonic, 0),
+                Timestamp::new(ClockDomain::Monotonic, LEASE_NANOS),
+                CommandPolicy::new(
+                    SharedTimeline::new(1, ClockDomain::Monotonic)?,
+                    Duration::from_secs(1),
+                    Duration::ZERO,
+                    WATCHDOG,
+                )?,
+            )?,
+        ),
         0.0, // safe output: zero thrust
     )?;
     let mut node = PropulsionNode::new(NodeId::new("auv/vertical-thruster"), gate);
@@ -70,15 +80,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Source and receiver use the SAME simulated clock. Never stamp a
         // received packet with arrival time as a substitute for source freshness.
-        let command = request.map(|value| Command { holder: 1, capability: 2, value,
-            meta: CommandMeta { generation: Generation::new(1).unwrap(), sequence: step as u64,
-                source_at: now, deadline: now.checked_add(Duration::from_secs(1)).unwrap(), timeline: 1 } });
+        let command = request.map(|value| Command {
+            holder: 1,
+            capability: 2,
+            value,
+            meta: CommandMeta {
+                generation: Generation::new(1).unwrap(),
+                sequence: step as u64,
+                source_at: now,
+                deadline: now.checked_add(Duration::from_secs(1)).unwrap(),
+                timeline: 1,
+            },
+        });
         let applied = node.tick(now, command);
         let decision = node.last_decision().expect("ticked");
 
         if let Outcome::SafeState(reason) = decision.outcome {
-            if reason == SafeReason::WatchdogExpired { saw_link_loss = true; }
-            if reason == SafeReason::LeaseExpired { saw_lease_expiry = true; }
+            if reason == SafeReason::WatchdogExpired {
+                saw_link_loss = true;
+            }
+            if reason == SafeReason::LeaseExpired {
+                saw_lease_expiry = true;
+            }
         }
 
         // Print a few representative rows (transitions and endpoints).

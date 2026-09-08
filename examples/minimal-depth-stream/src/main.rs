@@ -30,9 +30,9 @@ use neuradix_runtime::{
     TickContext, run_lockstep,
 };
 use neuradix_safety::{
-    AuthorityLease, Capability, CommandLineage, CommandRequest, Constraint, FdirMonitor,
-    CommandMeta, CommandPolicy, Generation, SessionConfig, SharedTimeline,
-    FdirPolicy, Identity, LINEAGE_CHANNEL, LeaseTable, LineageOrigin, Outcome, SafetyGate,
+    AuthorityLease, Capability, CommandLineage, CommandMeta, CommandPolicy, CommandRequest,
+    Constraint, FdirMonitor, FdirPolicy, Generation, Identity, LINEAGE_CHANNEL, LeaseTable,
+    LineageOrigin, Outcome, SafetyGate, SessionConfig, SharedTimeline,
 };
 use neuradix_time::{Clock, ClockDomain, Duration, ManualClock, Timestamp};
 use neuradix_transport_api::{
@@ -356,11 +356,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut leases = LeaseTable::new();
     // This isolated replay fixture uses generation 1. A live receiver must
     // reserve a non-reused generation durably before enabling command ingress.
-    let session = SessionConfig::new(Generation::new(1).unwrap(), Timestamp::new(domain, 0),
-        Timestamp::new(domain, 400_000_000), CommandPolicy::new(
-            SharedTimeline::new(1, domain)?, Duration::from_millis(100), Duration::ZERO, Duration::from_millis(100),
-        )?)?;
-    leases.grant(AuthorityLease::new(holder.clone(), capability.clone(), session, None))?;
+    let session = SessionConfig::new(
+        Generation::new(1).unwrap(),
+        Timestamp::new(domain, 0),
+        Timestamp::new(domain, 400_000_000),
+        CommandPolicy::new(
+            SharedTimeline::new(1, domain)?,
+            Duration::from_millis(100),
+            Duration::ZERO,
+            Duration::from_millis(100),
+        )?,
+    )?;
+    leases.grant(AuthorityLease::new(
+        holder.clone(),
+        capability.clone(),
+        session,
+        None,
+    ))?;
     let constraints = vec![
         Constraint::range("thrust-range", -0.8, 0.8)?,
         Constraint::slew_rate("thrust-slew", 50.0)?,
@@ -371,10 +383,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let requests = thrust_live.iter().enumerate().map(|(sequence, c)| {
         (
             c.at,
-            Some(CommandRequest::new(holder.clone(), capability.clone(), c.thrust, CommandMeta {
-                generation: Generation::new(1).unwrap(), sequence: sequence as u64, source_at: c.at,
-                deadline: c.at.checked_add(Duration::from_millis(100)).unwrap(), timeline: 1,
-            })),
+            Some(CommandRequest::new(
+                holder.clone(),
+                capability.clone(),
+                c.thrust,
+                CommandMeta {
+                    generation: Generation::new(1).unwrap(),
+                    sequence: sequence as u64,
+                    source_at: c.at,
+                    deadline: c.at.checked_add(Duration::from_millis(100)).unwrap(),
+                    timeline: 1,
+                },
+            )),
         )
     });
     let decisions = run_lockstep(&safety_clock, &mut gate, requests)?;
@@ -403,7 +423,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         };
         println!(
             "  t={} requested={:.2} -> applied={:.2} [{}]",
-            d.at, d.request.as_ref().expect("command input").value, d.applied, rules
+            d.at,
+            d.request.as_ref().expect("command input").value,
+            d.applied,
+            rules
         );
     }
     println!(
@@ -431,7 +454,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (trace, (sample, decision)) in published.iter().zip(decisions.iter()).enumerate() {
         let origin =
             LineageOrigin::new("navigation/vehicle-depth", "depth", "m", sample.value.depth);
-        let lineage = CommandLineage::from_decision(trace as u64, origin, decision).expect("command input");
+        let lineage =
+            CommandLineage::from_decision(trace as u64, origin, decision).expect("command input");
         lineage_writer.write_record(0, trace as u64, decision.at, &lineage.to_json_bytes())?;
     }
     let lineage_bytes = lineage_writer.finish()?;

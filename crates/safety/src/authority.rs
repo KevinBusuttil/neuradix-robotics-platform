@@ -1,7 +1,9 @@
 //! Command authority: identities, capabilities and time-bounded leases (§16.3).
 
+use neuradix_command_core::{
+    CommandMeta, CommandRejection, CommandSession, ConfigError, SessionConfig,
+};
 use neuradix_time::Timestamp;
-use neuradix_command_core::{CommandMeta, CommandRejection, CommandSession, ConfigError, SessionConfig};
 
 use crate::error::SafetyError;
 
@@ -97,17 +99,35 @@ pub struct AuthorityLease {
 
 impl AuthorityLease {
     /// Provision one binding with validated session configuration.
-    pub fn new(holder: Identity, capability: Capability, config: SessionConfig, envelope: Option<CommandEnvelope>) -> Self {
-        Self { holder, capability, session: CommandSession::new(config), envelope }
+    pub fn new(
+        holder: Identity,
+        capability: Capability,
+        config: SessionConfig,
+        envelope: Option<CommandEnvelope>,
+    ) -> Self {
+        Self {
+            holder,
+            capability,
+            session: CommandSession::new(config),
+            envelope,
+        }
     }
     /// The trusted holder identity.
-    pub fn holder(&self) -> &Identity { &self.holder }
+    pub fn holder(&self) -> &Identity {
+        &self.holder
+    }
     /// The trusted capability identity.
-    pub fn capability(&self) -> &Capability { &self.capability }
+    pub fn capability(&self) -> &Capability {
+        &self.capability
+    }
     /// Current lease/session configuration.
-    pub fn config(&self) -> SessionConfig { self.session.config() }
+    pub fn config(&self) -> SessionConfig {
+        self.session.config()
+    }
     /// Whether the lease currently grants authority (independent of command validity).
-    pub fn is_valid_at(&self, now: Timestamp) -> bool { self.session.authorize(now).is_ok() }
+    pub fn is_valid_at(&self, now: Timestamp) -> bool {
+        self.session.authorize(now).is_ok()
+    }
     fn matches(&self, holder: &Identity, capability: &Capability) -> bool {
         &self.holder == holder && &self.capability == capability
     }
@@ -130,9 +150,13 @@ pub struct LeaseTable {
 
 impl LeaseTable {
     /// An empty table (at most [`MAX_LEASE_BINDINGS`] trusted slots).
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Number of reserved binding slots, including revoked bindings.
-    pub fn binding_count(&self) -> usize { self.leases.len() }
+    pub fn binding_count(&self) -> usize {
+        self.leases.len()
+    }
     /// Trusted provisioning. Replaces an existing binding only with a greater
     /// generation; use [`Self::renew`] to extend the same generation's lease.
     pub fn grant(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> {
@@ -141,42 +165,89 @@ impl LeaseTable {
             old.session.replace(lease.config())?;
             old.envelope = lease.envelope;
         } else {
-            if self.leases.len() == MAX_LEASE_BINDINGS { return Err(ConfigError::CapacityExceeded); }
+            if self.leases.len() == MAX_LEASE_BINDINGS {
+                return Err(ConfigError::CapacityExceeded);
+            }
             self.leases.push(lease);
         }
         Ok(())
     }
     /// Trusted renewal preserves generation, sequence, age, deadline and watchdog.
-    pub fn renew(&mut self, holder: &Identity, capability: &Capability, expires: Timestamp, now: Timestamp) -> Result<(), ConfigError> {
-        let index = self.index(holder, capability).ok_or(ConfigError::UnknownBinding)?;
+    pub fn renew(
+        &mut self,
+        holder: &Identity,
+        capability: &Capability,
+        expires: Timestamp,
+        now: Timestamp,
+    ) -> Result<(), ConfigError> {
+        let index = self
+            .index(holder, capability)
+            .ok_or(ConfigError::UnknownBinding)?;
         self.leases[index].session.renew(expires, now)
     }
     /// Revoke authority while retaining the generation watermark.
     pub fn revoke(&mut self, holder: &Identity, capability: &Capability) {
-        if let Some(index) = self.index(holder, capability) { self.leases[index].session.revoke(); }
+        if let Some(index) = self.index(holder, capability) {
+            self.leases[index].session.revoke();
+        }
     }
     /// Last fully accepted command time for diagnostics; never receiver arrival
     /// time of rejected traffic and never proof of source freshness.
-    pub fn last_accepted_at(&self, holder: &Identity, capability: &Capability) -> Option<Timestamp> {
-        self.index(holder, capability).and_then(|i| self.leases[i].session.last_accepted_at())
+    pub fn last_accepted_at(
+        &self,
+        holder: &Identity,
+        capability: &Capability,
+    ) -> Option<Timestamp> {
+        self.index(holder, capability)
+            .and_then(|i| self.leases[i].session.last_accepted_at())
     }
     fn index(&self, holder: &Identity, capability: &Capability) -> Option<usize> {
-        self.leases.iter().position(|lease| lease.matches(holder, capability))
+        self.leases
+            .iter()
+            .position(|lease| lease.matches(holder, capability))
     }
-    pub(crate) fn validate(&self, holder: &Identity, capability: &Capability, meta: CommandMeta, now: Timestamp, value: f64) -> Result<usize, CommandRejection> {
-        let index = self.index(holder, capability).ok_or(CommandRejection::UnknownBinding)?;
+    pub(crate) fn validate(
+        &self,
+        holder: &Identity,
+        capability: &Capability,
+        meta: CommandMeta,
+        now: Timestamp,
+        value: f64,
+    ) -> Result<usize, CommandRejection> {
+        let index = self
+            .index(holder, capability)
+            .ok_or(CommandRejection::UnknownBinding)?;
         let lease = &self.leases[index];
         lease.session.validate(meta, now)?;
-        if !value.is_finite() { return Err(CommandRejection::NonFiniteCommand); }
-        if lease.envelope.is_some_and(|envelope| !envelope.permits(value)) { return Err(CommandRejection::OutOfEnvelope); }
+        if !value.is_finite() {
+            return Err(CommandRejection::NonFiniteCommand);
+        }
+        if lease
+            .envelope
+            .is_some_and(|envelope| !envelope.permits(value))
+        {
+            return Err(CommandRejection::OutOfEnvelope);
+        }
         Ok(index)
     }
-    pub(crate) fn accept(&mut self, index: usize, meta: CommandMeta, now: Timestamp) -> Result<(), CommandRejection> {
+    pub(crate) fn accept(
+        &mut self,
+        index: usize,
+        meta: CommandMeta,
+        now: Timestamp,
+    ) -> Result<(), CommandRejection> {
         self.leases[index].session.accept(meta, now)
     }
-    pub(crate) fn check_held(&self, index: usize, generation: neuradix_command_core::Generation, now: Timestamp) -> Result<(), CommandRejection> {
+    pub(crate) fn check_held(
+        &self,
+        index: usize,
+        generation: neuradix_command_core::Generation,
+        now: Timestamp,
+    ) -> Result<(), CommandRejection> {
         let session = &self.leases[index].session;
-        if session.config().generation() != generation { return Err(CommandRejection::GenerationMismatch); }
+        if session.config().generation() != generation {
+            return Err(CommandRejection::GenerationMismatch);
+        }
         session.check_held(now)
     }
 }

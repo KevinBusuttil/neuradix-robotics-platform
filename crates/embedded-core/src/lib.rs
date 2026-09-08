@@ -59,4 +59,7 @@ pub use node::{EmbeddedComponent, PropulsionNode};
 pub use watchdog::Watchdog;
 
 /// Shared command validity configuration and metadata.
-pub use neuradix_command_core::{CommandMeta, CommandPolicy, ConfigError as SessionError, Generation, SessionConfig, SharedTimeline};
+pub use neuradix_command_core::{
+    CommandMeta, CommandPolicy, ConfigError as SessionError, Generation, SessionConfig,
+    SharedTimeline,
+};
