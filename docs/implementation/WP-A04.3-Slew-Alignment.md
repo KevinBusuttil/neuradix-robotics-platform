@@ -111,8 +111,45 @@ Standalone Watchdog API and all A04.2 trusted-startup requirements remain intact
 
 ## Verification evidence
 
-Branch verification is in progress. Final pinned-toolchain CI identities, passed,
-failed and unavailable checks will be recorded before requesting PR review.
+Implementation revision [`56e8688`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/56e8688f2ed66ef7c1f843c8cefeaf39536f217a)
+passed [CI 34290519286](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290519286).
+[PR #10](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/10) records
+the final documentation revision's checks and remains unmerged for review.
+The A04.2 merge also passed [main CI 34289072587](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34289072587).
+
+CI used pinned Rust/Cargo **1.94.1**, locked dependencies, `RUSTFLAGS=-D warnings`,
+G++ 13.3.0, Python 3.12.3 and AVR GCC 7.3.0. Local Cargo/rustc/rustup and AVR
+tools were unavailable, so repository CI supplied the compiler/test evidence.
+
+| Check | Result |
+|---|---|
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` | Passed |
+| `cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport` | **88 passed**, none failed/ignored; includes A04.1/A04.2 regressions and 12 actual-gate slew scenarios |
+| `cargo test --locked --workspace` | **236 passed**, none failed; two AVR tests ignored here and executed below; includes doctests, architecture, CLI, C++ and Python tests |
+| `cargo run --locked -p ...` for `neuradix-example-minimal-depth-stream`, `neuradix-example-auv-depth-sim`, `neuradix-example-embedded-propulsion` | All three passed |
+| Separate `cargo check --locked -p ... --no-default-features` for `neuradix-time`, `neuradix-command-core`, `neuradix-embedded-transport`, `neuradix-embedded-core` | All four passed independently |
+| `cargo doc --locked --workspace --no-deps` | Passed |
+| `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture` | **2 passed**: actual AVR supported scalar compile/link and intended binary64 compile rejection |
+| Local changed Markdown path/anchor scan and `git diff --check` | Passed: 8 Markdown files, 317 local links/anchors, no missing targets |
+
+Counts overlap: focused tests are a workspace subset, and the two AVR checks
+are additional to the 236 workspace passes. AVR checks qualify existing codec
+compilation only; they do not execute the new gate on physical hardware.
+
+Failed checks were retained and resolved: [initial CI 34290073806](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290073806)
+stopped at formatting; the pinned formatter's patch was applied.
+[CI 34290385238](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290385238)
+then found an older paired test sending unknown-identity traffic only to the host,
+leaving the MCU without the same slew history. The fixture now sends equivalent
+rejected evaluations to both gates and asserts no accepted-command refresh.
+No validity semantics were changed to resolve this test.
+
+A broader local Markdown scan still fails on **32 pre-existing archived links**
+(31 missing figure references in specifications v0.4/v0.5 and one missing v0.2
+specification link from plan v0.1). These are outside the requested scope.
+Physical boards/rigs, timer/stack measurements and durable-storage deployment
+were unavailable; no hardware acceptance or performance result is claimed.
 
 Focused additions are `crates/safety/tests/slew_conformance.rs` (both actual gates)
 and `crates/command-core/tests/slew.rs` (representation/configuration boundaries).

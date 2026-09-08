@@ -38,8 +38,13 @@ startup, clock relationship and periodic scheduling remain deployment obligation
 
 [A04.3 branch evidence and API migration](implementation/WP-A04.3-Slew-Alignment.md)
 record shared host/MCU elapsed-time slew, explicit rate units, inward output
-rounding and changing-period conformance. This increment is not yet integrated;
-final verification identities/results are recorded in its evidence document.
+rounding and changing-period conformance. Implementation `56e8688` passed
+[CI 34290519286](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290519286):
+88 focused and 236 workspace tests/doctests, two separate AVR checks, three
+examples, formatting, Clippy, docs and four independent no_std checks.
+[PR #10](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/10) is
+unmerged; opening the PR does not complete integration. The evidence document
+distinguishes corrected CI failures, unavailable hardware and archived link debt.
 No physical hardware, durable-storage or board timing/resource validation is
 claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
 

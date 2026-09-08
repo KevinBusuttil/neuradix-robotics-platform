@@ -41,7 +41,8 @@ impl Constraint {
     }
 
     /// Construct a finite, non-negative rate in units per second. Zero holds
-    /// the previous output; the first command has no slew reference.
+    /// the previous output. Only the first evaluation has no slew reference;
+    /// an initial idle/rejected evaluation establishes the safe reference.
     pub fn slew_rate(id: &'static str, rate_per_sec: f64) -> Result<Self, SafetyError> {
         if !rate_per_sec.is_finite() || rate_per_sec < 0.0 {
             return Err(SafetyError::InvalidSlew {

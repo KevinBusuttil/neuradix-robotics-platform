@@ -119,6 +119,11 @@ pub struct GateDecision {
 
 /// Allocation-free gate: binding/lease, command validity, numeric limits, fallback.
 /// Runtime must call evaluate periodically, including with None when no input arrives.
+/// Slew uses the last applied output and elapsed time since the previous runtime
+/// evaluation. Idle ticks hold and consume elapsed time; rejected ticks safe
+/// immediately. Recovery slews from that safe reference. Only a valid command on
+/// the first evaluation has no slew reference and receives hard range limits only.
+/// Renewal/replacement never resets this reference or the runtime clock.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandGate {
     limits: Limits,
