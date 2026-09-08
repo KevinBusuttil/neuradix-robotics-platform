@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Simulation-only generation. Live startup requires a durable non-reused value.
     let gate = CommandGate::new(
-        Limits::new(-1.0, 1.0, 0.2).ok_or("invalid limits")?,
+        Limits::with_slew_rate(-1.0, 1.0, 10.0).ok_or("invalid limits")?,
         AuthorityLease::new(
             1,
             2,

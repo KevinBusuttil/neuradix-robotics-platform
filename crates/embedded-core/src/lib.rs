@@ -32,7 +32,7 @@
 //! let policy = CommandPolicy::new(SharedTimeline::new(1, ClockDomain::Monotonic).unwrap(),
 //!     Duration::from_secs(1), Duration::ZERO, Duration::from_millis(100)).unwrap();
 //! let lease = AuthorityLease::new(1, 2, SessionConfig::new(generation, t(0), t(10_000_000_000), policy).unwrap());
-//! let mut gate = CommandGate::new(Limits::new(-1.0, 1.0, 0.5).unwrap(), lease, 0.0).unwrap();
+//! let mut gate = CommandGate::new(Limits::with_slew_rate(-1.0, 1.0, 25.0).unwrap(), lease, 0.0).unwrap();
 //! let input = Command { holder: 1, capability: 2, value: 0.8,
 //!     meta: CommandMeta { generation, sequence: 0, source_at: t(0), deadline: t(1_000_000_000), timeline: 1 } };
 //! assert_eq!(gate.evaluate(Some(input), t(0)).applied, 0.8);

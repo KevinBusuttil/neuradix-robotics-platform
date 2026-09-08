@@ -39,7 +39,7 @@ fn node() -> PropulsionNode {
     );
     PropulsionNode::new(
         NodeId::new("thruster"),
-        CommandGate::new(Limits::new(-1.0, 1.0, 1.0).unwrap(), lease, 0.0).unwrap(),
+        CommandGate::new(Limits::with_slew_rate(-1.0, 1.0, 50.0).unwrap(), lease, 0.0).unwrap(),
     )
 }
 fn frame(transport_seq: u16, command: Command) -> ([u8; OVERHEAD + COMMAND_BYTES], usize) {

@@ -1,5 +1,12 @@
 # WP-A04.2: command freshness and session validity
 
+Integration update: PR #9 merged as `c127c7d` after the review corrections below.
+Corrected head `665fd5d` passed [CI 34288937294](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34288937294):
+71 focused, 219 workspace tests/doctests and two AVR checks, with all other
+workflow steps passing. [A04.3](WP-A04.3-Slew-Alignment.md) supersedes the retained
+per-evaluation MCU slew semantics documented in this historical increment.
+
+
 WP-A04 is **partial** and Gate A remains **open**. This increment adds bounded
 command validity to the host and native embedded gates. Local control and fallback
 have no AI, cloud, network service or allocation dependency on the embedded path.

@@ -13,6 +13,11 @@ use crate::error::SafetyError;
 ///
 /// Runtime clock faults latch until reconstruction with a non-reused generation.
 /// Ordinary rejection applies safe output until a valid new command arrives.
+/// Slew uses the last applied output and elapsed time since the previous runtime
+/// evaluation. Idle ticks hold and consume elapsed time; rejected ticks safe
+/// immediately. Recovery slews from that safe reference. Only a valid command on
+/// the first evaluation has no slew reference and receives hard range limits only.
+/// Renewal/replacement never resets this reference or the runtime clock.
 #[derive(Debug, Clone)]
 pub struct SafetyGate {
     leases: LeaseTable,
