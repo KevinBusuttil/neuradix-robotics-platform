@@ -8,6 +8,8 @@ status: "For review"
 applies_to: "Neuradix_Robotics_Platform_Functional_Specification_v0.4.md"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Robotics_Platform_Functional_Specification_v0.6.md](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # Document status
 
 This document is a normative addendum to the **Neuradix Robotics Platform Product, Functional and Technical Specification v0.4**. It expands the platform ecosystem in two areas that were previously present only at outline level:
@@ -622,3 +624,4 @@ The project should ratify:
 8. the board-support maturity model;
 9. how deployment hashes are encoded in firmware;
 10. the minimum embedded conformance suite.
+

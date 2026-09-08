@@ -7,6 +7,8 @@ version: "0.1 Draft"
 status: "For review"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Implementation_Plan_v0.4.md](Neuradix_Implementation_Plan_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # 0. How to read this document
 
 This is an **engineering implementation plan**, not a restatement of the
@@ -579,3 +581,4 @@ zero-copy spikes underway.
 The next concrete step is §9: lock the §43 decisions as ADRs, bootstrap the workspace
 with green CI, write RFC-0002/0004 first, and start the Phase-0 zero-copy and
 determinism spikes.
+

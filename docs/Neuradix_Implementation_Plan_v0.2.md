@@ -9,6 +9,8 @@ supersedes: "Neuradix_Implementation_Plan_v0.1.md"
 related_specification: "Neuradix_Robotics_Platform_Functional_Specification_v0.4.md"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Implementation_Plan_v0.4.md](Neuradix_Implementation_Plan_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # 0. Purpose
 
 This document is the implementation plan for the **Neuradix Robotics Platform**. It is aligned to the **Functional Specification v0.4**, which expands the original platform scope with:
@@ -1077,3 +1079,4 @@ The correct engineering posture is:
 > Build the smallest possible Neuradix that proves the core thesis, while designing the contracts and runtime so Swarm, Aero, Flight and XR can be added without re-architecture.
 
 This keeps the platform ambitious without making the first implementation impossible.
+

@@ -1,12 +1,10 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Draft (design only — NOT implemented in foundation increment 1)
-- Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4
-- Crates (future): `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
+- Status: Draft; aligned 8 September 2026. Main and development implementation evidence remains separate.
+- Governing documents: [Specification v0.6](../Neuradix_Robotics_Platform_Functional_Specification_v0.6.md), [Embedded Plan v0.2](../Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Implementation Plan v0.4](../Neuradix_Implementation_Plan_v0.4.md)
+- Crate design (development-only prototypes exist): `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
 
-> This increment implements no embedded crate, MCU firmware or Arduino
-> projection. This RFC records the intended design so the foundation does not
-> foreclose it. Nothing here is a claim of implemented capability.
+> Main has no physical embedded implementation. Development `c8aa467` has host-tested embedded/transport/codegen foundations, with open identity and AVR findings. See [Capability Status](../Neuradix_Capability_Status.md); no actual board support is claimed.
 
 ## Problem
 
@@ -26,16 +24,13 @@ safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
 
 - **Tiers**: Embedded Tiny (generated Arduino/AVR C/C++), Embedded MCU (native
   `no_std` Rust), Embedded Connected, Embedded High.
-- **First targets, in order**: host simulation → ESP32-C3 → RP2040 →
-  STM32F4/G4 → Arduino Uno R3 (generated C++) → nRF52 → ESP32-S3 / Uno R4.
+- **First targets**: host conformance, then actual Uno R3 and one 32-bit MCU as a paired Gate B milestone. RP2040 is the native planning default; further boards are maintained extension packs.
 - **`embedded-core`**: executor-neutral static component trait, bounded ports,
   health, command lease, watchdog, deployment identity and safe-state interface.
-- **Executor adapters**, in order: static-loop host simulator → Embassy → RTIC.
+- **Executor adapters**: host/static loop and one qualified native board executor first; Embassy/RTIC/other RTOS adapters follow a demonstrated need.
 - **`embedded-codegen`**: `no_std` Rust, Arduino C++ and embedded C projections
   plus topology and memory-report generation, with golden encode/decode vectors.
-- **Reference node**: an AUV propulsion node that validates a lease, enforces
-  rate/current/thermal limits, reports health and enters a safe state on link
-  loss — runnable as host simulation, ESP32-C3 firmware and generated Arduino C++.
+- **Reference node**: an instrumented motor/sensor controller that validates local authority, enforces available measured limits and enters its declared state on link loss. Retain the AUV model as a regression/domain reference.
 - Wireless links are never treated as a safety channel; safe state is local.
 
 ## Boundaries respected by increment 1
@@ -61,27 +56,23 @@ application services and result schemas as the desktop CLI (Studio/CLI parity).
 
 ## Safety and security implications
 
-Every actuator controller defines a local safe output applicable without the host
-(NRX-EMB-004); the embedded gateway validates contract version, integrity,
-sequence, freshness and authority before applying commands (NRX-EMB-005). Signed
-wired flashing precedes any production OTA.
+Every actuator controller defines and enforces its local response to lease expiry and link/watchdog loss (NRX-EMB-006/020, NRX-PLAT-006/007). Gateway routing preserves identity/freshness; CRC is not authentication. Update verification/recovery must reflect actual board capabilities (NRX-PLAT-024).
 
 ## Compatibility implications
 
-Contract projections must round-trip via golden encode/decode vectors so host,
-`no_std` Rust and Arduino C++ agree on the wire. Target support levels and
+Contract projections require independent wire vectors and actual target ABI checks. Semantic identity cannot authorize an incompatible layout, and generated binary64 must not copy eight bytes through a four-byte Uno double. Target support levels and
 conformance tests gate what "supported" means per board.
 
 ## Testing strategy (future)
 
-The embedded conformance suite (Implementation Plan §7): encode/decode vectors,
+The embedded conformance suite (Implementation Plan ACC-02/03/04/05/06/12/14/16): encode/decode vectors,
 timestamp/sequence handling, queue overflow, watchdog reset, lease expiry,
 safe-state transition, health/identity, transport corruption detection, resource
 budgets and host-simulation equivalence.
 
 ## Unresolved questions
 
-- First native MCU target and first embedded transport (ESP32-C3 vs RP2040;
-  serial vs CAN) — to be chosen before implementation.
+- Confirm or record changes to the RP2040/Uno/serial planning defaults before dependent implementation.
 - Static memory/timing budget expression in contracts.
 - Deployment-identity representation in firmware.
+

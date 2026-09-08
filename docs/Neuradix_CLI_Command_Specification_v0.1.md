@@ -6,6 +6,8 @@ version: "0.1 Draft"
 status: "For review"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_CLI_Command_Specification_v0.2.md](Neuradix_CLI_Command_Specification_v0.2.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # Purpose
 
 This document defines the stable command language and automation contract for the `neuradix` CLI.
@@ -142,3 +144,4 @@ neuradix embedded update
 # Safety
 
 Live mutation commands must use authenticated authority and must not bypass onboard Safety. Direct actuator development commands require a hardware-test profile, reason, audit and explicit target.
+

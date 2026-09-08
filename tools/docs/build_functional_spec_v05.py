@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build the self-contained Neuradix Functional Specification v0.5.
+"""Rebuild the historical Neuradix Functional Specification v0.5.
 
 The generator integrates the v0.5 Embedded/CLI addendum into the complete v0.4
-specification. It deliberately replaces the relevant normative sections instead
-of concatenating two documents, leaving one authoritative specification.
+specification. Current requirements live in the independently maintained v0.6.
+This historical generator must not rewrite current documentation entry points.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ DOCS = ROOT / "docs"
 BASE_PATH = DOCS / "Neuradix_Robotics_Platform_Functional_Specification_v0.4.md"
 ADDENDUM_PATH = DOCS / "Neuradix_Robotics_Platform_Functional_Specification_v0.5_Addendum.md"
 OUTPUT_PATH = DOCS / "Neuradix_Robotics_Platform_Functional_Specification_v0.5.md"
-README_PATH = ROOT / "README.md"
 
 
 def extract(text: str, start_heading: str, end_heading: str) -> str:
@@ -108,6 +107,13 @@ def main() -> None:
         "This v0.5 document is the single authoritative functional specification. It supersedes "
         "Functional Specification v0.4 and the separate Embedded/CLI v0.5 addendum.\n\n"
     )
+    if (DOCS / "Neuradix_Robotics_Platform_Functional_Specification_v0.6.md").exists():
+        canonical_note = (
+            "This v0.5 document is historical and superseded. Use "
+            "[Functional Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) "
+            "and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) "
+            "for current requirements and sequencing.\n\n"
+        )
     if canonical_note not in base:
         base = base.replace(status_anchor, canonical_note + status_anchor, 1)
 
@@ -242,17 +248,6 @@ This work proves the shared-contract thesis and MUST NOT expand into broad board
         raise RuntimeError("Section 37 was not replaced cleanly")
 
     OUTPUT_PATH.write_text(base.rstrip() + "\n", encoding="utf-8")
-
-    # Point new readers at the single canonical functional specification.
-    readme = README_PATH.read_text(encoding="utf-8")
-    readme = re.sub(
-        r"- \[Product, Functional and Technical Specification v0\.4\]\([^\n]+\)\n"
-        r"- \[Embedded and CLI Functional Addendum v0\.5\]\([^\n]+\)\n",
-        "- [Product, Functional and Technical Specification v0.5](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md)\n",
-        readme,
-        count=1,
-    )
-    README_PATH.write_text(readme, encoding="utf-8")
 
     print(f"Generated {OUTPUT_PATH.relative_to(ROOT)} ({len(base.splitlines())} lines)")
 

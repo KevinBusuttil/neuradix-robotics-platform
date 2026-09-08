@@ -1,3 +1,5 @@
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_RFC_Backlog_v0.4.md](Neuradix_RFC_Backlog_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # Neuradix RFC Backlog v0.2
 
 This backlog supports the implementation plans aligned to Functional Specification v0.4.
@@ -148,3 +150,4 @@ Define:
 - OTA plan;
 - audit trail;
 - command dictionary.
+
