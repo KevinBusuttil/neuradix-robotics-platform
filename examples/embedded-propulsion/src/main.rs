@@ -71,7 +71,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             match reason {
                 SafeReason::LinkLost => saw_link_loss = true,
                 SafeReason::LeaseExpired => saw_lease_expiry = true,
-                SafeReason::BadCommand => {}
+                SafeReason::BadCommand
+                | SafeReason::EvaluationClockMismatch
+                | SafeReason::EvaluationTimeRegression
+                | SafeReason::InvalidOutput => {}
             }
         }
 
@@ -121,5 +124,8 @@ fn outcome_label(outcome: Outcome) -> &'static str {
         Outcome::SafeState(SafeReason::LinkLost) => "SAFE: link lost",
         Outcome::SafeState(SafeReason::LeaseExpired) => "SAFE: lease expired",
         Outcome::SafeState(SafeReason::BadCommand) => "SAFE: bad command",
+        Outcome::SafeState(SafeReason::EvaluationClockMismatch) => "SAFE: clock mismatch",
+        Outcome::SafeState(SafeReason::EvaluationTimeRegression) => "SAFE: time regression",
+        Outcome::SafeState(SafeReason::InvalidOutput) => "SAFE: invalid output",
     }
 }
