@@ -26,9 +26,14 @@
 #![warn(missing_docs)]
 
 pub mod error;
+pub mod config;
+mod process;
+mod protocol;
 pub mod supervisor;
 pub mod worker;
 
 pub use error::WorkerError;
 pub use supervisor::WorkerSupervisor;
-pub use worker::{PythonWorker, ReadyInfo, WorkerConfig};
+pub use config::{IoLimits, Timeouts, WorkerConfig};
+pub use process::{CleanupReport, CleanupState};
+pub use worker::{IoStats, PythonWorker, ReadyInfo};

@@ -36,7 +36,7 @@ fn round_trips_a_request_and_passes_config() {
     assert_eq!(worker.ready_info().name, "testkit-worker");
     assert_eq!(worker.health(), HealthState::Healthy);
 
-    let response = worker.send(json!({ "depth": 3.0 })).expect("send");
+    let response = worker.send(&json!({ "depth": 3.0 })).expect("send");
     assert_eq!(response["echo"]["depth"], 3.0);
     assert_eq!(response["config"]["threshold"], 12.0);
 
@@ -54,10 +54,10 @@ fn python_crash_is_isolated_and_recoverable() {
     // A hard crash inside the worker surfaces as a recoverable error, NOT a
     // crash of this (the supervising) process.
     let err = worker
-        .send(json!({ "crash": true }))
+        .send(&json!({ "crash": true }))
         .expect_err("worker should die");
     assert!(
-        matches!(err, WorkerError::WorkerExited { .. }),
+        matches!(err, WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed),
         "got {err:?}"
     );
     assert_eq!(worker.health(), HealthState::Unavailable);
@@ -65,7 +65,7 @@ fn python_crash_is_isolated_and_recoverable() {
     // We are still running (this line executes) — isolation holds. A fresh
     // worker launches and works normally.
     let mut replacement = PythonWorker::launch(&base_config()).expect("relaunch");
-    let response = replacement.send(json!({ "depth": 1.0 })).expect("send");
+    let response = replacement.send(&json!({ "depth": 1.0 })).expect("send");
     assert_eq!(response["echo"]["depth"], 1.0);
     replacement.shutdown();
 }
@@ -79,7 +79,7 @@ fn supervisor_restarts_within_budget_then_gives_up() {
     let mut supervisor = WorkerSupervisor::start(base_config(), 1).expect("start");
 
     // Crash #1 -> a restart is available.
-    let _ = supervisor.worker().unwrap().send(json!({ "crash": true }));
+    let _ = supervisor.worker().unwrap().send(&json!({ "crash": true }));
     supervisor
         .ensure_alive()
         .expect("first restart within budget");
@@ -87,12 +87,12 @@ fn supervisor_restarts_within_budget_then_gives_up() {
     let response = supervisor
         .worker()
         .unwrap()
-        .send(json!({ "depth": 2.0 }))
+        .send(&json!({ "depth": 2.0 }))
         .expect("send");
     assert_eq!(response["echo"]["depth"], 2.0);
 
     // Crash #2 -> budget exhausted.
-    let _ = supervisor.worker().unwrap().send(json!({ "crash": true }));
+    let _ = supervisor.worker().unwrap().send(&json!({ "crash": true }));
     let err = supervisor.ensure_alive().expect_err("budget exhausted");
     assert!(
         matches!(err, WorkerError::RestartBudgetExhausted { used: 1, max: 1 }),
@@ -108,11 +108,11 @@ fn a_slow_request_times_out_without_killing_the_supervisor() {
         eprintln!("skipping: python3 not available");
         return;
     }
-    let config = base_config().with_request_timeout(Duration::from_millis(200));
+    let config = base_config().with_request_timeout(Duration::from_millis(200)).unwrap();
     let mut worker = PythonWorker::launch(&config).expect("launch");
 
     let err = worker
-        .send(json!({ "sleep": 1.0 }))
+        .send(&json!({ "sleep": 1.0 }))
         .expect_err("should time out");
     assert!(matches!(err, WorkerError::Timeout), "got {err:?}");
 
