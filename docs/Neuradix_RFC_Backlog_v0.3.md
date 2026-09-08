@@ -1,3 +1,5 @@
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_RFC_Backlog_v0.4.md](Neuradix_RFC_Backlog_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # Neuradix RFC Backlog v0.3
 
 This backlog aligns the architecture RFC sequence with the current functional and implementation documentation.

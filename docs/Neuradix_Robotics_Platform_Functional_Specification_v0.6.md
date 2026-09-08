@@ -2,44 +2,42 @@
 title: "Neuradix Robotics Platform"
 subtitle: "Product, Functional and Technical Specification"
 author: "Busuttil Technologies Limited"
-date: "2 July 2026"
-version: "0.4 Draft"
+date: "8 September 2026"
+version: "0.6 Draft"
+status: "Current planning baseline; implementation status is separate"
 ---
-
-> **Historical / superseded — 8 September 2026.** Use [Neuradix_Robotics_Platform_Functional_Specification_v0.6.md](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
 
 <!-- GENERATED CONTENTS START -->
 # Contents
 
 | Sections | Sections |
 |---|---|
-| [Document status](#document-status) | [References](#references) |
-| [Platform overview mind map](#platform-overview-mind-map) |  |
-| [1. Naming and product identity](#1-naming-and-product-identity) | [26. Hardware capability model](#26-hardware-capability-model) |
-| [2. Vision](#2-vision) | [27. Simulation architecture](#27-simulation-architecture) |
-| [3. Design principles](#3-design-principles) | [28. Recording, replay and data management](#28-recording-replay-and-data-management) |
-| [4. Scope and non-goals](#4-scope-and-non-goals) | [29. Observability and explainability](#29-observability-and-explainability) |
-| [5. Stakeholders and personas](#5-stakeholders-and-personas) | [30. Security architecture](#30-security-architecture) |
-| [6. System architecture](#6-system-architecture) | [31. Packaging and registry](#31-packaging-and-registry) |
-| [7. Functional sub-platform architecture](#7-functional-sub-platform-architecture) | [32. Deployment and orchestration](#32-deployment-and-orchestration) |
-| [8. Component model](#8-component-model) | [33. Fleet and offline operation](#33-fleet-and-offline-operation) |
-| [9. Communication primitives](#9-communication-primitives) | [34. AI and machine-learning support](#34-ai-and-machine-learning-support) |
-| [10. Contract system](#10-contract-system) | [35. Interoperability](#35-interoperability) |
-| [11. Data model and metadata](#11-data-model-and-metadata) | [36. Neuradix Studio](#36-neuradix-studio) |
-| [12. Execution and scheduling](#12-execution-and-scheduling) | [37. Command-line interface](#37-command-line-interface) |
-| [13. Transport-independent data plane](#13-transport-independent-data-plane) | [38. Testing and verification](#38-testing-and-verification) |
-| [14. Time architecture](#14-time-architecture) | [39. Performance and quality targets](#39-performance-and-quality-targets) |
-| [15. Units, frames and spatial semantics](#15-units-frames-and-spatial-semantics) | [40. Repository architecture](#40-repository-architecture) |
-| [16. Safety and authority architecture](#16-safety-and-authority-architecture) | [41. API stability and governance](#41-api-stability-and-governance) |
-| [17. Configuration and state management](#17-configuration-and-state-management) | [42. Initial reference AUV](#42-initial-reference-auv) |
-| [18. Rust SDK](#18-rust-sdk) | [43. Delivery roadmap](#43-delivery-roadmap) |
-| [19. Python SDK](#19-python-sdk) | [44. Prioritised backlog](#44-prioritised-backlog) |
-| [20. Embedded and microcontroller profile](#20-embedded-and-microcontroller-profile) | [45. Acceptance criteria for version 1.0](#45-acceptance-criteria-for-version-10) |
-| [21. Space and flight profile](#21-space-and-flight-profile) | [46. Key risks and mitigations](#46-key-risks-and-mitigations) |
-| [22. Multi-robot and swarm architecture](#22-multi-robot-and-swarm-architecture) | [47. Decisions recommended now](#47-decisions-recommended-now) |
-| [23. Marine swarm profile](#23-marine-swarm-profile) | [48. First 90-day engineering plan](#48-first-90-day-engineering-plan) |
-| [24. Neuradix Aero profile](#24-neuradix-aero-profile) | [49. Technical reference rationale](#49-technical-reference-rationale) |
-| [25. Neuradix Studio XR](#25-neuradix-studio-xr) |  |
+| [Document status](#document-status) | [25. Neuradix Studio XR](#25-neuradix-studio-xr) |
+| [Platform overview mind map](#platform-overview-mind-map) | [26. Hardware capability model](#26-hardware-capability-model) |
+| [1. Naming and product identity](#1-naming-and-product-identity) | [27. Simulation architecture](#27-simulation-architecture) |
+| [2. Vision](#2-vision) | [28. Recording, replay and data management](#28-recording-replay-and-data-management) |
+| [3. Design principles](#3-design-principles) | [29. Observability and explainability](#29-observability-and-explainability) |
+| [4. Scope and release boundaries](#4-scope-and-release-boundaries) | [30. Security architecture](#30-security-architecture) |
+| [5. Stakeholders and personas](#5-stakeholders-and-personas) | [31. Packaging and registry](#31-packaging-and-registry) |
+| [6. System architecture](#6-system-architecture) | [32. Deployment and orchestration](#32-deployment-and-orchestration) |
+| [7. Functional sub-platform architecture](#7-functional-sub-platform-architecture) | [33. Fleet and offline operation](#33-fleet-and-offline-operation) |
+| [8. Component model](#8-component-model) | [34. AI and machine-learning support](#34-ai-and-machine-learning-support) |
+| [9. Communication primitives](#9-communication-primitives) | [35. Interoperability](#35-interoperability) |
+| [10. Contract system](#10-contract-system) | [36. Neuradix Studio](#36-neuradix-studio) |
+| [11. Data model and metadata](#11-data-model-and-metadata) | [37. Command-line interface](#37-command-line-interface) |
+| [12. Execution and scheduling](#12-execution-and-scheduling) | [38. Testing and verification](#38-testing-and-verification) |
+| [13. Transport-independent data plane](#13-transport-independent-data-plane) | [39. Performance and quality targets](#39-performance-and-quality-targets) |
+| [14. Time architecture](#14-time-architecture) | [40. Repository architecture](#40-repository-architecture) |
+| [15. Units, frames and spatial semantics](#15-units-frames-and-spatial-semantics) | [41. API stability and governance](#41-api-stability-and-governance) |
+| [16. Safety and authority architecture](#16-safety-and-authority-architecture) | [42. Reference systems and domain demonstrations](#42-reference-systems-and-domain-demonstrations) |
+| [17. Configuration and state management](#17-configuration-and-state-management) | [43. Delivery roadmap](#43-delivery-roadmap) |
+| [18. Rust SDK](#18-rust-sdk) | [44. Prioritised backlog](#44-prioritised-backlog) |
+| [19. Python SDK](#19-python-sdk) | [45. Acceptance criteria for version 1.0](#45-acceptance-criteria-for-version-10) |
+| [20. Embedded and microcontroller profile](#20-embedded-and-microcontroller-profile) | [46. Key risks and mitigations](#46-key-risks-and-mitigations) |
+| [21. Space and flight profile](#21-space-and-flight-profile) | [47. Decisions and implementation ownership](#47-decisions-and-implementation-ownership) |
+| [22. Multi-robot and swarm architecture](#22-multi-robot-and-swarm-architecture) | [48. First 90-day engineering plan](#48-first-90-day-engineering-plan) |
+| [23. Marine swarm profile](#23-marine-swarm-profile) | [49. Technical reference rationale](#49-technical-reference-rationale) |
+| [24. Neuradix Aero profile](#24-neuradix-aero-profile) | [References](#references) |
 
 <!-- GENERATED CONTENTS END -->
 
@@ -50,13 +48,17 @@ version: "0.4 Draft"
 | Product name | **Neuradix** |
 | Formal name | **Neuradix Robotics Platform** |
 | Document | Product, Functional and Technical Specification |
-| Version | 0.4 Draft |
-| Date | 2 July 2026 |
+| Version | 0.6 Draft |
+| Date | 8 September 2026 |
 | Owner | Busuttil Technologies Limited |
 | Intended licence | Apache License 2.0 for the open platform core |
-| Initial reference domain | Autonomous marine and aerial robots, including cooperative swarms |
-| Expansion domain | Immersive XR supervision, heterogeneous swarms, space simulation, ground systems, payloads and qualification-oriented flight software |
-| Primary implementation languages | Rust and Python |
+| Initial reference system | Instrumented motor/sensor rig or small mobile robot across Uno, 32-bit MCU, Edge, simulation and server workers |
+| Expansion domains | Marine, aerial, ground, industrial automation, fleet/enterprise operations, AI, XR, heterogeneous swarms and project-qualified space/flight profiles |
+| Primary implementation languages | Rust and Python, with generated C/C++ for constrained embedded targets |
+
+This v0.6 draft is the current functional planning specification, aligned with the [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) and [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md). It supersedes v0.5. Existing detailed subsystem requirements are retained; the revised product scope, execution profiles, release gates and first implementation sequence below govern this version.
+
+Normative requirements define the intended product. The first supported release is the explicit scope in Section 45; other subsystem requirements become release obligations when their capability or profile is claimed. Domain, Swarm, XR and Flight features have separately gated releases. Neither the existence of this document nor a requirement's wording establishes implementation maturity: use [Capability Status](Neuradix_Capability_Status.md). The original review assessed main `e39da5e` and development `c8aa467`. PR #7 subsequently integrated those foundations plus the PR #6 wire/ABI fixes; the exact integrated revision and fresh CI evidence are in the capability register.
 
 This document defines the product architecture, sub-platform functions, interfaces, normative requirements, non-functional requirements, developer experience, security model, safety and FDIR model, swarm coordination, marine and aerial profiles, immersive XR supervision, packaging, interoperability, space/flight profile and phased delivery plan for Neuradix.
 
@@ -66,12 +68,11 @@ The words **MUST**, **MUST NOT**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD
 
 # Platform overview mind map
 
-The following mind map provides a concise functional overview of the Neuradix Robotics Platform. It summarises the common foundations, core services, execution profiles, domain profiles, autonomy functions, human-interaction model, operational data layer and engineering goals that are expanded in the numbered sections of this specification.
+The following light-theme ecosystem mind map summarises the complete Neuradix platform boundary, including common foundations, deployment profiles, autonomy, data, operations, human interaction, domain profiles, embedded systems and ecosystem stakeholders.
 
-![Neuradix Robotics Platform overview mind map.](assets/fig00_platform_overview_mind_map.png){width=16.2cm}
+![Neuradix Robotics Platform ecosystem mind map.](assets/neuradix_platform_ecosystem_mind_map_light.svg)
 
-*Figure 0 - Neuradix Robotics Platform overview mind map.*
-
+*Figure 0 — Neuradix Robotics Platform ecosystem overview.*
 
 # 1. Naming and product identity
 
@@ -87,11 +88,11 @@ The formal descriptor is:
 
 Recommended tagline:
 
-> **Dependable autonomy, from simulation to deployment.**
+> **One robotics platform, from Arduino to enterprise.**
 
 Recommended positioning statement:
 
-> Neuradix is a Rust-first, contract-driven robotics platform for building autonomous systems that are deterministic where required, observable by default, safe to extend with Python, and reproducible from simulation through field deployment.
+> Neuradix is a Rust-first, contract-driven platform to design, program, control, simulate, test, deploy and operate robotic systems across compatible hardware, from constrained Arduino devices to enterprise infrastructure. Classical control, automation, autonomy and optional AI share one engineering model.
 
 The platform SHOULD NOT adopt a second master brand such as Forge, Fabric or Core. Neuradix is already distinctive, extensible and appropriate for a technology platform. Sub-products should remain descriptive rather than becoming unrelated brands.
 
@@ -177,55 +178,21 @@ A legal trademark search is still required before commercial launch. The naming 
 
 ## 2.1 Product vision
 
-Neuradix will provide a coherent operating platform for dependable autonomous machines. It will combine typed component contracts, bounded execution, transport-independent communications, deterministic simulation, incident replay, safety authority, secure deployment and first-class Rust/Python development.
+Neuradix SHALL provide one coherent robotics development and operations environment: a shared system model, component contracts, target-specific execution, integrated simulation, Studio/CLI tooling, recording, test evidence and controlled deployment. AI SHALL be an optional capability; conventional control and automation SHALL be useful without model providers or cloud accounts.
 
-The platform is not merely a message bus. Its purpose is to make a complete robotic system easier to:
+The product promise is: **Define the robotic system once; build, simulate, deploy and observe it across compatible hardware, from Arduino to enterprise infrastructure.**
 
-- design;
-- understand;
-- validate;
-- simulate;
-- deploy;
-- observe;
-- diagnose;
-- reproduce;
-- secure;
-- maintain over a long operational life.
+## 2.2 Consolidation and portability
 
-## 2.2 Strategic thesis
+Engineers SHALL retain project identity, component interfaces, units/frames, diagnostic concepts and deployment workflow as they scale. Target-specific code generation, executors, device drivers and resource placement SHALL adapt execution to available hardware. The platform SHALL reject unsupported language, numeric, memory, timing or device requirements rather than silently weakening them.
 
-Existing robotics frameworks tend to optimise one or more of the following while leaving the rest to integration work:
+Neuradix SHALL own its native project/compiler/runtime and simulation interfaces and integrated user experience. Qualified ROS 2 and simulator adapters SHALL support adoption and reuse. Better usability, performance and dependability are goals to demonstrate through representative comparisons, not presumed properties of a new platform.
 
-- middleware flexibility;
-- real-time control;
-- autonomy behaviours;
-- embedded reliability;
-- simulation;
-- data capture;
-- cloud fleet operation;
-- AI experimentation.
+## 2.3 Initial system and expansion
 
-Neuradix will compete by treating the robot as one governed system with shared contracts and evidence across all of those concerns.
+The first complete system SHALL combine an actual Uno R3, one 32-bit MCU variant, an Edge host, a simulated counterpart and Studio, followed by local/two-server execution of the same scenario manifests. It SHALL begin with a conventional controller and an instrumented hardware envelope. The existing AUV depth fixture remains a fast foundation regression.
 
-Its differentiator is not merely lower latency. It is **system trustworthiness with reduced integration entropy**.
-
-## 2.3 Initial market focus and expansion path
-
-The first production profile SHOULD target dependable autonomous mobile and field robots. The reference programme SHALL include both marine and aerial swarms because together they exercise constrained communications, rapid collision avoidance, heterogeneous capability allocation, distributed autonomy and immersive supervision.
-
-The intended maturity sequence is:
-
-1. single-vehicle AUV/USV and UAV simulation, autonomy and operations;
-2. multi-vehicle marine and aerial swarm simulation with Studio XR;
-3. supervised field trials with local safety and intermittent communications;
-4. heterogeneous cross-domain teams involving marine, aerial and ground assets;
-5. space simulation, digital twins and ground systems;
-6. non-critical payload and experiment computers;
-7. CubeSat and small-spacecraft flight software;
-8. launcher supervisory and safety-adjacent functions after sufficient assurance and mission heritage;
-9. critical launcher or human-rated functions only under a mission-specific qualification programme.
-
-The platform SHALL clearly distinguish technical capability from operational approval or mission certification. Installing Neuradix does not itself make a system airworthy, flight-certified, safety-certified or human-rated.
+The architecture SHALL preserve marine, aerial, ground, industrial, fleet, AI, XR, swarm and space/flight expansion through separately qualified packs. Enterprise availability, fleet scale and domain fidelity require explicit operational evidence. Installing Neuradix does not confer mission approval or safety/flight certification.
 
 # 3. Design principles
 
@@ -287,53 +254,28 @@ Swarm objectives, formations, operator requests and global plans SHALL never ove
 
 A headset, web interface or control station SHALL produce authenticated semantic intent. Immediate stabilization, actuator control, collision avoidance and emergency response remain onboard unless an explicitly authorised and independently protected test mode is active.
 
-# 4. Scope and non-goals
+# 4. Scope and release boundaries
 
-## 4.1 In scope
+## 4.1 Platform scope
 
-Neuradix includes:
+- One project/system model linking robot geometry, frames, units, calibration, components, devices, target placement and simulation assets.
+- Rust and C/C++/Python component interfaces appropriate to each execution profile.
+- Classical control, state estimation, automation, planning, mission execution and optional learned components.
+- Streams, state, commands, tasks, events and queries with explicit delivery, freshness and authority semantics.
+- Tiny/MCU firmware generation, build/flash/monitor and conformance tooling.
+- Edge execution and local control, integrated simulation/Studio, recording/replay and hardware testing.
+- Local and distributed run execution, package/artifact management, identity, audit, site independence and fleet operations.
+- Domain and interoperability packs, including ROS 2, marine/aerial/ground systems, industrial interfaces, AI, Swarm, XR and project-qualified Flight.
 
-- deployment profiles for Edge, Embedded, Flight, Ground, Safety and Simulation;
-- Marine and Aero domain profiles;
-- a distributed Swarm coordination sub-platform;
-- Studio XR for immersive mission supervision and replay;
-- a component model and lifecycle;
-- Rust and Python SDKs;
-- embedded integration;
-- typed data and command primitives;
-- transport selection and routing;
-- shared-memory large-buffer exchange;
-- deterministic and asynchronous executors;
-- semantic units, frames, time, uncertainty and provenance;
-- authority and safety services;
-- local and swarm-level collision constraints;
-- recording and deterministic replay;
-- digital twins and simulation orchestration;
-- cooperative localization and federated world models;
-- centralised, leader-based and distributed task allocation;
-- communication-aware data policies for acoustic, RF, cellular, satellite and mesh links;
-- deployment manifests and package management;
-- security identities and permissions;
-- observability and command lineage;
-- hardware capability interfaces;
-- bridges to major robotics, autopilot, marine, industrial and space protocols;
-- local developer tools and graphical/immersive Studio interfaces;
-- optional fleet and constellation operation services.
+## 4.2 First supported release
 
-## 4.2 Explicit non-goals for version 1
+Section 45 and Gates A–E of [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) define the initial supported hardware/host workflow. It includes actual Tiny and MCU participation, integrated simulation/authoring and qualified distributed execution on a named matrix. Gate D alone is a distributed alpha, not a highly available enterprise release.
 
-Version 1 is not intended to:
+The first release does not promise every Arduino board, operating system, ROS package, simulator feature, enterprise topology or domain pack. It does not imply equal capabilities across hardware, lossless interchange among physics models, unrestricted component relocation, linear scaling of coupled worlds or generic certification.
 
-- replace Linux or a certified RTOS;
-- guarantee hard real-time on an unconfigured general-purpose operating system;
-- provide every possible robotics algorithm;
-- create a new general-purpose programming language;
-- create a new binary container format;
-- implement a new internet-scale package registry from first principles;
-- make arbitrary Python code safety-critical;
-- support every robot class equally from the first release;
-- provide safety certification by declaration alone;
-- hide networking, timing or data-loss behaviour from developers.
+## 4.3 Extension release policy
+
+Advanced enterprise HA/tenancy, wider fleet operations, further boards/protocols, specialised physics/control, AI adapters, Swarm, XR and Flight discovery proceed through Gate F. These remain part of the platform vision; each requires a maintainer, declared operating scope, compatibility contract and acceptance evidence. Detailed later-profile requirements elsewhere in this specification are preserved for those releases.
 
 # 5. Stakeholders and personas
 
@@ -401,15 +343,31 @@ Needs an accurate spatial view that distinguishes measured, estimated, predicted
 
 Needs role-separated authority, operational volumes, launch/recovery coordination, command approval, auditability and immediate visibility of safety violations.
 
+## 5.17 Control and automation engineer
+
+Models and tunes conventional controllers, deploys sensor/actuator firmware and compares simulated and physical behaviour through one project without AI prerequisites.
+
+## 5.18 Enterprise simulation and operations engineer
+
+Executes scenario/analysis jobs across available workers, manages artifacts, identities and quotas, and supports disconnected robot sites with explicit recovery and availability requirements.
+
 # 6. System architecture
 
 ## 6.1 Architectural overview
 
 Neuradix separates shared platform foundations from execution profiles, domain profiles and operational sub-platforms. Contracts, time semantics, uncertainty, evidence and security policy remain consistent across the platform, while each execution profile restricts scheduling, dynamic behaviour, language use and connectivity according to its assurance needs. Marine, Aero and Swarm add domain semantics without creating incompatible middleware stacks; Studio XR consumes authoritative platform state and submits reviewed intent through Ground.
 
-![Neuradix functional landscape.](assets/fig01_platform_landscape.png){width=16.2cm}
+```mermaid
+flowchart TD
+  UI["Studio and CLI"] <--> E["Edge runtime and gateway"]
+  UI <--> S["Simulation services"]
+  E <--> M["Tiny and MCU devices"]
+  E <--> S
+  E <--> C["Enterprise workers and operations"]
+  C <--> S
+```
 
-*Figure 1 - The Neuradix functional landscape and principal sub-platforms.*
+The shared project/compiler configures these participants. Runtime links preserve declared contracts, clocks and authority; control and fallback remain local to the qualified robot/site components.
 
 ## 6.2 Shared logical layers
 
@@ -428,10 +386,6 @@ The platform is organised into the following logical layers:
 ## 6.3 Profile compiler
 
 A topology and policy compiler SHALL transform contracts, component declarations and deployment policy into a profile-specific executable plan.
-
-![Shared foundations and profile restrictions.](assets/fig02_common_foundations.png){width=16.2cm}
-
-*Figure 2 - Shared foundations are constrained by the selected deployment profile.*
 
 The compiler MUST validate at least:
 
@@ -463,6 +417,57 @@ A deployed Neuradix system consists of:
 
 Application source code MUST depend on Neuradix contracts and SDK interfaces, not on a specific transport implementation. Components that require direct hardware or transport access SHALL declare that dependency explicitly and SHALL be isolated behind a capability interface.
 
+## 6.6 Cross-target execution profiles
+
+| Profile | Executable implementation | Primary responsibility |
+|---|---|---|
+| Tiny | Generated C/C++, static loop, bounded buffers | Small sensors/controllers, local actuator limits and watchdogs |
+| MCU | no_std Rust or generated C/C++, qualified bare-metal/RTOS executor | Multi-rate control, drivers and bounded graphs |
+| Edge | Rust host runtime with isolated extensions and optional accelerators | Robot supervision, perception/planning, gateway and recording |
+| Workstation | Host services plus Studio and simulation | Model/edit/build/simulate/debug/HIL workflows |
+| Enterprise | Server processes and optional cluster adapter | Distributed runs, data/packages, collaboration and operations |
+
+Tiny and MCU are the platform-level projections of Neuradix Embedded. Embedded Connected/High describe MCU capability variants, not additional universal runtimes. Flight and independent Safety are assurance/deployment restrictions layered on qualified hardware, not evidence that every profile has the same guarantees.
+
+## 6.7 Shared project and compiled system model
+
+The source model SHALL link robot structure, units/frames, calibration, components, capabilities, configuration, target placement, schedules and simulation bindings. A compiler SHALL resolve this model and package versions into an immutable lock manifest covering semantic/wire identities, artifacts, configuration, QoS, clocks, random state, simulator/asset versions and policy revisions relevant to behaviour.
+
+The compiler SHALL generate profile-specific firmware inputs and host/server plans. It SHALL validate supported representations, buffer/bandwidth budgets, capabilities and authority boundaries. Timing analysis SHALL record measured/analysed bounds and unknowns; it SHALL NOT infer real-time guarantees from language choice or a declarative graph alone.
+
+Portable component logic MAY move between compatible targets. Hardware bindings, precision changes, accelerators and unsupported languages require explicit implementations or conversions with traceable semantics. Bulk sensor data SHALL be placed and routed according to bandwidth and memory constraints.
+
+## 6.8 Cross-target normative requirements
+
+| ID | Requirement |
+|---|---|
+| `NRX-PLAT-001` | The baseline engineering workflow SHALL support conventional control and automation without AI providers, model downloads or cloud accounts. |
+| `NRX-PLAT-002` | One versioned system model SHALL describe Tiny, MCU, Edge, Workstation and Enterprise deployments, with explicit profile capabilities and restrictions. |
+| `NRX-PLAT-003` | A resolved deployment identity SHALL include schemas, wire layouts, artifacts, configuration, scheduling, calibration and simulation/backend revisions that affect behaviour. |
+| `NRX-PLAT-004` | Generated codecs SHALL validate target numeric representation and wire identity; unsupported conversions SHALL be rejected or explicitly versioned with precision semantics. |
+| `NRX-PLAT-005` | Each supported target SHALL declare bounded buffers, memory and timing assumptions; unsupported placement SHALL fail before deployment. |
+| `NRX-PLAT-006` | Actuator authority SHALL be evaluated against trusted local time with independent source-age, sequence, epoch and deadline validation. |
+| `NRX-PLAT-007` | Loss of Studio, gateway or enterprise connectivity SHALL produce the declared local continuation or safe state without reviving expired commands. |
+| `NRX-PLAT-008` | Extension supervision SHALL bound I/O, memory/CPU policy, end-to-end deadlines and cleanup according to the supported OS profile. |
+| `NRX-PLAT-009` | Record integrity, program replay, numerical agreement and closed-loop outcomes SHALL be distinguishable in APIs, UI and evidence. |
+| `NRX-PLAT-010` | Supported MCAP exchange SHALL preserve complete decoding schemas, messages and timestamp provenance and SHALL be tested against independent tools. |
+| `NRX-PLAT-011` | Physical and simulated devices SHALL share capability contracts; backend limitations, fidelity and clock differences SHALL be explicit. |
+| `NRX-PLAT-012` | The integrated alpha SHALL support project editing, simulation, build, flash, launch and diagnosis through CLI and Studio services with consistent validation. |
+| `NRX-PLAT-013` | The enterprise worker model SHALL execute immutable run manifests locally and across capability-matched workers, with explicit limits on coupled simulation scaling. |
+| `NRX-PLAT-014` | Distributed retries, cancellation and result publication SHALL define duplicate handling; stale physical commands SHALL NOT be retried as batch work. |
+| `NRX-PLAT-015` | Server deployments SHALL declare and enforce project/site identities, access roles, quotas, audit and data-retention/restore responsibilities. |
+| `NRX-PLAT-016` | Supported ROS bridges SHALL publish tested message, service, action, cancellation, QoS and clock mappings with limitations. |
+| `NRX-PLAT-017` | Each capability/support claim SHALL link to a versioned implementation and applicable independent, hardware and operational evidence. |
+| `NRX-PLAT-018` | Domain, AI, fleet, XR and assurance packs SHALL use common contracts and have separate release/qualification criteria. |
+| `NRX-PLAT-019` | Clock mappings SHALL represent rollover, reboot epochs and uncertainty; unit/frame conversions SHALL be explicit and traceable. |
+| `NRX-PLAT-020` | The cross-target foundation SHALL demonstrate both an actual Uno R3 and one selected 32-bit MCU, including build, flash, health and failure response. |
+| `NRX-PLAT-021` | Local operation SHALL remain available without Kubernetes; a cluster adapter SHALL preserve run and deployment semantics. |
+| `NRX-PLAT-022` | Portability SHALL preserve declared component semantics on compatible targets; unsupported language, precision or device requirements SHALL NOT be silently downgraded. |
+| `NRX-PLAT-023` | Network/site deployments SHALL bound discovery, queueing and bulk traffic so overload and reconnection behaviour are measurable and explicit. |
+| `NRX-PLAT-024` | Packages and update workflows SHALL verify compatibility and integrity at the declared target/gateway boundary and provide tested recovery for supported hardware. |
+
+Work package and acceptance mappings are maintained in [Implementation Plan v0.4, requirement traceability](Neuradix_Implementation_Plan_v0.4.md#7-requirement-traceability).
+
 # 7. Functional sub-platform architecture
 
 ## 7.1 Cross-platform functional model
@@ -482,10 +487,6 @@ Every sub-platform SHALL consume the same canonical contracts and SHALL produce 
 
 ## 7.2 Neuradix Edge
 
-![Neuradix Edge functional architecture.](assets/fig03_edge_profile.png){width=15.2cm}
-
-*Figure 3 - Edge profile for general autonomy and payload computation.*
-
 Edge runs Linux-class autonomy and payload workloads such as perception, state estimation, mapping, mission logic, planning and AI inference.
 
 | Requirement | Function |
@@ -498,22 +499,16 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 
 ## 7.3 Neuradix Embedded
 
-![Neuradix Embedded functional architecture.](assets/fig04_embedded_profile.png){width=14.8cm}
-
-*Figure 4 - Embedded profile for sensors, local control and actuator interfaces.*
+**Requirement ID migration:** v0.5 used NRX-EMB-001–004 for two different sets of requirements. The former Section 7.3 rows are NRX-EMB-021–024 in v0.6, respectively. Their wording is retained; Section 20.4 keeps NRX-EMB-001–020. Historical references must specify the v0.5 section to resolve the ambiguity.
 
 | Requirement | Function |
 |---|---|
-| **NRX-EMB-001** | Embedded SHALL support `no_std` or RTOS Rust targets with static allocation where practical. |
-| **NRX-EMB-002** | Embedded control and I/O paths SHALL use bounded messages and explicit deadlines. |
-| **NRX-EMB-003** | Embedded gateways SHALL preserve source time, calibration and health metadata. |
-| **NRX-EMB-004** | Embedded actuator services SHALL reject commands outside their local safety envelope. |
+| **NRX-EMB-021** | Embedded SHALL support `no_std` or RTOS Rust targets with static allocation where practical. |
+| **NRX-EMB-022** | Embedded control and I/O paths SHALL use bounded messages and explicit deadlines. |
+| **NRX-EMB-023** | Embedded gateways SHALL preserve source time, calibration and health metadata. |
+| **NRX-EMB-024** | Embedded actuator services SHALL reject commands outside their local safety envelope. |
 
 ## 7.4 Neuradix Flight
-
-![Neuradix Flight functional architecture.](assets/fig05_flight_profile.png){width=12.0cm}
-
-*Figure 5 - Restricted flight profile and its controlled interfaces.*
 
 | Requirement | Function |
 |---|---|
@@ -525,10 +520,6 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 
 ## 7.5 Neuradix Safety
 
-![Neuradix Safety and FDIR pipeline.](assets/fig06_safety_fdir.png){width=14.3cm}
-
-*Figure 6 - Authority, constraint evaluation and fault response.*
-
 | Requirement | Function |
 |---|---|
 | **NRX-SAF-001** | Safety SHALL mediate access to declared safety-relevant actuators. |
@@ -538,10 +529,6 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 | **NRX-SAF-005** | Local safety SHALL override conflicting Swarm, Ground or XR requests. |
 
 ## 7.6 Neuradix Sim and Neuradix Record
-
-![Neuradix simulation, recording and replay lifecycle.](assets/fig07_sim_record_lifecycle.png){width=14.6cm}
-
-*Figure 7 - Common contracts across simulation, recording, replay and physical systems.*
 
 | Requirement | Function |
 |---|---|
@@ -555,10 +542,6 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 
 ## 7.7 Neuradix Ground, Fleet and Studio
 
-![Neuradix Ground, Fleet, Studio and XR.](assets/fig08_ground_fleet_studio.png){width=15.8cm}
-
-*Figure 8 - Operations, engineering, fleet administration and immersive supervision.*
-
 | Requirement | Function |
 |---|---|
 | **NRX-GND-001** | Ground SHALL authenticate operators, validate commands, manage procedures and archive command/telemetry evidence. |
@@ -571,10 +554,6 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 | **NRX-XR-BASE-001** | Studio XR SHALL consume the same Ground, Swarm, Sim and Record contracts as the non-immersive Studio. |
 
 ## 7.8 Neuradix Swarm
-
-![Neuradix Swarm functional architecture.](assets/fig11_swarm_functional_architecture.png){width=16.0cm}
-
-*Figure 11 - Distributed swarm services and their relationship to local autonomy and safety.*
 
 Swarm coordinates active robots during a mission. Fleet administers the assets; Swarm allocates and coordinates their work.
 
@@ -633,10 +612,6 @@ Bridge components translate external protocols and frameworks at explicit bounda
 
 ## 7.13 End-to-end lifecycle
 
-![End-to-end Neuradix lifecycle.](assets/fig09_end_to_end_mission.png){width=12.2cm}
-
-*Figure 9 - Continuous design, verification, deployment, operation and improvement.*
-
 The platform SHALL preserve an evidence thread from requirements and hazards through contracts, code, tests, deployment, operator intent and mission data. A field incident SHOULD become a replayable regression case without manually reconstructing the software environment.
 
 ## 7.14 Functional boundary matrix
@@ -671,6 +646,10 @@ The platform SHALL preserve an evidence thread from requirements and hazards thr
 - Swarm MAY reallocate tasks and formations, but local vehicle safety always overrides collective optimisation.
 - Sim SHALL not introduce simulation-only interfaces into production components.
 - Bridge SHALL remain an explicit translation boundary rather than exposing foreign middleware assumptions throughout the platform.
+
+## 7.16 Workstation and Enterprise participation
+
+Workstation services combine the same host model with local Studio, simulation, HIL and run tooling. Enterprise services add durable workers, artifact/data catalogues, project/site identities, quotas and operations. Both SHALL use the compiled system model in Section 6.7. Runtime actuator control and fallback SHALL remain local to qualified robot/site components when external services are unavailable.
 
 # 8. Component model
 
@@ -908,6 +887,12 @@ The `neuradix contract` tool MUST:
 - generate conformance tests;
 - produce machine-readable compatibility reports;
 - emit a content-addressed schema identifier.
+
+## 10.6 Wire layout and target representation
+
+Semantic schema identity and encoded wire-layout identity SHALL have explicit separate definitions. Any order-independent semantic hash SHALL NOT authorize decoding with an incompatible field order or codec. Generated endpoints SHALL check ABI representation and codec version. Binary64 SHALL NOT be implemented by blindly copying eight bytes into a target whose double is four bytes; unsupported precision SHALL fail or use a deliberate versioned conversion.
+
+Compact embedded identifiers SHALL resolve to full schema/layout/deployment identities through a verified manifest with collision and session handling. Host round trips alone do not prove independent endpoint or board conformance.
 
 # 11. Data model and metadata
 
@@ -1325,6 +1310,12 @@ Embedded/autopilot actuator control
 
 Swarm-wide constraints MAY restrict formations, routes, shared landing zones and mission allocation. They SHALL NOT weaken local vehicle limits. Emergency requests from XR or Ground SHALL receive priority but remain subject to the safest executable onboard response.
 
+## 16.10 Trusted evaluation and failure behaviour
+
+The command gate SHALL use trusted local evaluation time for authority and separately validate source age, epoch, sequence and deadline. It SHALL validate finite inputs, bounds, safe values and final outputs. Host and embedded rate constraints SHALL declare their time basis. Reboot, clock rollover, reconnect and expired messages SHALL NOT restore old authority.
+
+Runtime capability enforcement and the physical driver boundary SHALL implement the policy; a component's declared role is not proof of enforcement. CRC detects transmission errors and SHALL NOT be treated as command authentication. Each actual hardware deployment SHALL document the available sensors, safe response and trusted boundary; unsupported current/thermal or secure-boot features SHALL NOT be claimed.
+
 # 17. Configuration and state management
 
 ## 17.1 Typed configuration
@@ -1474,35 +1465,290 @@ class ObjectDetector(Component):
 - Python components MUST declare whether input samples may be skipped.
 - The graph compiler MUST detect Python in a declared deterministic control path.
 
+## 19.5 Bounded process supervision
+
+The first host extension path is an isolated process. Protocol messages, queues and outstanding requests SHALL be bounded. Request deadlines SHALL cover input writing, response reading and cleanup. A live child closing stdout, a blocked stdin, output flooding or spawned processes SHALL NOT cause an indefinite supervisor wait. Heartbeats, restart budgets, process-tree cleanup and OS-specific resource policy SHALL be testable.
+
+In-process Python/NumPy integrations remain optional optimisations with separately stated trust and lifetime boundaries. The supported first release does not depend on implementing them.
+
 # 20. Embedded and microcontroller profile
 
-## 20.1 Goals
+Neuradix Embedded allows microcontrollers to participate as first-class contract, health and safety endpoints without requiring the full Linux-class runtime. The profile uses static generation, bounded resources and target-appropriate runtimes.
 
-The embedded profile provides compatible contracts and lifecycle semantics on constrained devices without requiring the full Linux runtime.
+## 20.1 Platform boundary and participation model
 
-## 20.2 Runtime options
+Neuradix SHALL support one contract and evidence model across multiple execution classes:
 
-- RTIC SHOULD be supported for interrupt-driven deterministic Cortex-M systems.
-- Embassy SHOULD be supported for async embedded drivers and services.
-- A minimal Neuradix endpoint MUST operate without heap allocation where the selected profile requires it.
+```text
+Studio / Studio XR / Ground / Fleet
+                  |
+             Neuradix Edge
+                  |
+      CAN / serial / RS-485 / Ethernet
+                  |
+          Neuradix Embedded
+        /          |           \
+ Embedded Tiny  Embedded MCU  Embedded Connected
+   Arduino/AVR  STM32/RP2040     ESP32/nRF/etc.
+```
 
-## 20.3 Embedded capabilities
+A microcontroller is a first-class Neuradix participant when it:
 
-The embedded SDK SHOULD support:
+- implements generated Neuradix contracts;
+- has a declared static topology;
+- exposes firmware, topology and contract identity;
+- reports health and reset state;
+- enforces declared local safe-state behaviour;
+- communicates through a transport adapter;
+- can be represented by the same capability interface in simulation.
 
-- static contract bindings;
+A microcontroller is not required to run the full Linux-class runtime, dynamic discovery, Studio, Python, OCI package handling or local MCAP recording.
+
+## 20.2 Embedded profiles
+
+### 20.2.1 Embedded tiers
+
+| Tier | Typical hardware | Runtime form | Intended functions |
+|---|---|---|---|
+| **Embedded Tiny** | ATmega/AVR and similarly constrained boards | Generated C/C++ endpoint and static loop | GPIO, ADC, simple sensors, relays, basic actuators |
+| **Embedded MCU** | RP2040/RP2350, STM32, nRF52, Renesas RA | Native Rust `no_std` using RTIC, Embassy or static executor | Sensors, motor control, local state machines, deterministic I/O |
+| **Embedded Connected** | ESP32-C3/C6/S3, network-capable STM32/nRF | Native Rust or supported C/C++ endpoint with network adapter | Wireless sensor hubs, payload controllers, gateway-capable nodes |
+| **Embedded High** | Cortex-M7, higher-end MCU/SoC and RTOS systems | Multiple static components with richer telemetry | Local estimation, advanced motor control, small inference workloads |
+| **Edge** | Linux-class SBCs and industrial computers | Full Neuradix runtime | Autonomy, perception, planning, record/replay and supervision |
+
+Board branding SHALL NOT determine the tier. For example, Arduino Uno R3 belongs to Embedded Tiny, while Arduino Uno R4, Nano ESP32 and Portenta-class boards may belong to higher tiers.
+
+### 20.2.2 Static topology
+
+Embedded deployments MUST use a statically generated topology unless a target-specific profile explicitly permits bounded dynamic behaviour.
+
+```yaml
+apiVersion: neuradix.io/v1alpha1
+kind: EmbeddedDeployment
+metadata:
+  name: propulsion-node
+spec:
+  target: esp32-c3
+  executor: embassy
+  components:
+    - encoder-reader
+    - motor-controller
+    - thermal-monitor
+    - local-safety
+  connections:
+    - from: encoder-reader.velocity
+      to: motor-controller.velocity
+    - from: motor-controller.request
+      to: local-safety.request
+    - from: local-safety.approved
+      to: motor-driver.command
+```
+
+The embedded graph compiler SHALL generate:
+
+- static dispatch tables;
 - bounded queues;
-- CAN and serial transports;
-- time synchronization;
-- health and watchdog messages;
-- firmware identity;
-- secure boot/update hooks;
-- compact telemetry profiles;
-- local safety state machines.
+- component identities;
+- contract identifiers;
+- watchdog configuration;
+- memory budgets;
+- transport endpoint tables;
+- safe-state defaults.
 
-## 20.4 MCU gateway
+### 20.2.3 Contract projections
 
-A Linux or embedded gateway MAY proxy a constrained endpoint into the full Neuradix graph while preserving source identity and timestamps.
+The contract compiler SHALL support at least these projections:
+
+```text
+rust-std
+rust-no-std
+python
+protobuf
+arduino-cpp
+embedded-c
+json-schema
+```
+
+Generated embedded output SHOULD include:
+
+```text
+generated/
+├── messages.rs
+├── ports.rs
+├── topology.rs
+├── memory.rs
+├── messages.h
+├── messages.cpp
+├── protocol.c
+├── deployment_identity.rs
+└── contract_manifest.bin
+```
+
+The authored Neuradix contract remains the source of truth. C, C++, Rust and Python projections MUST carry the same schema identity and semantic metadata.
+
+### 20.2.4 Executors
+
+Neuradix Embedded SHOULD support:
+
+- **Embassy** for asynchronous drivers, connected sensors and low-power services;
+- **RTIC** for interrupt-driven deterministic control;
+- a minimal static loop profile for highly constrained hardware;
+- selected RTOS adapters where their lifecycle and memory behaviour can be bounded.
+
+The public component model MUST remain independent from the selected executor.
+
+### 20.2.5 Memory and timing
+
+Embedded profiles MUST:
+
+- prohibit unbounded queues;
+- declare static RAM and flash budgets;
+- expose stack or task memory budgets where supported;
+- report deadline misses;
+- define queue overflow behaviour;
+- avoid heap allocation after initialization where the profile requires it;
+- expose build-time resource reports.
+
+### 20.2.6 Local safety and authority
+
+Safety-relevant embedded actuator nodes MUST enforce local constraints even when Edge, Ground, Fleet, Studio or XR are unavailable.
+
+```text
+Edge command request
+        |
+        v
+Embedded authority lease check
+        |
+        v
+Current / temperature / rate / range limits
+        |
+        v
+Actuator output
+```
+
+When a command lease expires, communication fails or a watchdog trips, the embedded node MUST enter its declared safe state.
+
+The safe state may include:
+
+- zero output;
+- controlled ramp-down;
+- hold position;
+- mechanical brake;
+- surface/land request;
+- local emergency sequence;
+- hardware interlock activation.
+
+### 20.2.7 Health and identity
+
+Every embedded node SHALL expose, where supported:
+
+- firmware version;
+- source revision;
+- deployment manifest hash;
+- contract hashes;
+- target and board identifier;
+- uptime;
+- reset reason;
+- watchdog state;
+- queue overflow count;
+- deadline misses;
+- communication errors;
+- sensor or actuator errors;
+- supply voltage;
+- temperature;
+- current lifecycle and safe-state mode.
+
+### 20.2.8 Transports
+
+Embedded transports MAY include:
+
+- UART/serial;
+- RS-485;
+- CAN and CAN FD;
+- SPI or I²C for local device links;
+- Ethernet;
+- UDP/TCP where appropriate;
+- Wi-Fi;
+- BLE;
+- Thread/6LoWPAN;
+- Zenoh-Pico as an optional backend;
+- mission-specific buses through controlled adapters.
+
+Transport selection MUST NOT alter component-domain logic or contract identity.
+
+### 20.2.9 Simulation parity
+
+Each hardware capability SHOULD have host simulation and replay implementations.
+
+```rust
+pub trait MotorOutput {
+    fn set_duty(&mut self, duty: NormalizedDuty) -> Result<()>;
+}
+```
+
+Possible implementations:
+
+```text
+Esp32PwmMotorOutput
+Stm32PwmMotorOutput
+ArduinoCppMotorOutput
+SimulatedMotorOutput
+RecordedMotorOutput
+```
+
+The same component contracts and safety semantics SHALL be used in simulation and hardware builds.
+
+## 20.3 Board support policy
+
+### 20.3.1 Initial target order
+
+1. Host conformance and target-toolchain checks.
+2. Actual Arduino Uno R3 generated C++ and one native 32-bit MCU as a paired first milestone; RP2040 is the planning default for the native board.
+3. Additional ESP32, STM32, nRF, Uno R4 and RTOS combinations as separately maintained, tested board packs.
+
+Both physical first targets are required for Gate B. A board may be substituted only by a recorded planning decision preserving Tiny and MCU coverage and equivalent acceptance evidence. Broad board support follows conformance and maintenance capacity.
+
+### 20.3.2 Support levels
+
+| Level | Meaning |
+|---|---|
+| **Experimental** | Builds or examples exist; no compatibility guarantee |
+| **Preview** | Automated builds and basic conformance tests |
+| **Supported** | Documented toolchain, CI target and release testing |
+| **Qualified-by-project** | Mission/project-specific evidence; not a general certification claim |
+| **Deprecated** | Supported for migration only |
+| **Removed** | No longer built or tested |
+
+## 20.4 Normative requirements
+
+| ID | Requirement |
+|---|---|
+| `NRX-EMB-001` | The Embedded profile SHALL support statically generated component topologies. |
+| `NRX-EMB-002` | Embedded communication buffers SHALL be bounded at compile time or initialization. |
+| `NRX-EMB-003` | The platform SHALL support native `no_std` Rust components on selected MCU families. |
+| `NRX-EMB-004` | The platform SHALL support generated C/C++ endpoints for constrained or legacy MCUs. |
+| `NRX-EMB-005` | Embedded nodes SHALL expose firmware, topology and contract identities. |
+| `NRX-EMB-006` | Safety-relevant nodes SHALL enter a declared safe state when command authority expires. |
+| `NRX-EMB-007` | The same capability contracts SHALL be usable by hardware, simulation and replay implementations. |
+| `NRX-EMB-008` | Transport selection SHALL NOT change component-domain logic. |
+| `NRX-EMB-009` | Production embedded profiles SHALL prohibit unbounded allocation and queues. |
+| `NRX-EMB-010` | Embedded nodes SHALL expose health, reset reason and timing/communication failures. |
+| `NRX-EMB-011` | The build system SHALL report flash, static RAM and configured stack/task budgets. |
+| `NRX-EMB-012` | Supported target families SHALL have automated build and conformance tests. |
+| `NRX-EMB-013` | The Embedded public API SHALL be independent of RTIC, Embassy and transport-specific types. |
+| `NRX-EMB-014` | Direct actuator access SHALL be limited to declared safety or hardware-capability components. |
+| `NRX-EMB-015` | Firmware images SHALL include a content-addressed deployment identity. |
+| `NRX-EMB-016` | Embedded update mechanisms SHALL verify target compatibility and signature metadata where supported. |
+| `NRX-EMB-017` | Classic Arduino/AVR support MAY use generated C/C++ rather than native Rust. |
+| `NRX-EMB-018` | The platform SHALL distinguish development wireless links from safety-relevant command links. |
+| `NRX-EMB-019` | Embedded node disconnection SHALL NOT compromise the safety of other nodes. |
+| `NRX-EMB-020` | Every embedded actuator deployment SHALL define communication-loss and watchdog responses. |
+
+## 20.5 Integrated release and evidence
+
+Use [Embedded Implementation Plan v0.2](Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md). Actual firmware build/flash/monitor, memory/timing reports, reset/clock/identity behaviour and local failure response are early platform requirements. Host-generated headers and no_std compilation SHALL NOT be labelled physical support. Rich schemas/package resolution MAY live on the host while verified compact identities participate on Tiny devices.
+
+The implementation/board evidence and support-grade taxonomies are separate. [Capability Status](Neuradix_Capability_Status.md) names current evidence; no physical target is claimed supported by this documentation revision.
 
 # 21. Space and flight profile
 
@@ -1522,10 +1768,6 @@ The profile SHALL support the following maturity classes:
 | **F5 - Human-rated** | Out of scope until an independent human-rating and organisational assurance programme exists |
 
 ## 21.2 Reference deployment and fault containment
-
-![Space mission reference deployment.](assets/fig10_space_reference_deployment.png){width=13.5cm}
-
-*Figure 10 - A reference space deployment with redundant flight computers, an independent safety island and isolated payload autonomy.*
 
 The reference architecture separates:
 
@@ -1803,10 +2045,6 @@ Neuradix Swarm SHALL coordinate heterogeneous assets by capability rather than a
 
 ## 23.1 Reference architecture
 
-![AUV swarm with Ground, Swarm and Studio XR.](assets/fig12_auv_swarm_xr_reference.png){width=16.0cm}
-
-*Figure 12 - Distributed AUV swarm with intermittent acoustic communication and immersive supervision.*
-
 Each AUV SHALL run Edge autonomy, a Swarm Agent, local Safety and Embedded control. The system MAY use a surface vessel or buoy as radio/acoustic gateway, but loss of that gateway SHALL not remove local safety.
 
 ## 23.2 Marine communication classes
@@ -1843,10 +2081,6 @@ Studio XR SHOULD visualize bathymetry, seabed structures, vehicle uncertainty vo
 
 Neuradix Aero supports multirotor, fixed-wing, VTOL and hybrid aircraft. It defines airframe capability contracts, three-dimensional airspace, trajectory intent, local collision avoidance, emergency landing, wind and autopilot integration.
 
-![Neuradix Aero UAV instance.](assets/fig13_aero_uav_instance.png){width=15.4cm}
-
-*Figure 13 - Onboard functional decomposition of an Aero UAV.*
-
 ## 24.2 Airframe and autopilot model
 
 Aero SHALL distinguish stabilization, guidance and mission autonomy. The embedded autopilot retains attitude stabilization and local flight safety. Edge and Swarm propose mission and trajectory intent through controlled interfaces.
@@ -1870,10 +2104,6 @@ The airspace model SHALL represent terrain, structures, static obstacles, dynami
 | **NRX-AER-008** | Operational volumes SHALL be versioned and auditable. |
 
 ## 24.4 Aerial swarm and collision avoidance
-
-![Aerial swarm with Studio XR.](assets/fig14_aero_swarm_xr_reference.png){width=16.0cm}
-
-*Figure 14 - Aerial swarm, ground authority and immersive spatial supervision.*
 
 | Requirement | Function |
 |---|---|
@@ -1900,10 +2130,6 @@ Aero SHALL support autonomous mission, assisted piloting and controlled flight-t
 ## 25.1 Purpose
 
 Studio XR provides an immersive, spatially accurate interface for mission supervision, digital-twin preview, training and incident replay. It is an authorised client of Ground and Swarm, not an alternate control channel.
-
-![Studio XR authority and data pipeline.](assets/fig15_studio_xr_authority_pipeline.png){width=15.5cm}
-
-*Figure 15 - Authoritative data into XR and reviewed semantic intent back to the mission.*
 
 ## 25.2 Visual state classes
 
@@ -1975,7 +2201,7 @@ Before a major task reassignment, route change or formation change, Studio XR SH
 
 # 26. Hardware capability model
 
-## 22.1 Capability-based drivers
+## 26.1 Capability-based drivers
 
 Drivers SHOULD implement stable semantic capabilities rather than exposing only vendor-specific byte interfaces.
 
@@ -1995,7 +2221,7 @@ Initial capabilities:
 - `Lighting`;
 - `AcousticModem`.
 
-## 22.2 Capability requirements
+## 26.2 Capability requirements
 
 Each hardware capability MUST define:
 
@@ -2010,7 +2236,7 @@ Each hardware capability MUST define:
 - simulation equivalent;
 - conformance tests.
 
-## 22.3 Driver package grades
+## 26.3 Driver package grades
 
 The package catalogue MAY publish compatibility grades:
 
@@ -2020,13 +2246,17 @@ The package catalogue MAY publish compatibility grades:
 - Neuradix Certified;
 - Safety Assessed for a named profile.
 
+## 26.4 Compiler-visible target capabilities
+
+Target manifests SHALL specify numeric ABI, language/executor, memory limits, buffer bounds, clocks, I/O, communication, accelerator and update/security capabilities. A generic GPU flag is insufficient for workloads requiring particular rendering or compute features. The compiler SHALL expose unsupported placement and unknown timing before deployment; observed measurements SHALL identify the tested target and workload.
+
 # 27. Simulation architecture
 
-## 23.1 Simulation as a deployment target
+## 27.1 Simulation as a deployment target
 
 Simulation MUST run the same application components and contracts used on physical hardware wherever practical.
 
-## 23.2 Simulation services
+## 27.2 Simulation services
 
 Neuradix Sim SHOULD provide:
 
@@ -2043,7 +2273,7 @@ Neuradix Sim SHOULD provide:
 - HIL/SIL orchestration;
 - recording to the same format as real missions.
 
-## 23.3 Scenario format
+## 27.3 Scenario format
 
 ```yaml
 apiVersion: neuradix.io/v1alpha1
@@ -2069,7 +2299,7 @@ spec:
     - expression: mission.final_state == "recovered"
 ```
 
-## 23.4 Marine simulation profile
+## 27.4 Marine simulation profile
 
 The marine reference simulator SHOULD include:
 
@@ -2087,7 +2317,7 @@ The marine reference simulator SHOULD include:
 - acoustic modem delay, loss and bandwidth;
 - energy and battery model.
 
-## 23.5 Determinism
+## 27.5 Determinism
 
 A deterministic scenario MUST record:
 
@@ -2099,7 +2329,7 @@ A deterministic scenario MUST record:
 - clock policy;
 - external inputs.
 
-## 23.6 Space and launcher simulation profile
+## 27.6 Space and launcher simulation profile
 
 The simulation framework SHOULD support launch, orbital and spacecraft models as defined in Section 21. Model metadata SHALL identify source, validation status, parameter set, applicable envelope and uncertainty. Space simulation SHOULD be compatible with the same command, telemetry and timing contracts used by Neuradix Ground and Flight.
 
@@ -2113,13 +2343,21 @@ A simulation scenario MAY combine live hardware, simulated vehicles and replayed
 
 The Aero model library SHOULD support six-degree-of-freedom airframe dynamics, propulsion, wind and gusts, terrain, GNSS degradation, sensor noise, communication coverage, battery/energy models, launch, landing and emergency-diversion scenarios.
 
+## 27.9 Native simulation workflow and initial backend
+
+Neuradix SHALL own the project/world API, stepping and reset semantics, scenario model, device bindings and evidence model. Headless Gazebo is the planned first general simulation backend behind this API, while the current AUV fixture remains the fast component/control backend. Backend selection, versions, assets, solver settings, random seeds and calibration SHALL be pinned per run.
+
+URDF/SDF imports SHALL preserve unsupported properties or report explicit fidelity losses. Studio SHALL provide minimal scene/parameter/binding authoring in the integrated alpha. Physical and virtual devices SHALL use the same contracts with explicit clock, delay and calibration differences. HIL SHALL measure those differences; simulation interface equivalence does not establish physical-model accuracy.
+
+Independent worlds MAY execute across workers. A coupled distributed world requires separately designed synchronization and partitioning; additional servers SHALL NOT imply linear acceleration. Bitwise determinism, numerical tolerance and task outcomes SHALL be distinct claims with stated scope.
+
 # 28. Recording, replay and data management
 
-## 24.1 Recording format
+## 28.1 Recording format
 
 MCAP SHOULD be the primary external log container. Neuradix metadata, schemas and indexes MAY be stored in MCAP records or an associated signed manifest.
 
-## 24.2 Recording scope
+## 28.2 Recording scope
 
 A mission recording SHOULD include:
 
@@ -2136,7 +2374,7 @@ A mission recording SHOULD include:
 - hardware inventory;
 - software bill of materials.
 
-## 24.3 Recording policies
+## 28.3 Recording policies
 
 Per-stream policies MUST support:
 
@@ -2150,7 +2388,7 @@ Per-stream policies MUST support:
 - retention duration;
 - priority under storage pressure.
 
-## 24.4 Replay modes
+## 28.4 Replay modes
 
 - real-time;
 - accelerated;
@@ -2161,7 +2399,7 @@ Per-stream policies MUST support:
 - counterfactual controller replay;
 - partial graph replay.
 
-## 24.5 Reproducibility objective
+## 28.5 Reproducibility objective
 
 The platform SHOULD enable a field incident to be reconstructed locally with one command:
 
@@ -2169,13 +2407,19 @@ The platform SHOULD enable a field incident to be reconstructed locally with one
 neuradix replay mission-2026-06-22.mcap --restore-deployment --lockstep
 ```
 
+## 28.6 Interchange and replay acceptance
+
+The supported MCAP backend SHALL use complete schemas and tested message encodings, preserving source/log time and embedded provenance. Independent chunked/compressed fixtures SHALL validate import/export; unsupported data SHALL be explicitly rejected or retained opaquely without silent loss. Recording and query memory SHALL be bounded for the declared workload.
+
+Record digest verification, execution of a pinned program on recorded input, numerical simulation agreement and closed-loop physical outcomes SHALL be distinct API/UI operations. Changing a program SHALL cause the selected executable to run during a program-replay test. Replaying logged observations alone SHALL NOT establish what changed actions would have caused in the world.
+
 # 29. Observability and explainability
 
-## 25.1 Telemetry model
+## 29.1 Telemetry model
 
 Neuradix SHOULD use OpenTelemetry-compatible traces, metrics and logs, with Rust `tracing` integration.
 
-## 25.2 Mandatory runtime metrics
+## 29.2 Mandatory runtime metrics
 
 - component CPU time;
 - memory usage;
@@ -2192,7 +2436,7 @@ Neuradix SHOULD use OpenTelemetry-compatible traces, metrics and logs, with Rust
 - storage pressure;
 - safety interventions.
 
-## 25.3 Causal lineage
+## 29.3 Causal lineage
 
 Commands affecting actuation MUST support lineage linking:
 
@@ -2203,7 +2447,7 @@ Commands affecting actuation MUST support lineage linking:
 - safety constraint result;
 - final actuator command.
 
-## 25.4 Explainability query
+## 29.4 Explainability query
 
 Studio and CLI SHOULD answer:
 
@@ -2213,7 +2457,7 @@ neuradix explain command propulsion/thrust --at 2026-06-22T14:32:18.420Z
 
 The result SHOULD show the causal chain, configuration, software versions, timing and any safety modification.
 
-## 25.5 Health model
+## 29.5 Health model
 
 Each component SHALL publish a structured health state:
 
@@ -2227,7 +2471,7 @@ Health MUST include reasons, evidence, timestamp and recommended action.
 
 # 30. Security architecture
 
-## 26.1 Security principles
+## 30.1 Security principles
 
 - least privilege;
 - explicit component identity;
@@ -2239,7 +2483,7 @@ Health MUST include reasons, evidence, timestamp and recommended action.
 - offline verification;
 - rollback protection.
 
-## 26.2 Component identity
+## 30.2 Component identity
 
 Each component instance MUST have:
 
@@ -2250,7 +2494,7 @@ Each component instance MUST have:
 - declared capabilities;
 - cryptographic credentials appropriate to the profile.
 
-## 26.3 Capability permissions
+## 30.3 Capability permissions
 
 ```yaml
 permissions:
@@ -2270,7 +2514,7 @@ permissions:
     outbound: none
 ```
 
-## 26.4 Package security
+## 30.4 Package security
 
 Packages MUST support:
 
@@ -2283,7 +2527,7 @@ Packages MUST support:
 - vulnerability advisory linkage;
 - revocation status.
 
-## 26.5 Update security
+## 30.5 Update security
 
 OTA updates SHOULD support:
 
@@ -2296,13 +2540,13 @@ OTA updates SHOULD support:
 - offline update bundles;
 - audit events.
 
-## 26.6 Secret management
+## 30.6 Secret management
 
 Secrets MUST NOT be embedded in ordinary manifests or logs. The runtime MUST support secret references and pluggable secret providers.
 
 # 31. Packaging and registry
 
-## 27.1 Package model
+## 31.1 Package model
 
 Neuradix SHOULD use OCI-compatible artifacts for distribution. A package may contain:
 
@@ -2318,7 +2562,7 @@ Neuradix SHOULD use OCI-compatible artifacts for distribution. A package may con
 - SBOM and provenance;
 - architecture/platform variants.
 
-## 27.2 Package manifest
+## 31.2 Package manifest
 
 ```yaml
 apiVersion: neuradix.io/v1alpha1
@@ -2347,7 +2591,7 @@ spec:
     actuatorAccess: false
 ```
 
-## 27.3 Registry functions
+## 31.3 Registry functions
 
 The registry SHOULD provide:
 
@@ -2363,7 +2607,7 @@ The registry SHOULD provide:
 
 # 32. Deployment and orchestration
 
-## 28.1 Deployment manifest
+## 32.1 Deployment manifest
 
 A deployment describes nodes, components, placement, contracts, connections, resources, policies and safety configuration.
 
@@ -2405,7 +2649,7 @@ spec:
       to: safety.vertical-thrust-request
 ```
 
-## 28.2 Graph compiler
+## 32.2 Graph compiler
 
 Before deployment, the compiler MUST validate:
 
@@ -2425,7 +2669,7 @@ Before deployment, the compiler MUST validate:
 - Python/AI components in deterministic paths;
 - package signatures and revocation.
 
-## 28.3 Deployment modes
+## 32.3 Deployment modes
 
 - local development;
 - single robot;
@@ -2435,16 +2679,24 @@ Before deployment, the compiler MUST validate:
 - fleet-managed;
 - air-gapped/offline.
 
-## 28.4 Production immutability
+## 32.4 Production immutability
 
 A production deployment MUST have a content-addressed manifest hash. Any runtime mutation MUST be recorded as a new signed revision or an explicitly permitted operational parameter change.
+
+## 32.5 Distributed runs and enterprise services
+
+Run manifests SHALL execute first on local workers, then on multiple servers using the same resolved artifact and result model. Worker capabilities, heartbeats, leases, retries, cancellation, partial outputs and idempotent result publication SHALL be explicit. Physical commands SHALL retain freshness and authority rules and SHALL NOT inherit batch retry semantics.
+
+Enterprise services SHALL provide project/site identity, roles, quotas, audit, data/artifact catalogues, retention and backup/restore for their supported scope. Filesystem and object-store backends SHALL verify accepted artifacts. A Kubernetes adapter MAY provide cluster scheduling after worker semantics are stable; it SHALL remain optional for local operation.
+
+High availability, tenant isolation, disaster recovery and large fleet limits SHALL be separately qualified with named workload, topology, recovery and traffic targets. Two-server alpha evidence SHALL NOT be presented as enterprise availability certification or unlimited scale.
 
 # 33. Fleet and offline operation
 
 Fleet manages assets, software baselines, mission assignment and deployment. Swarm manages runtime cooperation among active members. A Fleet service MAY assign a swarm mission but SHALL not be required for local collision avoidance or safe continuation.
 
 
-## 29.1 Offline-first rules
+## 33.1 Offline-first rules
 
 A robot MUST NOT depend on a cloud service for:
 
@@ -2455,7 +2707,7 @@ A robot MUST NOT depend on a cloud service for:
 - local logging;
 - fail-safe behaviour.
 
-## 29.2 Link policies
+## 33.2 Link policies
 
 ```yaml
 stream: sonar/raw
@@ -2477,7 +2729,7 @@ policy:
     storeAndForward: true
 ```
 
-## 29.3 Fleet functions
+## 33.3 Fleet functions
 
 Neuradix Fleet MAY provide:
 
@@ -2492,7 +2744,7 @@ Neuradix Fleet MAY provide:
 - audit and access control;
 - fleet-wide policy enforcement.
 
-## 29.4 Constrained communication
+## 33.4 Constrained communication
 
 The marine profile SHOULD support:
 
@@ -2506,13 +2758,19 @@ The marine profile SHOULD support:
 - delayed acknowledgement;
 - link-cost-aware routing.
 
+## 33.5 Reconnection and locality
+
+Discovery and telemetry SHALL be scoped by site/project. Queues and upload/retention policies SHALL be bounded. Bulk data transfer SHALL NOT silently consume the reference command path's capacity. Reconnect SHALL reconcile state and telemetry with explicit duplicate/freshness rules; old commands SHALL not be replayed. UI, gateway and enterprise disconnection SHALL be tested separately against declared local continuation or safe state.
+
 # 34. AI and machine-learning support
 
-## 30.1 AI principles
+AI is an optional platform capability. Conventional robotics/control workflows SHALL operate without model providers or cloud accounts. Learned components SHALL use the same contracts, clocks, authority, health and evidence model as other components. Studio assistance SHALL submit ordinary validated project/code changes. AI adapters, datasets, model/runtime dependencies and licensing SHALL be versioned independently from the stable core.
+
+## 34.1 AI principles
 
 AI outputs are estimates, not privileged truth. AI components MUST remain subject to confidence handling, fallback logic, authority and safety constraints.
 
-## 30.2 Standard AI types
+## 34.2 Standard AI types
 
 - images and video;
 - tensors;
@@ -2525,7 +2783,7 @@ AI outputs are estimates, not privileged truth. AI components MUST remain subjec
 - uncertainty;
 - model provenance.
 
-## 30.3 Model packages
+## 34.3 Model packages
 
 A model package SHOULD include:
 
@@ -2541,7 +2799,7 @@ A model package SHOULD include:
 - license;
 - signature.
 
-## 30.4 Deployment patterns
+## 34.4 Deployment patterns
 
 - active inference;
 - shadow inference;
@@ -2552,7 +2810,7 @@ A model package SHOULD include:
 - dataset capture trigger;
 - drift monitoring.
 
-## 30.5 Accelerator scheduling
+## 34.5 Accelerator scheduling
 
 GPU/accelerator workloads SHOULD declare:
 
@@ -2566,11 +2824,11 @@ GPU/accelerator workloads SHOULD declare:
 
 # 35. Interoperability
 
-## 31.1 Bridge architecture
+## 35.1 Bridge architecture
 
 A bridge is a managed component that translates external protocols to Neuradix contracts. It MUST expose conversion, timing and data-loss behaviour.
 
-## 31.2 Initial bridges
+## 35.2 Initial bridges
 
 Priority 1:
 
@@ -2590,7 +2848,7 @@ Priority 2:
 - MOOS-IvP;
 - Goby.
 
-## 31.3 ROS 2 bridge principles
+## 35.3 ROS 2 bridge principles
 
 - map ROS message schemas to explicit Neuradix contracts;
 - preserve source timestamps where available;
@@ -2601,64 +2859,293 @@ Priority 2:
 
 # 36. Neuradix Studio
 
-## 32.1 Product form
+## 36.1 Product form and shared services
 
-Studio SHOULD be local-first and browser-based, with optional desktop and XR clients. It MUST operate without internet access. Studio XR SHALL reuse the same data, identity, command and audit services rather than introducing a separate backend.
+Studio SHALL be the integrated local engineering environment for projects, simulation, physical deployments and diagnostics. The initial implementation is a local web UI backed by shared Rust application/query services. The CLI SHALL invoke the same operations and validation. Browser, native and optional desktop/XR shells MAY use different execution/rendering implementations while preserving data semantics and qualified behaviour.
 
-## 32.2 Core views
+Large recording/scene operations SHALL use bounded queries and explicit decimation/lifetime policies. A complete WASM/native renderer or XR implementation is not a prerequisite for the integrated alpha. Renderer choices require a measured capability spike and a recorded decision.
 
-- live component graph;
-- deployment editor;
-- contract inspector;
-- stream/state browser;
-- latency and bandwidth heat map;
-- logs, metrics and traces;
-- command lineage viewer;
-- time-series plots;
-- image/video viewer;
-- point-cloud and map viewer;
-- coordinate-frame viewer;
-- mission/scenario editor;
-- recording and replay controls;
-- fault injection panel;
-- package and driver manager;
-- security and permission view;
-- update and deployment status.
+## 36.2 Integrated alpha views and actions
 
-## 32.3 Studio safety rules
+Studio SHALL provide project navigation; component/target graph; contract/unit/frame inspection; live and recorded signals; explicit clock/source/staleness labels; health and firmware identity; command/authority lineage; simulation scene/parameter/device-binding editing; and build/flash/launch status with active artifact/configuration identity.
 
-- actuator commands require explicit authenticated permission;
-- dangerous commands require confirmation or configured multi-step approval;
-- production changes show the exact resulting deployment revision;
-- all operator actions are audited;
-- Studio disconnection does not compromise robot operation.
+The first authoring workflow MAY use constrained forms and structured project editing. It SHALL validate through the compiler and preserve handwritten code. It SHALL provide actionable diagnostics and a deployment preview. Advanced CAD editing, complete visual programming, collaboration and XR remain later extensions.
+
+## 36.3 Authority and disconnection
+
+Studio SHALL never bypass the local command/authority path. Live mutations SHALL use the declared authenticated/audited operation contract. Loss or overload of Studio SHALL not stop robot control or suspend a physical watchdog. Live, simulated, replayed, estimated, predicted and stale state SHALL be visibly distinguishable wherever present.
+
+## 36.4 Delivery plan
+
+The [Studio Implementation Plan v0.2](Neuradix_Studio_Implementation_Plan_v0.2.md) refines WP-C03/C04/C06. Basic authoring is part of Gate C. XR remains a separately qualified Gate F pack using the same state and authority model.
 
 # 37. Command-line interface
 
-The CLI SHALL use consistent resource-oriented commands.
+The command tree below is the target interface, not a list of implemented commands. [CLI Specification v0.2](Neuradix_CLI_Command_Specification_v0.2.md) adds project/run-worker workflows and preserves current digest semantics. Current availability is recorded in the README and capability register. New syntax/output fields require RFC review and compatibility tests before release.
+
+The command-line interface is a stable developer, operator and automation API. Studio, CI and external orchestration SHOULD invoke the same underlying services and result models rather than implementing separate operational logic.
+
+## 37.1 Product and automation contract
+
+### 37.1.1 Purpose
+
+The canonical CLI executable is:
 
 ```bash
-neuradix new component depth-controller --language rust
-neuradix new component object-detector --language python
-neuradix contract check contracts/
-neuradix build
-neuradix test
-neuradix graph validate robot.yaml
-neuradix sim run scenarios/dive.yaml
-neuradix inspect stream navigation/depth
-neuradix record start --profile mission
-neuradix replay mission.mcap --lockstep
-neuradix explain command propulsion/thrust --at <timestamp>
-neuradix package sign ./target/package
-neuradix deploy robot.yaml --target explorer-auv-01
-neuradix doctor
+neuradix
 ```
 
-CLI output MUST be available in human-readable and machine-readable JSON forms.
+The CLI is a stable automation interface for developers, CI systems, test laboratories, operators and deployment tooling. It SHALL not be treated as a collection of unrelated debugging commands.
+
+### 37.1.2 Command hierarchy
+
+```text
+neuradix
+├── new
+├── init
+├── build
+├── check
+├── contract
+├── component
+├── graph
+├── run
+├── stop
+├── inspect
+├── record
+├── replay
+├── explain
+├── sim
+├── test
+├── embedded
+├── package
+├── deploy
+├── registry
+├── bridge
+├── swarm
+├── aero
+├── ground
+├── fleet
+├── studio
+├── config
+├── context
+├── auth
+├── doctor
+├── completion
+└── version
+```
+
+Commands MAY be implemented incrementally, but the naming and resource hierarchy SHOULD be stabilized before public preview.
+
+### 37.1.3 Global options
+
+Applicable commands SHOULD support:
+
+```text
+--context <name>
+--profile <edge|embedded|sim|ground|flight|safety>
+--robot <identity>
+--swarm <identity>
+--output <table|json|yaml|jsonl>
+--offline
+--timeout <duration>
+--at <timestamp>
+--dry-run
+--yes
+--verbose
+--quiet
+```
+
+### 37.1.4 Machine-readable output
+
+Inspection, validation and planning commands MUST support stable machine-readable output.
+
+```bash
+neuradix graph --output json
+neuradix contract validate contract.yaml --output json
+neuradix component health --output jsonl
+```
+
+Output schemas SHALL be versioned and documented.
+
+### 37.1.5 Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | Success |
+| `1` | General operation failure |
+| `2` | Invalid CLI use |
+| `3` | Contract validation failure |
+| `4` | Compatibility failure |
+| `5` | Connection/discovery failure |
+| `6` | Authentication failure |
+| `7` | Authorization denied |
+| `8` | Safety rejection |
+| `9` | Determinism or replay mismatch |
+| `10` | Deployment validation failure |
+| `11` | Partial operation |
+| `12` | Timeout |
+
+Exit-code meanings SHALL remain backward-compatible within a major CLI version.
+
+### 37.1.6 Safety rule
+
+The CLI MUST NOT bypass the normal authority path.
+
+```text
+CLI semantic intent
+      |
+      v
+Ground identity and authority
+      |
+      v
+Swarm or mission coordination
+      |
+      v
+Onboard Safety
+      |
+      v
+Embedded/Flight controller
+```
+
+Development-only direct hardware commands MUST require an explicit hardware-test profile, elevated authority, a reason and audit recording. They MUST be disabled by production deployment policy.
+
+## 37.2 Command groups
+
+### 37.2.1 Contracts
+
+```bash
+neuradix contract validate contracts/
+neuradix contract generate --language rust
+neuradix contract generate --language python
+neuradix contract generate --target rust-no-std --board esp32-c3
+neuradix contract generate --target arduino-cpp --board uno-r3
+neuradix contract diff Old@1 New@2
+neuradix contract compatibility old.yaml new.yaml
+neuradix contract inspect VehiclePose
+```
+
+### 37.2.2 Runtime and inspection
+
+```bash
+neuradix run deployment.yaml --profile edge
+neuradix graph --live
+neuradix component list
+neuradix component inspect depth-controller
+neuradix component health object-detector
+neuradix inspect stream navigation/depth
+neuradix inspect frames --validate
+neuradix inspect clocks --sync-status
+neuradix inspect authority thrusters
+```
+
+### 37.2.3 Record, replay and explain
+
+```bash
+neuradix record start mission.mcap
+neuradix record verify mission.mcap
+neuradix replay run mission.mcap --lockstep
+neuradix replay branch mission.mcap --replace controller=v2
+neuradix explain command thrusters/vertical --at 14:32:18.420
+neuradix explain safety-decision saf-9281
+neuradix explain task-allocation allocation-42
+```
+
+### 37.2.4 Simulation and testing
+
+```bash
+neuradix sim run scenarios/depth-hold.yaml
+neuradix sim inject sensor-loss --sensor dvl --at 120s
+neuradix sim monte-carlo scenarios/survey.yaml --runs 1000
+neuradix test determinism scenarios/depth-hold.yaml
+neuradix test replay mission.mcap
+neuradix test conformance driver/depth-sensor
+```
+
+### 37.2.5 Embedded
+
+```text
+neuradix embedded
+├── targets
+├── new
+├── check
+├── generate
+├── build
+├── flash
+├── monitor
+├── inspect
+├── test
+├── size
+├── provision
+└── update
+```
+
+Examples:
+
+```bash
+neuradix embedded targets
+neuradix embedded new motor-controller --target esp32-c3 --executor embassy
+neuradix embedded new temperature-node --target arduino-uno-r3 --language cpp
+neuradix embedded generate --manifest embedded/motor-node.yaml
+neuradix embedded build --release
+neuradix embedded size
+neuradix embedded flash --port /dev/ttyUSB0
+neuradix embedded monitor
+```
+
+### 37.2.6 Deployment
+
+```bash
+neuradix package build
+neuradix package sign target/package
+neuradix package sbom target/package
+neuradix deploy validate deployment.yaml
+neuradix deploy plan deployment.yaml
+neuradix deploy apply deployment.yaml --dry-run
+neuradix deploy rollback robot-01 --to previous
+```
+
+### 37.2.7 Swarm and Aero
+
+```bash
+neuradix swarm status survey-alpha
+neuradix swarm members survey-alpha
+neuradix swarm tasks list survey-alpha
+neuradix swarm formation set survey-alpha adaptive-grid
+neuradix swarm partitions survey-alpha
+
+neuradix aero airspace validate mission-airspace.yaml
+neuradix aero conflict predict --horizon 60s
+neuradix aero landing-zones rank --vehicle uav-03
+```
+
+## 37.3 Normative requirements
+
+| ID | Requirement |
+|---|---|
+| `NRX-CLI-001` | The canonical executable SHALL be `neuradix`. |
+| `NRX-CLI-002` | The CLI SHALL use a consistent resource-oriented command hierarchy. |
+| `NRX-CLI-003` | Validation and inspection commands SHALL support machine-readable output. |
+| `NRX-CLI-004` | Machine-readable schemas SHALL be versioned. |
+| `NRX-CLI-005` | Exit-code meanings SHALL be documented and stable within a major version. |
+| `NRX-CLI-006` | Mutating operational commands SHALL support `--dry-run` where meaningful. |
+| `NRX-CLI-007` | Dangerous commands SHALL require explicit confirmation unless a policy-approved automation mode is used. |
+| `NRX-CLI-008` | The CLI SHALL NOT bypass Ground, Swarm or onboard Safety authority paths. |
+| `NRX-CLI-009` | Development-only direct actuator commands SHALL be disabled in production profiles. |
+| `NRX-CLI-010` | CLI actions affecting a live system SHALL be auditable. |
+| `NRX-CLI-011` | The CLI SHALL support offline operation for local build, validation, simulation and recording inspection. |
+| `NRX-CLI-012` | Shell completion SHOULD be provided for supported shells. |
+| `NRX-CLI-013` | Commands SHALL expose timeouts rather than waiting indefinitely. |
+| `NRX-CLI-014` | Errors SHALL identify whether failure occurred in parsing, validation, authorization, safety or execution. |
+| `NRX-CLI-015` | The CLI SHALL support contexts for selecting local, laboratory, robot, fleet or simulation endpoints. |
+| `NRX-CLI-016` | Embedded commands SHALL support target discovery, build, size reporting, flash and monitor workflows. |
+| `NRX-CLI-017` | Deployment commands SHALL validate contracts, resources, permissions and safety paths before apply. |
+| `NRX-CLI-018` | Deprecations SHALL emit actionable migration guidance. |
+| `NRX-CLI-019` | The CLI SHOULD provide structured progress events for automation. |
+| `NRX-CLI-020` | `neuradix doctor` SHALL report toolchain, target, connectivity and configuration diagnostics. |
 
 # 38. Testing and verification
 
-## 34.1 Test layers
+## 38.1 Test layers
 
 - unit tests;
 - contract tests;
@@ -2674,7 +3161,7 @@ CLI output MUST be available in human-readable and machine-readable JSON forms.
 - performance and jitter tests;
 - security tests.
 
-## 34.2 Contract test generation
+## 38.2 Contract test generation
 
 The contract compiler SHOULD generate:
 
@@ -2685,7 +3172,7 @@ The contract compiler SHOULD generate:
 - timeout/deadline tests;
 - capability conformance stubs.
 
-## 34.3 Fault injection
+## 38.3 Fault injection
 
 Fault injection SHOULD include:
 
@@ -2705,19 +3192,29 @@ Fault injection SHOULD include:
 - actuator saturation;
 - battery degradation.
 
-## 34.4 Reproducibility
+## 38.4 Reproducibility
 
 CI scenario failures MUST output a replayable artifact containing the seed, topology, configuration, software versions and relevant recorded data.
 
-## 34.5 Qualification-oriented evidence
+## 38.5 Qualification-oriented evidence
 
 For Flight and Safety profiles, the test system SHOULD generate requirements traceability, target/tool versions, test procedure identity, coverage, timing results, resource-watermark data and signed result bundles. Evidence generation SHALL be reproducible and SHALL preserve failed as well as passed results.
 
+## 38.6 Embedded conformance and hardware verification
+
+Supported embedded targets SHALL have automated build and conformance coverage appropriate to their support level. The suite SHOULD include contract encoding compatibility, static memory budgets, queue overflow behaviour, watchdog and reset handling, command-lease expiry, communication loss, safe-state transitions, host-simulation parity and target-specific hardware-in-the-loop tests.
+
+## 38.7 Cross-target acceptance and traceability
+
+The [ACC-01–16 catalogue](Neuradix_Implementation_Plan_v0.4.md#6-acceptance-catalogue-and-evidence-format) SHALL govern the integrated release. Evidence SHALL record source/deployment identity, target/toolchain, workload/configuration, expected criteria, actual observations, pass/fail/not-run and reviewer. Mandatory hardware/tool-dependent tests SHALL not silently skip. New NRX-PLAT requirements map to work packages and acceptance tests in the implementation plan.
+
 # 39. Performance and quality targets
+
+All numerical targets in this section are design targets requiring workload-specific qualification, not measured current performance. A release SHALL state target hardware, OS, toolchain, payloads and measurement conditions. Observed worst latency SHALL be distinguished from an analysed worst-case bound; server throughput SHALL not imply faster local hard-real-time control.
 
 These are design targets to be validated by published benchmarks, not guarantees for all hardware.
 
-## 35.1 Runtime targets
+## 39.1 Runtime targets
 
 - No unbounded queue in a production-validated graph.
 - Zero-copy handoff for supported local large-buffer paths.
@@ -2726,7 +3223,7 @@ These are design targets to be validated by published benchmarks, not guarantees
 - End-to-end latency attributable by component and transport stage.
 - Runtime overhead benchmarked separately from application computation.
 
-## 35.2 Reference benchmark suite
+## 39.2 Reference benchmark suite
 
 The project SHOULD publish reproducible benchmarks for:
 
@@ -2742,7 +3239,7 @@ The project SHOULD publish reproducible benchmarks for:
 - failover and restart;
 - embedded endpoint throughput.
 
-## 35.3 Quality gates
+## 39.3 Quality gates
 
 Core releases SHOULD require:
 
@@ -2757,6 +3254,8 @@ Core releases SHOULD require:
 - documented migration notes.
 
 # 40. Repository architecture
+
+The layout below is an intended architecture, not the current crate inventory. [Capability Status](Neuradix_Capability_Status.md) records the integrated implementation and remaining work. Add modules when their work package has executable behaviour and tests; directory scaffolding does not count as capability delivery.
 
 Recommended initial organisation:
 
@@ -2814,9 +3313,30 @@ neuradix/
 
 A monorepo is recommended during early architectural development to keep contracts and releases coherent. Independent repositories may be split later when boundaries are stable.
 
+## 40.1 Embedded and CLI repository additions
+
+The repository SHOULD add:
+
+```text
+crates/
+  embedded-core/
+  embedded-codegen/
+  embedded-transport/
+  cli/
+
+embedded/
+  boards/
+  examples/
+  conformance/
+
+docs/
+  Neuradix_CLI_Command_Specification_v0.1.md
+  Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md
+```
+
 # 41. API stability and governance
 
-## 37.1 Stability levels
+## 41.1 Stability levels
 
 - Experimental;
 - Preview;
@@ -2827,7 +3347,7 @@ A monorepo is recommended during early architectural development to keep contrac
 
 Stable contracts MUST have documented compatibility guarantees.
 
-## 37.2 RFC process
+## 41.2 RFC process
 
 Material architectural changes SHOULD use public RFCs containing:
 
@@ -2840,7 +3360,7 @@ Material architectural changes SHOULD use public RFCs containing:
 - migration plan;
 - test plan.
 
-## 37.3 Governance recommendation
+## 41.3 Governance recommendation
 
 Initial governance MAY remain founder-led, but the project SHOULD publish:
 
@@ -2853,7 +3373,7 @@ Initial governance MAY remain founder-led, but the project SHOULD publish:
 - conflict-of-interest policy;
 - roadmap.
 
-## 37.4 Licensing
+## 41.4 Licensing
 
 Recommended model:
 
@@ -2864,13 +3384,15 @@ Recommended model:
 
 This preserves genuine open-source adoption while enabling revenue through engineering services, support, hosted fleet services, certified packages and target-specific validation.
 
-# 42. Initial reference AUV
+# 42. Reference systems and domain demonstrations
 
-## 38.1 Purpose
+The first integrated platform proof is the instrumented cross-target rig/mobile robot in Implementation Plan v0.4. The AUV below remains the fast regression and marine expansion reference. Swarm, aerial and space examples in this section are separately gated domain demonstrations, not prerequisites for the first supported core workflow.
+
+## 42.1 Purpose
 
 The reference AUV is both a demonstrator and a conformance target. It should prove the entire lifecycle from simulation to deployment and replay.
 
-## 38.2 Reference subsystems
+## 42.2 Reference subsystems
 
 - Linux vehicle computer;
 - safety/IO MCU;
@@ -2890,7 +3412,7 @@ The reference AUV is both a demonstrator and a conformance target. It should pro
 - recorder;
 - operator station.
 
-## 38.3 Demonstration mission
+## 42.3 Demonstration mission
 
 1. Load signed mission and deployment.
 2. Run pre-dive health and authority checks.
@@ -2905,7 +3427,7 @@ The reference AUV is both a demonstrator and a conformance target. It should pro
 11. Replay the mission and explain a selected actuator command.
 12. Replace one controller and run a counterfactual replay.
 
-## 38.4 Secondary reference space demonstrator
+## 42.4 Secondary reference space demonstrator
 
 After the marine vertical slice is stable, Neuradix SHOULD add a laboratory or non-critical flight demonstrator comprising a simulated launch/spacecraft model, a Flight Alpha runtime, Ground command/telemetry, an independent safety monitor and HIL hardware. This demonstrator validates profile separation without displacing the AUV as the first complete robotics reference.
 
@@ -2919,161 +3441,53 @@ The aerial demonstrator SHOULD use at least four simulated UAVs including two ai
 
 # 43. Delivery roadmap
 
-## Phase 0 - Architecture validation
+| Gate | Required outcome |
+|---|---|
+| A | Reviewed integration baseline; identity, ABI, authority, worker, MCAP and replay correctness |
+| B | Shared project/compiler; actual Uno and 32-bit MCU; Edge/gateway/time/placement conformance |
+| C | Integrated simulation, Studio authoring, hardware testing and incident reproduction |
+| D | Local/two-server workers, artifacts, scoped network and basic site/server operations |
+| E | Qualified ROS bridge, reproducible packages/installers, documented SDKs and supported release evidence |
+| F | Separately qualified enterprise HA, fleet, boards, domain, AI, Swarm, XR and Flight discovery packs |
 
-- approve RFC-0001 Component and Contract Model;
-- validate Rust/Python zero-copy and process isolation;
-- prove transport independence with in-process, shared memory and Zenoh;
-- define profile policy schema for Edge, Embedded, Flight, Safety, Sim and Ground;
-- demonstrate deterministic recording and replay;
-- establish performance baselines.
-
-## Phase 1 - Minimum viable platform
-
-- Runtime, Contracts and Data Plane;
-- Rust SDK and Python worker SDK;
-- topology compiler and local supervisor;
-- Neuradix Record and a minimal Studio;
-- Edge reference application;
-- basic ROS 2 and MAVLink bridges.
-
-## Phase 2 - Dependability release
-
-- authority leases and safety constraints;
-- health supervision and FDIR primitives;
-- security identity and signed packages;
-- static production topology;
-- deterministic replay and causal command lineage;
-- Embedded profile on at least one MCU family.
-
-## Phase 3 - Marine reference platform
-
-- complete AUV/USV vertical slice;
-- sonar, camera, IMU, DVL and pressure capabilities;
-- hydrodynamic simulation and HIL;
-- constrained-link and offline mission operation;
-- field trials and public benchmark/evidence data.
-
-## Phase 4 - Swarm and immersive operations
-
-- Swarm membership, epochs, allocation and partition recovery;
-- federated shared-world-model exchange;
-- AUV swarm digital twin and constrained-link trials;
-- Aero domain contracts, autopilot bridge and aerial collision-avoidance integration;
-- Studio XR live/sim/replay client;
-- multi-user authority and command-preview workflow.
-
-## Phase 5 - Space simulation and Ground
-
-- launch and spacecraft simulation models;
-- Ground command, telemetry, timeline and procedure services;
-- Flight contract generation and static topology;
-- HIL with representative avionics;
-- assurance evidence bundle generation.
-
-## Phase 6 - Flight Alpha and payload demonstration
-
-- restricted Rust runtime;
-- command/data handling, time, watchdog and FDIR;
-- one RTOS or bare-metal target;
-- isolated payload or laboratory flight demonstration;
-- independent review and published limitations.
-
-## Phase 7 - Ecosystem, Fleet and mission heritage
-
-- multi-robot and constellation operations;
-- package approval channels and long-term support releases;
-- additional hardware and protocol partners;
-- progressively higher-criticality missions only after sufficient assurance and successful operational history.
+The [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) owns dependencies, work-package estimates and staffing scenarios. Existing foundations SHALL be reviewed and retained where appropriate. The programme SHALL not restart implemented work or defer all physical embedded work until after an AUV-only release.
 
 # 44. Prioritised backlog
 
-## P0 - Essential foundation
+P0: WP-A01–A08 correctness, integration baseline and protocol/authority evidence.
 
-- contract schema and compiler;
-- runtime lifecycle;
-- Rust SDK;
-- Python process SDK;
-- local and shared-memory transport;
-- Zenoh adapter;
-- bounded queues;
-- time domains;
-- deployment graph validation;
-- MCAP record/replay;
-- CLI and testkit.
+P1: WP-B01–B07 shared project/compiler, actual boards, trusted clocks and executable Edge graph.
 
-## P1 - Differentiators
+P2: WP-C01–C06 simulation/Studio/HIL and reproducible diagnosis; WP-D01–D04 distributed runs and local site independence.
 
-- semantic units and frames;
-- deterministic executor;
-- authority leases;
-- safety constraints;
-- causal tracing;
-- command explanation;
-- deterministic simulation clock;
-- signed packages;
-- ROS 2/MAVLink bridges;
-- Studio graph and timeline.
+P3: WP-E01–E05 packages, bridge, installation, release qualification and adoption evidence.
 
-## P2 - Swarm, Aero and XR
-
-- membership epochs and task allocation;
-- partition/rejoin reconciliation;
-- federated world model and cooperative localization;
-- AUV acoustic-link policies;
-- Aero airframe and airspace contracts;
-- autopilot bridge and local aerial collision avoidance;
-- Studio XR renderer and semantic-intent workflow;
-- digital-twin command preview;
-- multi-user operational authority.
-
-## P3 - Space and assurance expansion
-
-- Flight static runtime and rate groups;
-- Ground command and telemetry dictionaries;
-- RTOS/bare-metal target;
-- FDIR state-machine tooling;
-- requirements and verification evidence generator;
-- space digital-twin model package;
-- HIL avionics reference rig.
-
-## P4 - Ecosystem scale
-
-- embedded profile;
-- WebAssembly plugins;
-- registry;
-- fleet management;
-- model registry;
-- certification/conformance portal;
-- advanced distributed scheduling;
-- redundant component voting.
+Extension packs: WP-F01–F08 as separately resourced releases without weakening core gates. See the [plan](Neuradix_Implementation_Plan_v0.4.md) and [RFC Backlog v0.4](Neuradix_RFC_Backlog_v0.4.md) for owned work and unresolved decisions.
 
 # 45. Acceptance criteria for version 1.0
 
-Version 1.0 acceptance applies to the common platform and Edge/Sim/Record/Studio foundations. It does not constitute flight or human-rating certification. Flight Alpha has separate criteria in Section 21.14.
+The first supported release SHALL satisfy the applicable ACC-01–16 catalogue in [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md#6-acceptance-catalogue-and-evidence-format) on a named host, board, simulator and bridge matrix. Scope includes Tiny/MCU participation, Edge, Workstation and the declared distributed-worker/server subset of Enterprise. High availability, broader fleet scale, domains, Swarm, XR and Flight are separate releases; their detailed requirements remain in this specification.
 
-Neuradix 1.0 SHALL not be declared until all of the following are satisfied:
+1. One project reproduces conventional-control development offline from pinned inputs.
+2. An actual Uno R3 and one 32-bit MCU pass build/flash/wire/health and local failure tests.
+3. Semantic/wire/deployment identities and unit/frame conversions are correct and traceable.
+4. Memory, buffer, capability and timing assumptions are explicit; invalid placement is rejected.
+5. Trusted local authority rejects stale/expired/invalid commands across reset and clock edge cases.
+6. Physical and simulated bindings satisfy interface conformance and report fidelity/timing limits.
+7. Program replay executes the selected code and remains distinct from record integrity and physical outcomes.
+8. Supported MCAP exchange passes independent reader/writer fixtures without silent message loss.
+9. Extension process failure and I/O abuse remain within the tested supervision/resource boundaries.
+10. Studio and CLI support the edit/validate/simulate/build/flash/inspect/diagnose workflow.
+11. Local and two-worker run execution handles failure, cancellation and duplicate results correctly.
+12. UI, gateway and server disconnection plus network overload produce declared local behaviour.
+13. The supported server scope enforces project/site access, quotas and audit.
+14. Packages, updates, storage retention and backup/recovery pass target-specific integrity tests.
+15. A qualified ROS bridge preserves the selected topic/service/action/QoS/time semantics.
+16. SDK/compatibility/security/support documentation and independent engineer evidence match the released artifacts; required tests execute.
 
-1. Stable Rust and Python SDKs are published.
-2. A versioned contract and compatibility policy is documented.
-3. Production graphs reject unbounded queues unless explicitly waived.
-4. The reference robot runs the same application contracts in simulation and hardware.
-5. MCAP recording and deterministic/lockstep replay are supported.
-6. A Python component can crash without terminating control and safety processes.
-7. The platform exposes units, frames and clock domains.
-8. Authority and safety paths protect all reference actuators.
-9. Signed package and deployment verification is available.
-10. ROS 2 and MAVLink bridges are functional.
-11. Studio can inspect the graph, data, health, timing and command lineage.
-12. Published benchmark procedures exist for latency, throughput, jitter and recording.
-13. Security policy, SBOM and vulnerability process are published.
-14. Upgrade and rollback procedures are tested.
-15. The complete reference single-AUV scenario is reproducible from public instructions.
-16. A multi-AUV simulation demonstrates partition-tolerant task allocation and local safe continuation.
-17. A multi-UAV simulation demonstrates local collision avoidance overriding a formation command.
-18. Studio XR distinguishes live, estimated, predicted, simulated, stale and replayed entities.
-19. An XR-generated spatial task passes through Ground authority, Swarm allocation and local Safety without direct actuator access.
-20. Headset, Ground and coordinator disconnection tests confirm continued local safety.
+## 45.1 Profile and extension acceptance
+
+Gate B and C are previews/alphas, not version 1.0. A release SHALL not count missing required hardware tests as passing. Unsupported features SHALL be excluded from advertised scope or block the affected release. Domain, fleet, HA/tenancy, XR and Flight packs require additional tests and owner review; Flight Alpha retains Section 21.14's project-specific criteria.
 
 # 46. Key risks and mitigations
 
@@ -3084,7 +3498,7 @@ Neuradix 1.0 SHALL not be declared until all of the following are satisfied:
 | Claiming real-time guarantees too broadly | unsafe expectations | explicit execution classes and validated profiles |
 | Python performance or crash impact | control instability | process isolation, bounded inputs, no deterministic-path use |
 | Contract system becomes too complex | developer rejection | progressive disclosure, good defaults, generated code |
-| Studio consumes engineering capacity before runtime stabilises | delayed core | implement inspection first, visual authoring later |
+| Studio consumes engineering capacity before runtime stabilises | delayed core | deliver inspection and minimal authoring together at Gate C; expand advanced editors later |
 | Weak driver ecosystem | adoption barrier | bridge support, capability contracts, vendor conformance |
 | Over-centralised governance | community hesitation | public RFCs, transparent roadmap, Apache-2.0 core |
 | Security added too late | redesign and field exposure | identity, permissions and signed artifacts from early releases |
@@ -3094,78 +3508,25 @@ Neuradix 1.0 SHALL not be declared until all of the following are satisfied:
 | Centralised swarm assumptions fail under partition | mission and safety degradation | local autonomy, membership epochs, reconciliation and explicit partition policy |
 | Media traffic interferes with aerial coordination | collision or control risk | priority queues, bandwidth reservation and pre-emption |
 | Swarm and domain scope expands too quickly | programme dilution | staged AUV and UAV reference demonstrations with shared primitives |
+| Attempting identical runtime capability on every microcontroller | unusable or unsafe embedded design | explicit Embedded Tiny/MCU/Connected/High tiers and generated static profiles |
+| Direct CLI or Studio hardware commands bypass authority | unsafe actuation and weak auditability | semantic intent, test-only profiles, Ground/onboard Safety enforcement and mandatory audit |
+| Supporting too many boards before conformance exists | fragmented maintenance and false compatibility claims | one native MCU and one Arduino C++ target first; published support levels |
 
-# 47. Decisions recommended now
+# 47. Decisions and implementation ownership
 
-The following decisions should be made immediately:
+Adopt the unified platform scope, shared project/compiler, five execution profiles and independent local operation as the documentation baseline. Use the working defaults and validation points in [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md#2-planning-defaults-and-decision-ownership). Default selections are planning choices, not proof of board/backend qualification.
 
-1. Adopt **Neuradix Robotics Platform** as the formal product name.
-2. Use **Neuradix** as the sole master brand.
-3. Use Rust for the trusted core and Python as an isolated first-class extension environment.
-4. Use a transport-neutral API with Zenoh as the first network backend.
-5. Use MCAP for primary recording and replay storage.
-6. Use OpenTelemetry-compatible observability.
-7. Use OCI artifacts for packaging and distribution.
-8. Use Apache License 2.0 for the core.
-9. Build the reference AUV and simulator as the first complete vertical slice.
-10. Define Fleet as administration and Swarm as runtime cooperation.
-11. Adopt Neuradix Marine and Neuradix Aero as domain profiles sharing the same runtime.
-12. Treat Studio XR as an authorised view and semantic-intent client, never as a direct actuator channel.
-13. Require local collision avoidance and Safety to override swarm formations.
-14. Start with architecture RFCs and a Phase 0 proof of concept before building a polished Studio.
+Before dependent implementation, resolve semantic/wire identity, target ABI, trusted command time, feedback semantics, worker resource policy, simulator stepping/imports, Studio service boundaries and distributed retry/identity rules through the RFC backlog. Preserve existing RFC numbers; RFC-0020–0022 are integrated prototype decisions whose remaining qualification work is tracked in the backlog. New decision slots start at RFC-0023.
+
+Assign a role owner and independent reviewer per work package. Update the capability register only with implementation/evidence at an integrated revision. No code defect is considered fixed by this specification update.
 
 # 48. First 90-day engineering plan
 
-## Weeks 1-2: foundation decisions
+The [capacity-limited first 90 days](Neuradix_Implementation_Plan_v0.4.md#4-first-90-days-capacity-limited-execution-plan) begins with the reviewed existing foundations, not new workspace scaffolding. Prioritise Gate A correctness and the first project/compiler/board/clock integrations. Run bounded simulator and Studio spikes in parallel only where dependency and staffing capacity permit.
 
-- create project charter and governance files;
-- create monorepo;
-- define terminology;
-- write RFC-0001 component model;
-- write RFC-0002 contract model;
-- write RFC-0003 execution classes;
-- write RFC-0004 transport abstraction;
-- write RFC-0005 recording/replay model;
-- define reference AUV minimum topology;
-- write RFC-0006 Swarm Membership and Allocation;
-- write RFC-0007 Studio XR State and Intent Model;
-- write RFC-0008 Aero Domain and Airspace Contracts.
+Under the illustrative two-engineer/70% allocation scenario, 12 weeks provide about 16.8 engineer-weeks. That does not guarantee Gate B or C completion. Reforecast after actual defect reproduction and board/backend spikes; defer downstream scope when needed rather than weakening hardware or correctness acceptance.
 
-## Weeks 3-5: minimum runtime
-
-- implement component identity and lifecycle;
-- implement local Stream and State primitives;
-- implement bounded queues;
-- implement a simple graph manifest;
-- generate Rust types from one contract;
-- publish structured lifecycle and health events.
-
-## Weeks 6-8: language and transport vertical slice
-
-- add Python SDK through PyO3/Maturin;
-- add managed Python process supervision;
-- add Zenoh transport adapter;
-- add shared-memory image buffer prototype;
-- demonstrate Rust camera producer and Python detector consumer.
-
-## Weeks 9-10: record and reproduce
-
-- record streams, state and events to MCAP;
-- capture topology/configuration hashes;
-- add replay clock;
-- demonstrate repeatable output from a fixed-seed component.
-
-## Weeks 11-12: reference demo
-
-- create minimal AUV depth-control simulator;
-- implement depth sensor, controller, safety limiter and thruster model;
-- display graph and signals in a minimal Studio page;
-- demonstrate Python process crash isolation;
-- publish benchmark and architecture report;
-- decide whether the foundations satisfy Phase 0 exit criteria;
-- run a paper architecture review of the Flight and independent safety-island profiles without attempting critical flight implementation;
-- run simulated two-member swarm allocation and coordinator-loss tests;
-- prototype a desktop 3D scene using the same state classes planned for Studio XR.
+The earlier AI-workbench calendar estimate and older AUV-first/embedded-later plans are superseded. This specification does not commit a full platform release date.
 
 # 49. Technical reference rationale
 

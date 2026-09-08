@@ -1,74 +1,29 @@
 # RFC-0014 — Embedded Runtime, Board Support and Code Generation
 
-- Status: Partially implemented (increments 13–15 — `embedded-core` WP2, `embedded-transport` framing WP4, `embedded-codegen` WP1)
-- Authoritative spec: [Embedded Profile Implementation Plan v0.1](../Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) §4 (Phase 3E)
-- Crates: `neuradix-embedded-core`, `neuradix-embedded-transport`, `neuradix-embedded-codegen` (implemented)
-- First target (chosen): **ESP32-C3** (RISC-V) with a **serial** link.
+- Status: Partially implemented on main; board/runtime expansion remains planned. Updated after PR #7 on 8 September 2026.
+- Governing documents: [Specification v0.6](../Neuradix_Robotics_Platform_Functional_Specification_v0.6.md), [Embedded Plan v0.2](../Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Implementation Plan v0.4](../Neuradix_Implementation_Plan_v0.4.md)
+- Integrated prototype crates: `neuradix-embedded-core`, `neuradix-embedded-codegen`, `neuradix-embedded-transport`
 
-## Gate A update: canonical wire identity and Arduino numeric ABI
+> Main includes the embedded/transport/codegen foundations and the PR #6 wire/ABI fixes. Host tests and actual AVR compile/link/rejection checks pass; physical board execution is still unverified. See [Capability Status](../Neuradix_Capability_Status.md).
 
-The [first Gate A increment](../implementation/Gate-A-Embedded-Wire-and-ABI.md)
-replaces the declaration-order codec below with `neuradix.scalar-le.v2` and a
-separate full wire identity. Generated decoders require the producer's bound
-identity. C++ checks the actual target ABI, and `--cpp-target avr-uno` rejects
-binary64 at generation time. See that implementation note for the breaking
-decoder API, migration rules, test evidence and remaining board work.
+## Implemented wire and ABI decision
 
-The Arduino-to-enterprise plan proposes Uno R3 plus a selected RP2040 board
-for the first physical board work; the ESP32-C3 choice below is historical.
+The [Gate A implementation note](../implementation/Gate-A-Embedded-Wire-and-ABI.md)
+records `neuradix.scalar-le.v2`: canonical name-sorted scalar offsets, a separate
+full wire identity and generated decoder checks against the producer's binding.
+The CLI emits a wire manifest alongside Rust/C++ source. `--cpp-target avr-uno`
+rejects binary64; every C++ header checks the actual compiler ABI, including
+portable headers compiled for AVR. This replaces the unversioned declaration-order
+codec from development `c8aa467`.
 
-## Historical increment 15 (WP1 — embedded contract codegen)
+Both endpoints and their channel bindings must be upgraded together. The serial
+CRC/sequence frame format is unchanged and does not negotiate wire identity.
+Compact-ID collision handling and legacy recording migration remain open.
+The note preserves the exact tested commit, toolchain, memory measurements and
+remaining WP-A01/A02/A03 acceptance work.
 
-`neuradix-embedded-codegen` adds target projections over the same validated
-`Contract` the host generator uses: a **`no_std` Rust** payload struct and an
-**Arduino/C++** header, each with fixed little-endian `encode`/`decode`, plus
-deterministic **golden encode/decode vectors** that anchor cross-language
-agreement. The wire is a fixed layout (each scalar field in declaration order,
-little-endian; variable-length fields rejected), so a frame's size is known at
-compile time. Conformance is *executed*, not asserted: the generated C++ is
-compiled with `g++ -Werror` and run against the golden vectors, and the
-generated `no_std` Rust is compiled (`include!`) and run against the same
-vectors — so the host reference, MCU Rust and C++ all agree byte-for-byte.
-`neuradix contract generate --language nostd-rust|cpp` exposes both. Embedded C
-and topology/memory-report generation remain future.
-
-## Implemented in increment 13 (WP2 — embedded-core)
-
-`neuradix-embedded-core` is now real: a `#![no_std]`, allocation-free,
-executor-neutral component core for the Embedded MCU tier. It provides node and
-deployment **identity**, the same **health** vocabulary as the host runtime, a
-time-bounded **authority lease**, a link-loss **watchdog**, and a local
-**command gate** that enforces authority → link → validity → envelope (range +
-slew) and applies a **local safe output** on lease expiry, link loss or a
-non-finite command (§16.1, NRX-EMB-004). The reference **`PropulsionNode`** is
-built from these and runs unchanged in host simulation (`examples/embedded-
-propulsion`). To make this parity real, **`neuradix-time` was made
-`no_std`-compatible** (a default-on `std` feature gates only the ambient
-`SystemClock`), so host and firmware share the identical `Timestamp` /
-`Duration` / `ClockDomain` types.
-
-## Implemented in increment 14 (WP4 — transport framing)
-
-`neuradix-embedded-transport` provides the on-wire framing for a byte link
-(serial-first), `#![no_std]`, allocation-free and dependency-free (only `core`):
-a frame is `sync(2) | seq:u16 | len:u16 | payload | crc32:u32`. [`encode`] frames
-into a caller buffer; [`FrameDecoder`] is a byte-at-a-time, resync-capable state
-machine over a fixed buffer that yields only CRC-verified frames (a corrupt or
-oversized frame is dropped as [`FrameEvent::Corrupt`] without overrunning the
-buffer); [`SequenceTracker`] classifies each frame as in-order, duplicate,
-gapped or reordered with wrap-safe arithmetic. Integrity (CRC) and ordering
-(sequence) live here; **freshness** stays with the embedded-core watchdog — a
-corrupt/missing frame is simply a missing command, which drives the node's local
-safe state. An integration test drives a `PropulsionNode` through the codec and
-shows sustained corruption → link-loss safe state.
-
-Still future: contract projections and golden vectors (WP1), the Embassy/RTIC
-executor adapters (WP3), CAN transport, the `neuradix embedded` CLI and real
-board builds/flashing (WP5). The board/transport target is now chosen (ESP32-C3,
-serial); real cross-compilation awaits a toolchain and hardware.
-
-> The remainder of this RFC records the intended design for the not-yet-built
-> parts so the foundation does not foreclose them.
+The earlier ESP32-C3 first-board choice remains historical; the current plan uses
+Uno R3 plus one selected RP2040 board for physical Gate B acceptance.
 
 ## Problem
 
@@ -76,7 +31,7 @@ Constrained MCUs must participate in the same contracts, health, safety and
 simulation ecosystem without running the full Linux runtime, and without leaking a
 particular embedded executor into the SDK.
 
-## Scope (future)
+## Full target scope
 
 `no_std` component API; static topology; bounded memory; health/identity; local
 safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
@@ -88,16 +43,13 @@ safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
 
 - **Tiers**: Embedded Tiny (generated Arduino/AVR C/C++), Embedded MCU (native
   `no_std` Rust), Embedded Connected, Embedded High.
-- **First targets, in order**: host simulation → ESP32-C3 → RP2040 →
-  STM32F4/G4 → Arduino Uno R3 (generated C++) → nRF52 → ESP32-S3 / Uno R4.
+- **First targets**: host conformance, then actual Uno R3 and one 32-bit MCU as a paired Gate B milestone. RP2040 is the native planning default; further boards are maintained extension packs.
 - **`embedded-core`**: executor-neutral static component trait, bounded ports,
   health, command lease, watchdog, deployment identity and safe-state interface.
-- **Executor adapters**, in order: static-loop host simulator → Embassy → RTIC.
+- **Executor adapters**: host/static loop and one qualified native board executor first; Embassy/RTIC/other RTOS adapters follow a demonstrated need.
 - **`embedded-codegen`**: `no_std` Rust, Arduino C++ and embedded C projections
   plus topology and memory-report generation, with golden encode/decode vectors.
-- **Reference node**: an AUV propulsion node that validates a lease, enforces
-  rate/current/thermal limits, reports health and enters a safe state on link
-  loss — runnable as host simulation, ESP32-C3 firmware and generated Arduino C++.
+- **Reference node**: an instrumented motor/sensor controller that validates local authority, enforces available measured limits and enters its declared state on link loss. Retain the AUV model as a regression/domain reference.
 - Wireless links are never treated as a safety channel; safe state is local.
 
 ## Boundaries respected by increment 1
@@ -109,9 +61,9 @@ safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
 - The Rust code generator is structured so additional target projections
   (`no_std` Rust, C++) are new emitters over the same validated `Contract`.
 
-## Public interfaces affected (future)
+## Public interfaces and remaining extensions
 
-New `embedded-*` crates and an `embedded` CLI subtree, reusing the same
+The integrated `embedded-*` crates and `contract generate` will be extended by an `embedded` CLI subtree, reusing the same
 application services and result schemas as the desktop CLI (Studio/CLI parity).
 
 ## Alternatives considered
@@ -123,27 +75,22 @@ application services and result schemas as the desktop CLI (Studio/CLI parity).
 
 ## Safety and security implications
 
-Every actuator controller defines a local safe output applicable without the host
-(NRX-EMB-004); the embedded gateway validates contract version, integrity,
-sequence, freshness and authority before applying commands (NRX-EMB-005). Signed
-wired flashing precedes any production OTA.
+Every actuator controller defines and enforces its local response to lease expiry and link/watchdog loss (NRX-EMB-006/020, NRX-PLAT-006/007). Gateway routing preserves identity/freshness; CRC is not authentication. Update verification/recovery must reflect actual board capabilities (NRX-PLAT-024).
 
 ## Compatibility implications
 
-Contract projections must round-trip via golden encode/decode vectors so host,
-`no_std` Rust and Arduino C++ agree on the wire. Target support levels and
+Contract projections require independent wire vectors and actual target ABI checks. Semantic identity cannot authorize an incompatible layout, and generated binary64 must not copy eight bytes through a four-byte Uno double. Target support levels and
 conformance tests gate what "supported" means per board.
 
-## Testing strategy (future)
+## Remaining conformance strategy
 
-The embedded conformance suite (Implementation Plan §7): encode/decode vectors,
+The embedded conformance suite (Implementation Plan ACC-02/03/04/05/06/12/14/16): encode/decode vectors,
 timestamp/sequence handling, queue overflow, watchdog reset, lease expiry,
 safe-state transition, health/identity, transport corruption detection, resource
 budgets and host-simulation equivalence.
 
 ## Unresolved questions
 
-- First native MCU target and first embedded transport (ESP32-C3 vs RP2040;
-  serial vs CAN) — to be chosen before implementation.
+- Confirm or record changes to the RP2040/Uno/serial planning defaults before dependent implementation.
 - Static memory/timing budget expression in contracts.
 - Deployment-identity representation in firmware.

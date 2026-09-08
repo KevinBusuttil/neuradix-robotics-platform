@@ -8,6 +8,8 @@ status: "For review"
 supersedes: "Neuradix_Studio_Implementation_Plan_v0.1.md"
 ---
 
+> **Scope alignment — 8 September 2026.** This remains supplemental XR design for Gate F07. [Neuradix_Robotics_Platform_Functional_Specification_v0.6.md](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md), [Neuradix_Implementation_Plan_v0.4.md](Neuradix_Implementation_Plan_v0.4.md) and [Studio v0.2](Neuradix_Studio_Implementation_Plan_v0.2.md) govern current release sequencing, service boundaries and target qualification. XR is not a first-core-release prerequisite.
+
 # 0. Purpose
 
 This plan updates Neuradix Studio to cover the full current ecosystem, including embedded nodes and the CLI.

@@ -6,6 +6,8 @@ date: "17 July 2026"
 version: "0.5 Draft"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Robotics_Platform_Functional_Specification_v0.6.md](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 <!-- GENERATED CONTENTS START -->
 # Contents
 
@@ -56,7 +58,7 @@ version: "0.5 Draft"
 | Expansion domain | Immersive XR supervision, heterogeneous swarms, space simulation, ground systems, payloads and qualification-oriented flight software |
 | Primary implementation languages | Rust and Python, with generated C/C++ for constrained embedded targets |
 
-This v0.5 document is the single authoritative functional specification. It supersedes Functional Specification v0.4 and the separate Embedded/CLI v0.5 addendum.
+This v0.5 document is historical and superseded. Use [Functional Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) for current requirements and sequencing.
 
 This document defines the product architecture, sub-platform functions, interfaces, normative requirements, non-functional requirements, developer experience, security model, safety and FDIR model, swarm coordination, marine and aerial profiles, immersive XR supervision, packaging, interoperability, space/flight profile and phased delivery plan for Neuradix.
 

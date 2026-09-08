@@ -7,6 +7,8 @@ version: "0.1 Draft"
 status: "For review"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Implementation_Plan_v0.4.md](Neuradix_Implementation_Plan_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # 0. How to read this document
 
 This is an **engineering implementation plan**, not a restatement of the

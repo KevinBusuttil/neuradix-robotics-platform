@@ -8,6 +8,8 @@ status: "For review"
 supersedes: "Neuradix_Implementation_Plan_v0.2.md"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Implementation_Plan_v0.4.md](Neuradix_Implementation_Plan_v0.4.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # 0. Purpose
 
 This document updates the Neuradix implementation plan to include:

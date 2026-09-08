@@ -7,6 +7,8 @@ version: "0.1 Draft"
 status: "For review"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Studio_Implementation_Plan_v0.2.md](Neuradix_Studio_Implementation_Plan_v0.2.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # 0. Purpose and decisions taken
 
 This document plans **Neuradix Studio** as a *first-class, differentiating product*

@@ -1,20 +1,21 @@
 # Gate A implementation 1: embedded wire identity and numeric ABI
 
-Status: implemented and CI verified; proposed for integration in
-[PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6), not merged.
+Status: integrated into main through [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7), following
+[PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6). Code integration revision: `d5fbd69b7b901ad8899b9c911ad09e265ff76636`.
 Scope: the first bounded increment of WP-A01, WP-A02 and WP-A03 in the
-[Arduino-to-enterprise implementation plan](https://github.com/KevinBusuttil/neuradix-robotics-platform/blob/codex/arduino-enterprise-documentation-plan/docs/Neuradix_Implementation_Plan_v0.4.md).
-The broader strategy and consolidated specifications are proposed separately in
-[documentation PR #5](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/5).
+[Arduino-to-enterprise implementation plan](../Neuradix_Implementation_Plan_v0.4.md).
+The broader strategy, specifications and capability register are maintained in
+the [documentation index](../README.md).
 
 ## Baseline and purpose
 
 This increment is based on development commit
 [`c8aa467`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/c8aa4671bcee8739354beb7880551db7f64314fa),
-on `claude/gifted-albattani-i7t2wc`. Main remains at `e39da5e` at the start of
-this work. The six development commits are retained as the implementation
-baseline; choosing that baseline does not approve their integration into main
-or certify their MCAP, safety, replay or worker behavior.
+on `claude/gifted-albattani-i7t2wc`. At the start of this work, main was at
+`e39da5e`. PR #7 subsequently integrated the six development commits and these
+codec fixes into main. The historical starting revisions remain here for
+traceability. Integration does not close the remaining MCAP, safety, replay or
+worker acceptance findings.
 
 The shared engineering platform needs reliable contract exchange across Tiny,
 MCU and host profiles before board deployment or distributed execution. Two
@@ -111,8 +112,8 @@ No truncated hash is introduced here.
 
 Code commit [`b05baed`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/b05baed366a91098b0bc0f0401c754d6974b6f46)
 passed [CI run 34247995985](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34247995985)
-on 2026-09-08. The subsequent documentation update records these results without
-changing the tested implementation.
+on 2026-09-08. The subsequent documentation updates record these results without
+changing the tested implementation. [Integration CI for PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34250744255) also passed both host and AVR jobs before merging the combined code into main.
 
 | Check | Observed result |
 | --- | --- |
@@ -130,7 +131,7 @@ firmware image, real serial communication or physical board execution.
 
 | Work package | This increment | Remaining acceptance work |
 | --- | --- | --- |
-| WP-A01 | Pins an existing development baseline; requires host C++ and a separate AVR compiler gate. | Review/integrate the six development commits, complete evidence inventory and audit all optional-tool skips. |
+| WP-A01 | Pins an existing development baseline; requires host C++ and a separate AVR compiler gate. | Complete evidence inventory and audit all optional-tool skips; the six development commits are integrated through PR #7. |
 | WP-A02 | Canonical scalar layout, versioned full wire identity, required decoder identity and cross-language regression tests. | Gateway/transport binding, compact-ID collision enforcement, existing-recording migration fixture and tooling. |
 | WP-A03 | Explicit AVR numeric profile, generated ABI guards, host scalar boundary tests and real AVR compile/link checks. | Execute golden vectors on a physical Uno, measure stack/runtime memory and timing, then add the selected MCU board profile. |
 

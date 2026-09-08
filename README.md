@@ -1,185 +1,76 @@
 # Neuradix Robotics Platform
 
-Implementation has started on the Arduino-to-enterprise plan. See the
-[first Gate A increment](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
-for versioned embedded wire identity, Uno numeric ABI checks, migration rules
-and validation status. The consolidated strategy and master plan are proposed
-in [documentation PR #5](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/5).
+Neuradix is a Rust-first, contract-driven robotics development and operations platform: design, program, control, simulate, test, deploy and operate systems across compatible hardware, from tiny Arduino devices to enterprise infrastructure. Classical control, automation, autonomy and optional AI share one engineering model.
 
-Neuradix is a Rust-first, contract-driven platform for dependable autonomous robots across marine, aerial, ground, embedded and space domains.
+The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise execution profiles, with shared contracts, identities, clocks and diagnostics. Profile-specific code generation, executors and device bindings adapt to hardware capabilities. This is the product direction; current implementation remains a foundation prototype.
 
 ![Neuradix Robotics Platform ecosystem mind map.](docs/assets/neuradix_platform_ecosystem_mind_map_light.svg)
 
-## Current architecture documents
+## Current documentation
 
-- [Product, Functional and Technical Specification v0.5](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) — authoritative
-- [Platform Implementation Plan v0.3](docs/Neuradix_Implementation_Plan_v0.3.md)
-- [Studio XR Implementation Plan v0.2](docs/Neuradix_Studio_XR_Implementation_Plan_v0.2.md)
-- [Embedded Profile Implementation Plan v0.1](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md)
-- [CLI Command Specification v0.1](docs/Neuradix_CLI_Command_Specification_v0.1.md)
-- [RFC Backlog v0.3](docs/Neuradix_RFC_Backlog_v0.3.md)
-- Architecture RFCs: [docs/rfcs/](docs/rfcs) · Decision records: [docs/decisions/](docs/decisions)
+- [Documentation index and precedence](docs/README.md)
+- [Product, Functional and Technical Specification v0.6](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) — current functional and technical planning baseline
+- [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
+- [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
+- [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
+- [Gate A codec implementation and validation](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
+- [Embedded Plan v0.2](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Studio Plan v0.2](docs/Neuradix_Studio_Implementation_Plan_v0.2.md), [CLI Specification v0.2](docs/Neuradix_CLI_Command_Specification_v0.2.md)
+- [RFC Backlog v0.4](docs/Neuradix_RFC_Backlog_v0.4.md), [architecture RFCs](docs/rfcs/), [decision records](docs/decisions/)
 
-## Implementation status — foundation increment 1
+## Implementation status
 
-This repository currently implements the **foundation increments**: the
-contract-to-runtime path and a deterministic recording/replay nucleus, proven
-end to end on a single in-process stream.
+Main now includes the six development increments and the first Gate A codec fixes,
+integrated through [PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6) and [PR #7](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/7).
+The workspace remains an experimental foundation: **15 library/tool crates and
+four executable examples**, version 0.0.1.
 
-```text
-authored contract → parsed & validated contract → deterministic schema identity
-→ generated Rust type → typed timestamp & clock domain → bounded in-process stream
-→ minimal component lifecycle → deterministic executor → recording
-→ lockstep replay reproducing identical control decisions
-→ safety authority + constraint gate producing auditable decisions
-→ FDIR fault-mode state machine (nominal → degraded → safe → return-to-service)
-→ recorded command lineage → `explain` the causal chain of any command
-→ offline deployment-graph validation (contracts before connectivity)
-→ a deterministic closed-loop simulation (control → safety → simulated plant)
-→ MCAP export with cross-container replay equivalence (Foxglove / ROS 2 interop)
-→ a headless Studio read model (timeline, channel stats, scalar series)
-→ a no_std embedded node with a local safe state on link loss / lease expiry
-→ CLI validation, inspection, replay, explain, graph validate and studio → tests
-```
+Implemented foundations include scalar contracts and semantic identity, tagged
+clocks, bounded local streams, lifecycle/lockstep processing, graph validation,
+scalar authority/lineage/FDIR and supervised Python workers. The integrated work
+adds the one-dimensional AUV simulation fixture, experimental MCAP recording,
+headless Studio inspection, no_std embedded primitives and serial framing.
 
-### What works today
+Embedded Rust/C++ generation uses canonical field order, the versioned
+`neuradix.scalar-le.v2` codec, full wire identities and JSON manifests. Decoders
+require the producer's bound wire identity. `--cpp-target avr-uno` rejects
+binary64, and generated C++ checks the actual compiler ABI.
 
-- **Contracts** (`neuradix-contracts`): YAML `StreamContract` parsing; total
-  validation with typed, all-at-once error reporting; a deterministic,
-  content-addressed schema identity (`sha256:…`) that is independent of formatting
-  and field order; and a deterministic, `rustfmt`-clean Rust code generator.
-- **Time** (`neuradix-time`): clock domains, domain-tagged timestamps (cross-domain
-  arithmetic is a typed error), a signed nanosecond duration, and an injectable
-  `Clock` with a deterministic `ManualClock` (no sleeping, no ambient time).
-- **Transport API** (`neuradix-transport-api`): a transport-neutral bounded stream
-  with `reject` / `drop-oldest` / `drop-newest` / `keep-latest` overflow policies
-  and observable statistics. No backend type leaks into the public API.
-- **Runtime** (`neuradix-runtime`): stable component identity, a validated and
-  audited lifecycle state machine, execution-class and health models, a minimal
-  component manifest and trait, and a **deterministic input-driven executor**
-  (`Processor` + `run_lockstep`) that drives component logic under an injected,
-  controllable clock — so a recorded run replays to identical outputs.
-- **Record** (`neuradix-record`): a native, self-describing, deterministic
-  recording container (manifest + channels + schema identities + provenance), a
-  payload-agnostic codec, and a `sha256:` replay digest for replay-equivalence
-  checks. Parsing is bounds-checked and panic-free. A second, **MCAP** backend
-  (Foxglove / ROS 2 interop) sits behind the same `Recording` surface: a native
-  recording exported to MCAP **replays to the identical digest** — cross-container
-  replay equivalence.
-- **Safety** (`neuradix-safety`): the authority + constraint path every actuator
-  command traverses — time-bounded authority leases (with permitted envelopes),
-  range/slew constraints that name the rule they enforce, fail-safe rejection,
-  and an auditable, deterministic `SafetyDecision`. The gate is a `Processor`, so
-  safety decisions replay identically. A self-describing `CommandLineage` links
-  each command's sensor input → request → authority/constraint outcome → applied
-  value for later explanation. An `FdirMonitor` drives an explicit fault-mode
-  state machine (nominal → degraded → safe) with confirmation debounce, a
-  restart-storm budget and operator return-to-service.
-- **Python** (`neuradix-python` + `python/neuradix_worker.py`): run a Python
-  component as an **isolated OS process** supervised from Rust over a
-  line-delimited JSON protocol, with health, request timeouts, and **crash
-  isolation** — a Python crash surfaces as a recoverable error, never a runtime
-  crash (v1.0 acceptance §41.6). A bounded restart budget prevents restart
-  storms, and a worker's health composes with the FDIR monitor.
-- **Graph** (`neuradix-graph`): the deployment compiler that enforces "contracts
-  before connectivity". It validates a declarative `RobotDeployment` manifest
-  **offline** — node placement, contract provides/requires wiring, acyclicity,
-  Python kept off the deterministic control path (EXEC-007), and the rule that an
-  actuator may only be commanded through the Safety authority (§16.1) — reporting
-  every problem in one pass with stable issue codes, plus a content-addressed
-  **deployment identity** for production pinning. Given a contract registry
-  (`--contracts <dir>`) it also **resolves every wired contract reference** to a
-  real, validated schema and pins the `sha256:` schema identity it resolved to.
-- **Sim** (`neuradix-sim`): a deterministic vehicle simulation that closes the
-  control loop. A fixed-step vertical-depth **plant**, a **sensor** model and a
-  closed-loop **driver** step sensor → controller → plant under an injected
-  clock, so the vertical slice runs against a *simulated vehicle* rather than a
-  canned input sequence — and two identical runs produce a byte-identical
-  trajectory. The controller seam is narrow enough that the crate depends only on
-  `neuradix-time`, so a real (or safety-gated) control law drives it without
-  coupling the model to the runtime or safety crates.
-- **Studio** (`neuradix-studio`): the headless **read model** a Studio/XR UI
-  queries — built over the same `Recording` surface, so it works on native or
-  MCAP. It answers a **timeline** (per-clock-domain spans + per-channel
-  statistics: counts, first/last time, effective rate, payload sizes), **windowed**
-  and **nearest-record** queries, and plottable **scalar series** for a chosen
-  field (via a caller-supplied decoder, so it commits to no payload encoding).
-  Pure and deterministic; overflow-safe even at the extremes of the time domain.
-- **Embedded core** (`neuradix-embedded-core`): a `#![no_std]`, allocation-free,
-  executor-neutral component core for constrained MCUs. It provides node/
-  deployment identity, the same **health** vocabulary as the host runtime, a
-  time-bounded **authority lease**, a link-loss **watchdog**, and a local
-  **command gate** (authority → link → validity → range/slew) that applies a
-  **local safe output** on lease expiry, link loss or a non-finite command
-  (§16.1). The reference `PropulsionNode` runs the *identical* logic in host
-  simulation and on a board. It reuses the same `neuradix-time` types as the
-  host (that crate is now `no_std`-compatible behind a default-on `std` feature).
-- **Embedded transport** (`neuradix-embedded-transport`): `#![no_std]`,
-  dependency-free on-wire **framing** for an MCU link (serial-first) —
-  `sync | seq | len | payload | crc32`. The encoder frames into a caller buffer;
-  the byte-at-a-time **decoder** resynchronises after line noise and yields only
-  **CRC-verified** frames (dropping corrupt/oversized ones without overrun); a
-  **sequence tracker** flags lost, duplicate or reordered frames. Corruption is
-  never applied — a bad frame is a missing command, which drives the node's local
-  safe state.
-- **Embedded codegen** (`neuradix-embedded-codegen`): target **projections** over
-  the same validated `Contract` — a `no_std` **Rust** struct and an Arduino/**C++**
-  header, each with fixed little-endian `encode`/`decode`, plus deterministic
-  **golden vectors**. Conformance is *executed*: the generated C++ is compiled
-  with `g++` and the generated `no_std` Rust is compiled and run against the same
-  golden vectors, so host, MCU-Rust and C++ agree on the wire byte-for-byte.
-- **CLI** (`neuradix`): `version`, `doctor`, `contract validate|inspect|hash|
-  generate`, `record inspect|export` (export to MCAP), `replay run` (with
-  `--expect-digest`), `explain command` (reconstruct a command's causal chain from
-  a recording), `graph validate` (deployment topology + policy, exit code 10 on
-  failure), and `studio timeline|series` (headless inspection), with
-  `--output table|json|yaml`, a versioned result envelope and a stable exit-code
-  contract (including exit code 9 on a replay-digest mismatch). `inspect`,
-  `replay`, `explain` and `studio` accept native `.nrec` or MCAP transparently.
-- **Testkit** (`neuradix-testkit`): reusable test utilities (clocks, golden files,
-  schema hashing, lifecycle, streams, CLI output) and a dependency-boundary check.
-- **Example** (`minimal-depth-stream`): a `VehicleDepth` producer → bounded stream
-  → consumer, driven through lifecycle states with a deterministic clock, then
-  **recorded and replayed with a verified fidelity check**, a depth controller
-  whose **control decisions replay identically** from the recording, and finally
-  those commands routed through the **safety gate** (clamped by a range
-  constraint, then rejected to a fail-safe output once the authority lease
-  lapses), the resulting **command lineage recorded for `explain`**, and an
-  **FDIR** health sequence driving nominal → degraded → safe → reset.
+Validation passed: **191 workspace tests plus two AVR checks**, formatting,
+Clippy and the documentation build. The actual ATmega328P compiler built/linked
+supported scalar code and rejected binary64 with the intended diagnostic.
+See [the implementation evidence](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md).
 
-### Not yet implemented
+Current limits:
 
-The following are **planned and intentionally absent**: Swarm, Aero, Flight,
-Ground, Fleet; the Studio and Studio XR **UI** (the headless inspection read
-model exists — the graphical/3-D front-end does not); network transport
-(Zenoh/DDS) and shared memory; live `record start/stop` against a running graph;
-in-process PyO3/Maturin bindings and NumPy zero-copy views (isolated Python
-*worker processes* exist); ROS 2 / MAVLink bridges; independent safety-island
-deployment (the authority + constraint gate and command-lineage `explain`
-exist); and — on the embedded side — the Embassy/RTIC executor adapters, the
-serial HAL/UART binding and CAN transport, embedded-C projection and topology/
-memory reports, the `neuradix embedded` CLI and real board firmware
-(ESP32/RP2040/STM32) or on-device Arduino compilation. The `no_std`
-**embedded-core** logic, the **embedded-transport** framing and the **no_std
-Rust + Arduino/C++ codegen** (golden-vector-verified) all exist and run/compile
-on the host; no board is flashed yet. Public boundaries are designed so these can
-be added without exposing backend-specific types.
+- `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
+- Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
+- Host authority/finite-value checks and Python I/O, cleanup and resource bounds require the remaining Gate A fixes.
+- MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
+- AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
+- Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
+
+[Capability Status](docs/Neuradix_Capability_Status.md) distinguishes implemented
+codec fixes from the remaining acceptance work. Gate A is still open.
 
 ## Prerequisites
 
 - Rust toolchain **1.94.1** (pinned in `rust-toolchain.toml`; `rustup` installs it
   automatically). Edition 2024.
-- `python3` (optional) — only for the `neuradix-python` worker tests and the
-  `python-worker` example; those tests skip cleanly when it is absent.
+- A host C++ compiler (`g++`, `c++` or `clang++`) is required by the code-generation conformance tests.
+- `python3` is required for complete CI/worker validation and the Python example. Local worker tests can still skip when it is absent; that is incomplete validation.
+- `gcc-avr`, `avr-libc` and `binutils-avr` are required for the separate ATmega328P conformance gate.
 
 ## Build and test
 
 ```bash
-cargo build --workspace
-cargo test  --workspace
-cargo fmt   --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo doc   --workspace --no-deps
+cargo build --locked --workspace
+cargo test --locked --workspace
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo doc --locked --workspace --no-deps
+
+# Explicit AVR gate (compile/link and ABI rejection; requires AVR tools):
+cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture
 ```
 
 ## CLI examples
@@ -194,12 +85,17 @@ cargo run -p neuradix-cli -- contract hash contracts/standard/navigation/vehicle
 # Inspect the parsed contract:
 cargo run -p neuradix-cli -- contract inspect contracts/standard/navigation/vehicle-depth.yaml
 
-# Generate the Rust projection (or a no_std Rust / Arduino C++ projection with
-# fixed little-endian encode/decode for an MCU):
+# Generate the Rust projection:
 cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
     --language rust --out-dir /tmp/nrx-generated
+
+# Generate a no_std Rust payload and its wire manifest:
 cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/vehicle-depth.yaml \
-    --language cpp --out-dir /tmp/nrx-generated
+    --language nostd-rust --out-dir target/nrx-generated
+
+# Generate an Uno-compatible scalar conformance fixture (not complete firmware):
+cargo run -p neuradix-cli -- contract generate crates/embedded-codegen/tests/fixtures/tiny-telemetry.yaml \
+    --language cpp --cpp-target avr-uno --out-dir target/tiny-codegen
 
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
@@ -209,13 +105,10 @@ cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + 
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
 
-# Export a recording to MCAP (Foxglove / ROS 2). The MCAP replays to the SAME
-# digest, and `inspect`/`replay` accept the .mcap transparently:
+# Experimental MCAP export; broad external interchange remains unqualified:
 cargo run -p neuradix-cli -- record export /tmp/neuradix-depth-mission.nrec --out /tmp/mission.mcap
-cargo run -p neuradix-cli -- replay run /tmp/mission.mcap --expect-digest <sha256:...>
 
-# Headless Studio inspection: a recording's timeline (per-domain spans + channel
-# rates) and a plottable scalar series from the command-lineage channel:
+# Headless Studio inspection:
 cargo run -p neuradix-cli -- studio timeline /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- studio series /tmp/neuradix-depth-lineage.nrec --field applied
 
@@ -244,14 +137,10 @@ cargo run -p neuradix-example-minimal-depth-stream
 # drives FDIR to a safe mode, then a supervised restart (requires python3):
 cargo run -p neuradix-example-python-worker
 
-# A closed-loop AUV depth mission: a proportional controller drives a simulated
-# plant, but only through the safety gate; converges to the setpoint and proves
-# the whole mission is byte-identical on re-run:
+# Deterministic one-dimensional closed-loop AUV fixture:
 cargo run -p neuradix-example-auv-depth-sim
 
-# The embedded AUV propulsion node, run as a host simulation: it applies commanded
-# thrust under a valid lease, then enters its LOCAL safe state on link loss and on
-# lease expiry — the identical no_std logic that runs on the board:
+# Embedded gate/watchdog/serial behavior exercised on the host:
 cargo run -p neuradix-example-embedded-propulsion
 ```
 
@@ -269,31 +158,26 @@ crates/
   time/             # neuradix-time: clock domains, timestamps, clocks
   transport-api/    # neuradix-transport-api: bounded stream, backend-neutral
   runtime/          # neuradix-runtime: component + lifecycle + deterministic executor
-  record/           # neuradix-record: deterministic recording + replay digest (native + MCAP)
+  record/           # neuradix-record: deterministic recording + replay digest
   safety/           # neuradix-safety: authority, constraints, decisions, FDIR
   python/           # neuradix-python: isolated Python worker supervision
   graph/            # neuradix-graph: offline deployment topology + policy compiler
-  sim/              # neuradix-sim: deterministic depth plant, sensor, closed-loop driver
-  studio/           # neuradix-studio: headless inspection (timeline, stats, series)
-  embedded-core/    # neuradix-embedded-core: no_std MCU component core (lease, watchdog, safe state)
-  embedded-transport/ # neuradix-embedded-transport: no_std serial framing (CRC, sequence, resync)
-  embedded-codegen/ # neuradix-embedded-codegen: no_std Rust + Arduino/C++ projections + golden vectors
+  sim/              # neuradix-sim: fixed-step AUV depth fixture
+  studio/           # neuradix-studio: headless recording inspection
+  embedded-core/    # no_std identity, health, authority and watchdog primitives
+  embedded-transport/ # no_std serial framing, CRC and sequence tracking
+  embedded-codegen/ # canonical scalar Rust/C++ codec and target ABI checks
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library
 contracts/standard/ # authored standard contracts (navigation, perception, control, actuation)
-examples/           # minimal-depth-stream, python-worker, auv-depth-sim, embedded-propulsion, reference-auv (manifest)
+examples/           # minimal-depth-stream, python-worker, auv-depth-sim, embedded-propulsion; reference-auv manifest
 docs/rfcs/          # architecture RFCs
 docs/decisions/     # architecture decision records (ADRs)
 ```
 
 ## Current implementation priority
 
-The first target is one complete AUV vertical slice:
+Follow [Gates A–E](docs/Neuradix_Implementation_Plan_v0.4.md#3-gates-dependencies-and-effort): trustworthy foundations; one compiled project across actual Uno/MCU and Edge; integrated simulation/Studio/HIL; distributed workers; then a qualified supported workflow. Preserve the AUV fixture as a fast regression. Domain, enterprise HA, broader fleet, AI, Swarm, XR and Flight packs have separate Gate F milestones.
 
-```text
-contracts → Rust/Python APIs → runtime → simulation → safety
-→ record/replay → explain → Studio inspection
-```
-
-A narrow embedded extension then proves the same contracts on host simulation, one native Rust MCU and one generated Arduino C++ endpoint.
+Current commands above run against main. New project/build/flash/simulation/job operations described in the CLI specification are proposed until the capability register and release evidence say otherwise.

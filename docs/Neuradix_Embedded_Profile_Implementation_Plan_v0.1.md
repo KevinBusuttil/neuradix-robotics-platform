@@ -6,6 +6,8 @@ version: "0.1 Draft"
 status: "For review"
 ---
 
+> **Historical / superseded — 8 September 2026.** Use [Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md](Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md) and the [documentation index](README.md) for current scope, sequencing and status. The retained text below records an earlier design and does not override the current documents.
+
 # Objective
 
 Implement a bounded microcontroller profile that participates in the same Neuradix contracts, health, safety and simulation ecosystem without attempting to run the full Linux runtime.
