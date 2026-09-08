@@ -12,6 +12,7 @@ resolver = "3"
 members = [
     "crates/contracts",
     "crates/time",
+    "crates/command-core",
     "crates/transport-api",
     "crates/runtime",
     "crates/record",
@@ -43,6 +44,7 @@ authors = ["Busuttil Technologies Limited"]
 # Internal crates (path dependencies, published names use the `neuradix-` prefix).
 neuradix-contracts = { path = "crates/contracts", version = "0.0.1" }
 neuradix-time = { path = "crates/time", version = "0.0.1" }
+neuradix-command-core = { path = "crates/command-core", version = "0.0.1" }
 neuradix-transport-api = { path = "crates/transport-api", version = "0.0.1" }
 neuradix-runtime = { path = "crates/runtime", version = "0.0.1" }
 neuradix-record = { path = "crates/record", version = "0.0.1" }

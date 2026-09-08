@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A04.1 implementation branch.** This register is the current
+**Updated for the WP-A04.2 implementation branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -15,16 +15,30 @@ and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
 | [Integration CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34250744255) | Host and AVR jobs passed on PR #7's combined code before integration into main. |
 | Historical review | Main `e39da5e` and development `c8aa467` remain the pinned pre-fix assessment in [Review and Strategy](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md); they are not the current main/development split. |
 
-## WP-A04.1 branch increment (pending integration)
+## WP-A04 integration and branch increment
 
-[A04.1 implementation evidence](implementation/WP-A04.1-Trusted-Evaluation.md)
-records trusted host evaluation, validated host/embedded configuration, local
-fallback and final-output invariants. [PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8)
-at implementation commit `9b9d2b2` passed [host and AVR CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278834161):
-64 focused tests (a workspace subset), 211 workspace tests/doctests, both AVR
-checks, formatting, Clippy, docs and independent no_std configuration checks. The branch starts from main `e95a0ac`;
-it does not claim these changes are already integrated. The following inventory
-retains the integrated baseline and records this increment separately.
+[A04.1](implementation/WP-A04.1-Trusted-Evaluation.md) is integrated through
+[PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8), main
+[`b4aae739`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/b4aae73979c620e3b7c674af1623a2b014eae612).
+Its merge tree matches the reviewed PR head; [merge CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34283480925)
+passed. A04.1 records 64 focused tests (a workspace subset), 211 workspace
+tests/doctests and both AVR checks, formatting, Clippy, docs and independent
+no_std checks.
+
+[A04.2 branch evidence and API migration](implementation/WP-A04.2-Command-Freshness.md)
+record bounded shared host/embedded freshness, deadlines, sequence/generation
+checks, accepted-command watchdogs and periodic idle expiry. This branch adds
+`neuradix-command-core` (16 library/tool crates total), a full metadata binding to
+existing serial frames, and round-trippable non-finite rejection lineage. Trusted
+durable startup generation allocation and a shared reference clock are explicit
+integration requirements. A04.2 is not yet merged. Implementation `41ad541b` passed
+[PR CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287037280):
+69 focused tests, 216 workspace tests/doctests, both AVR checks, all three migrated
+examples, formatting, Clippy, docs and four independent no_std checks. The two
+workspace-ignored AVR tests execute separately. Changed-document links pass;
+32 pre-existing broken archived links are explicitly recorded in the evidence.
+No physical hardware or durable-storage integration was tested. WP-A04 remains
+partial; Gate A remains open.
 
 ## Capability inventory
 
@@ -33,7 +47,7 @@ retains the integrated baseline and records this increment separately.
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
-| Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives | Trusted time, finite bounds, host/MCU rate semantics and rig evidence: A04/B03/C05 |
+| Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 trusted time and numeric invariants | A04.2 branch adds command validity; A04.3 slew alignment and rig evidence remain: A04/B03/C05 |
 | Python | JSON-line supervised worker process and failure tests | Bound all I/O, cleanup and resources: A05/B07 |
 | Recording/replay | Native recording and digest, handwritten MCAP subset; processor re-execution exists in a runtime test | Independent MCAP interchange and arbitrary program replay: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
@@ -68,7 +82,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 |---|---|---|---|
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
-| Host authority/finite values | A04.1 branch separates trusted evaluation time, validates private configuration and safe/final outputs, with local fallback | A04 | Trusted-time/numeric portion implemented in branch; source freshness, sequence/epoch/deadline, slew alignment and rig evidence remain open |
+| Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 branch adds bounded freshness/deadline/sequence/generation checks | A04 | Partial: trusted startup/board integration, A04.3 slew alignment and rig evidence remain open |
 | Worker bounds | Blocking write/wait and unbounded line/channel can escape the deadline | A05 | Open |
 | MCAP subset | Private encodings/metadata and unsupported chunks can fail or omit external data | A06 | Open |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |

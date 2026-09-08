@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+neuradix-command-core = { workspace = true }
 # Reuse the same time vocabulary as the host runtime, but with no std. Depended
 # on by direct path (not workspace inheritance) so `default-features = false` can
 # be set — Cargo forbids overriding a workspace dependency's default-features.

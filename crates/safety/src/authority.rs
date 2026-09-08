@@ -1,7 +1,8 @@
 //! Command authority: identities, capabilities and time-bounded leases (§16.3).
 
-use std::cmp::Ordering;
-
+use neuradix_command_core::{
+    CommandMeta, CommandRejection, CommandSession, ConfigError, SessionConfig,
+};
 use neuradix_time::Timestamp;
 
 use crate::error::SafetyError;
@@ -86,137 +87,168 @@ impl CommandEnvelope {
     }
 }
 
-/// A time-bounded grant of authority over a capability (§16.3).
-#[derive(Debug, Clone, PartialEq)]
+/// One trusted holder/capability binding and its current lease/session.
+/// Configuration is immutable except through trusted table renewal/replacement.
+#[derive(Debug, Clone)]
 pub struct AuthorityLease {
-    /// Who holds the authority.
-    pub holder: Identity,
-    /// The controlled capability.
-    pub capability: Capability,
-    /// Arbitration priority (higher wins).
-    pub priority: u8,
-    /// When the lease becomes valid.
-    pub issued: Timestamp,
-    /// When the lease expires (exclusive).
-    pub expires: Timestamp,
-    /// Optional permitted command envelope.
-    pub envelope: Option<CommandEnvelope>,
+    holder: Identity,
+    capability: Capability,
+    session: CommandSession,
+    envelope: Option<CommandEnvelope>,
 }
 
 impl AuthorityLease {
-    /// Whether the lease is valid at `at` (same clock domain, `issued <= at < expires`).
-    pub fn is_valid_at(&self, at: Timestamp) -> bool {
-        matches!(
-            self.issued.compare(at),
-            Ok(Ordering::Less | Ordering::Equal)
-        ) && matches!(at.compare(self.expires), Ok(Ordering::Less))
+    /// Provision one binding with validated session configuration.
+    pub fn new(
+        holder: Identity,
+        capability: Capability,
+        config: SessionConfig,
+        envelope: Option<CommandEnvelope>,
+    ) -> Self {
+        Self {
+            holder,
+            capability,
+            session: CommandSession::new(config),
+            envelope,
+        }
     }
-
+    /// The trusted holder identity.
+    pub fn holder(&self) -> &Identity {
+        &self.holder
+    }
+    /// The trusted capability identity.
+    pub fn capability(&self) -> &Capability {
+        &self.capability
+    }
+    /// Current lease/session configuration.
+    pub fn config(&self) -> SessionConfig {
+        self.session.config()
+    }
+    /// Whether the lease currently grants authority (independent of command validity).
+    pub fn is_valid_at(&self, now: Timestamp) -> bool {
+        self.session.authorize(now).is_ok()
+    }
     fn matches(&self, holder: &Identity, capability: &Capability) -> bool {
         &self.holder == holder && &self.capability == capability
     }
 }
 
-/// Why an authority check failed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum AuthorityDenial {
-    /// No lease matches the holder and capability.
-    #[error("no authority lease for holder/capability")]
-    NoLease,
-    /// A matching lease exists but has not yet become valid.
-    #[error("authority lease is not yet valid")]
-    NotYetValid,
-    /// A matching lease exists but has expired.
-    #[error("authority lease has expired")]
-    Expired,
-    /// The commanded value is outside the lease's permitted envelope.
-    #[error("commanded value is outside the permitted envelope")]
-    OutOfEnvelope,
-    /// No matching lease has both endpoints in the evaluation clock domain.
-    #[error("authority lease clock domain differs from evaluation time")]
-    ClockDomainMismatch,
-    /// Non-finite values cannot be authorized, even without an envelope.
-    #[error("commanded value is not finite")]
-    NonFiniteCommand,
-}
+/// Authority failures use the shared gate rejection vocabulary.
+pub type AuthorityDenial = CommandRejection;
 
-/// A table of active authority leases.
+/// Maximum number of trusted bindings, including revoked tombstones.
+pub const MAX_LEASE_BINDINGS: usize = 32;
+
+/// A bounded, trusted-only binding table. Commands never allocate entries.
+///
+/// One current session exists per holder/capability. Revocation retains its
+/// generation watermark; replacing a binding requires a greater generation.
 #[derive(Debug, Clone, Default)]
 pub struct LeaseTable {
     leases: Vec<AuthorityLease>,
 }
 
 impl LeaseTable {
-    /// An empty lease table.
+    /// An empty table (at most [`MAX_LEASE_BINDINGS`] trusted slots).
     pub fn new() -> Self {
-        Self { leases: Vec::new() }
+        Self::default()
     }
-
-    /// Grant (add) a lease.
-    pub fn grant(&mut self, lease: AuthorityLease) {
-        self.leases.push(lease);
+    /// Number of reserved binding slots, including revoked bindings.
+    pub fn binding_count(&self) -> usize {
+        self.leases.len()
     }
-
-    /// Revoke all leases matching a holder and capability.
+    /// Trusted provisioning. Replaces an existing binding only with a greater
+    /// generation; use [`crate::SafetyGate::renew_lease`] for guarded renewal.
+    pub fn grant(&mut self, lease: AuthorityLease) -> Result<(), ConfigError> {
+        if let Some(index) = self.index(&lease.holder, &lease.capability) {
+            let old = &mut self.leases[index];
+            old.session.replace(lease.config())?;
+            old.envelope = lease.envelope;
+        } else {
+            if self.leases.len() == MAX_LEASE_BINDINGS {
+                return Err(ConfigError::CapacityExceeded);
+            }
+            self.leases.push(lease);
+        }
+        Ok(())
+    }
+    /// Trusted renewal preserves generation, sequence, age, deadline and watchdog.
+    pub(crate) fn renew(
+        &mut self,
+        holder: &Identity,
+        capability: &Capability,
+        expires: Timestamp,
+        now: Timestamp,
+        clock: &neuradix_command_core::EvaluationClock,
+    ) -> Result<(), ConfigError> {
+        let index = self
+            .index(holder, capability)
+            .ok_or(ConfigError::UnknownBinding)?;
+        self.leases[index].session.renew(expires, now, clock)
+    }
+    /// Revoke authority while retaining the generation watermark.
     pub fn revoke(&mut self, holder: &Identity, capability: &Capability) {
-        self.leases.retain(|l| !l.matches(holder, capability));
+        if let Some(index) = self.index(holder, capability) {
+            self.leases[index].session.revoke();
+        }
     }
-
-    /// Authorize a command: returns the winning lease, or a typed denial.
-    ///
-    /// Among leases matching holder+capability, the highest-priority lease valid
-    /// at runtime-owned `at` wins. Never pass a sender timestamp as `at`.
-    /// If it carries an envelope, `value` must be within it.
-    pub fn authorize(
+    /// Last fully accepted command time for diagnostics; never receiver arrival
+    /// time of rejected traffic and never proof of source freshness.
+    pub fn last_accepted_at(
         &self,
         holder: &Identity,
         capability: &Capability,
-        at: Timestamp,
+    ) -> Option<Timestamp> {
+        self.index(holder, capability)
+            .and_then(|i| self.leases[i].session.last_accepted_at())
+    }
+    fn index(&self, holder: &Identity, capability: &Capability) -> Option<usize> {
+        self.leases
+            .iter()
+            .position(|lease| lease.matches(holder, capability))
+    }
+    pub(crate) fn validate(
+        &self,
+        holder: &Identity,
+        capability: &Capability,
+        meta: CommandMeta,
+        now: Timestamp,
         value: f64,
-    ) -> Result<&AuthorityLease, AuthorityDenial> {
+    ) -> Result<usize, CommandRejection> {
+        let index = self
+            .index(holder, capability)
+            .ok_or(CommandRejection::UnknownBinding)?;
+        let lease = &self.leases[index];
+        lease.session.validate(meta, now)?;
         if !value.is_finite() {
-            return Err(AuthorityDenial::NonFiniteCommand);
+            return Err(CommandRejection::NonFiniteCommand);
         }
-        let matching: Vec<&AuthorityLease> = self
-            .leases
-            .iter()
-            .filter(|l| l.matches(holder, capability))
-            .collect();
-        if matching.is_empty() {
-            return Err(AuthorityDenial::NoLease);
+        if lease
+            .envelope
+            .is_some_and(|envelope| !envelope.permits(value))
+        {
+            return Err(CommandRejection::OutOfEnvelope);
         }
-
-        let matching: Vec<&AuthorityLease> = matching
-            .into_iter()
-            .filter(|l| l.issued.domain() == at.domain() && l.expires.domain() == at.domain())
-            .collect();
-        if matching.is_empty() {
-            return Err(AuthorityDenial::ClockDomainMismatch);
+        Ok(index)
+    }
+    pub(crate) fn accept(
+        &mut self,
+        index: usize,
+        meta: CommandMeta,
+        now: Timestamp,
+    ) -> Result<(), CommandRejection> {
+        self.leases[index].session.accept(meta, now)
+    }
+    pub(crate) fn check_held(
+        &self,
+        index: usize,
+        generation: neuradix_command_core::Generation,
+        now: Timestamp,
+    ) -> Result<(), CommandRejection> {
+        let session = &self.leases[index].session;
+        if session.config().generation() != generation {
+            return Err(CommandRejection::GenerationMismatch);
         }
-
-        let winner = matching
-            .iter()
-            .filter(|l| l.is_valid_at(at))
-            .max_by_key(|l| l.priority)
-            .copied();
-
-        match winner {
-            Some(lease) => match &lease.envelope {
-                Some(envelope) if !envelope.permits(value) => Err(AuthorityDenial::OutOfEnvelope),
-                _ => Ok(lease),
-            },
-            None => {
-                // A matching lease exists but none is valid: distinguish not-yet
-                // from expired using the earliest issue time.
-                let not_yet = matching
-                    .iter()
-                    .any(|l| matches!(at.compare(l.issued), Ok(Ordering::Less)));
-                if not_yet {
-                    Err(AuthorityDenial::NotYetValid)
-                } else {
-                    Err(AuthorityDenial::Expired)
-                }
-            }
-        }
+        session.check_held(now)
     }
 }

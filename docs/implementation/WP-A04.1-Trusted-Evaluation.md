@@ -1,5 +1,12 @@
 # WP-A04.1: trusted command evaluation and validated numeric configuration
 
+Integration update: [PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8)
+merged as `b4aae739`; its merge CI passed. This document preserves A04.1's
+historical API/evidence. [A04.2](WP-A04.2-Command-Freshness.md) supersedes command
+metadata/session interfaces and adds freshness, sequence, generation and deadline
+checks, plus a fix for non-finite request lineage serialization.
+
+
 This increment implements the trusted-time and numeric-configuration portion of
 [WP-A04](../Neuradix_Implementation_Plan_v0.4.md#wp-a04), contributing to
 NRX-PLAT-006 / ACC-05. **WP-A04 is partial and Gate A remains open.** Conventional

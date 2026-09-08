@@ -9,34 +9,34 @@
 //! accepted, modified (clamped) or rejected (with a fail-safe value). Evaluation
 //! is deterministic, so safety decisions replay identically (see RFC-0016).
 //!
-//! This increment implements the authority + constraint gate and its decision
-//! evidence. Independent safety-island deployment, FDIR state machines and the
-//! recorded command-lineage `explain` view are later increments (RFC-0005).
+//! Both host and embedded gates share allocation-free command validity checks.
+//! FDIR and recorded command-lineage inspection are available; independent
+//! safety-island deployment remains future work (RFC-0005).
 //!
 //! ```
-//! use neuradix_safety::{
-//!     AuthorityLease, Capability, Constraint, Identity, CommandRequest, LeaseTable,
-//!     Outcome, SafetyGate,
-//! };
-//! use neuradix_time::{ClockDomain, Timestamp};
-//!
-//! let holder = Identity::new("depth-controller");
-//! let cap = Capability::new("propulsion/vertical-thrust");
+//! use neuradix_safety::{AuthorityLease, Capability, CommandMeta, CommandPolicy,
+//!     CommandRequest, Constraint, Generation, Identity, LeaseTable, Outcome,
+//!     SafetyGate, SessionConfig, SharedTimeline};
+//! use neuradix_time::{ClockDomain, Duration, Timestamp};
+//! let t = |n| Timestamp::new(ClockDomain::Simulation, n);
+//! // Fixed identifiers are for this isolated example. Live startup must reserve
+//! // a non-reused generation durably BEFORE enabling command ingress.
+//! let generation = Generation::new(1).unwrap();
+//! let policy = CommandPolicy::new(SharedTimeline::new(1, ClockDomain::Simulation).unwrap(),
+//!     Duration::from_millis(100), Duration::ZERO, Duration::from_millis(100)).unwrap();
+//! let config = SessionConfig::new(generation, t(0), t(1_000_000_000), policy).unwrap();
+//! let holder = Identity::new("controller");
+//! let cap = Capability::new("thrust");
 //! let mut leases = LeaseTable::new();
-//! leases.grant(AuthorityLease {
-//!     holder: holder.clone(),
-//!     capability: cap.clone(),
-//!     priority: 10,
-//!     issued: Timestamp::new(ClockDomain::Simulation, 0),
-//!     expires: Timestamp::new(ClockDomain::Simulation, 1_000_000_000),
-//!     envelope: None,
-//! });
+//! leases.grant(AuthorityLease::new(holder.clone(), cap.clone(), config, None)).unwrap();
 //! let mut gate = SafetyGate::new(leases, vec![Constraint::range("range", -4.0, 4.0).unwrap()], 0.0).unwrap();
-//!
-//! let req = CommandRequest::new(holder, cap, 9.0, Timestamp::new(ClockDomain::Simulation, 10));
-//! let decision = gate.evaluate(req, Timestamp::new(ClockDomain::Simulation, 10));
-//! assert_eq!(decision.outcome, Outcome::Modified); // clamped from 9.0 to 4.0
+//! let request = CommandRequest::new(holder, cap, 9.0, CommandMeta { generation,
+//!     sequence: 0, source_at: t(10), deadline: t(100), timeline: 1 });
+//! let decision = gate.evaluate(Some(request), t(10));
+//! assert_eq!(decision.outcome, Outcome::Modified);
 //! assert_eq!(decision.applied, 4.0);
+//! // Schedule idle ticks too: deadlines must expire without a new command.
+//! assert!(gate.evaluate(None, t(100)).is_rejected());
 //! ```
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -57,4 +57,10 @@ pub use decision::{CommandRequest, Outcome, RejectReason, SafetyDecision};
 pub use error::SafetyError;
 pub use fdir::{FaultMode, FdirMonitor, FdirPolicy, FdirTransition};
 pub use gate::SafetyGate;
-pub use lineage::{CommandLineage, LINEAGE_CHANNEL, LineageOrigin};
+pub use lineage::{CommandLineage, CommandMetadata, LINEAGE_CHANNEL, LineageOrigin};
+
+/// Shared command validity configuration and metadata.
+pub use neuradix_command_core::{
+    CommandMeta, CommandPolicy, ConfigError as SessionError, Generation, SessionConfig,
+    SharedTimeline,
+};

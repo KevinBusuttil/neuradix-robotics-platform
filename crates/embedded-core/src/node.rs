@@ -6,7 +6,7 @@
 
 use neuradix_time::Timestamp;
 
-use crate::gate::{CommandGate, GateDecision, Outcome};
+use crate::gate::{Command, CommandGate, GateDecision, Outcome};
 use crate::health::HealthState;
 use crate::identity::NodeId;
 
@@ -19,15 +19,15 @@ pub trait EmbeddedComponent {
     fn health(&self) -> HealthState;
 
     /// Advance one control tick at `now`, given the latest command `request`
-    /// (`None` if no fresh command arrived this tick), and return the value
+    /// (`None` if no decodable command arrived this tick), and return the value
     /// applied to the actuator.
-    fn tick(&mut self, now: Timestamp, request: Option<f32>) -> f32;
+    fn tick(&mut self, now: Timestamp, request: Option<Command>) -> f32;
 }
 
 /// The reference AUV propulsion node (§ Embedded Profile "Reference
 /// demonstration").
 ///
-/// It validates the authority lease, keeps the link alive with a watchdog,
+/// It validates authority and command metadata, tracks accepted-command liveness,
 /// enforces the thrust envelope (range + slew), applies the output, reports
 /// health, and enters its **local safe state** on lease expiry or link loss —
 /// all through the [`CommandGate`], with no dependency on the host.
@@ -76,7 +76,7 @@ impl EmbeddedComponent for PropulsionNode {
         }
     }
 
-    fn tick(&mut self, now: Timestamp, request: Option<f32>) -> f32 {
+    fn tick(&mut self, now: Timestamp, request: Option<Command>) -> f32 {
         let decision = self.gate.evaluate(request, now);
         self.last = Some(decision);
         decision.applied

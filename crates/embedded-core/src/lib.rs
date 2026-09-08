@@ -22,32 +22,22 @@
 //! # Example — link loss drives the local safe state
 //!
 //! ```
-//! use neuradix_embedded_core::{
-//!     AuthorityLease, CommandGate, EmbeddedComponent, Limits, PropulsionNode, NodeId,
-//!     Outcome, SafeReason, Watchdog,
-//! };
+//! use neuradix_embedded_core::{AuthorityLease, Command, CommandMeta, CommandPolicy,
+//!     CommandGate, Generation, Limits, Outcome, SafeReason, SessionConfig, SharedTimeline};
 //! use neuradix_time::{ClockDomain, Duration, Timestamp};
-//!
-//! let t = |ns| Timestamp::new(ClockDomain::Monotonic, ns);
-//! let gate = CommandGate::new(
-//!     Limits::new(-1.0, 1.0, 0.5).unwrap(),
-//!     AuthorityLease::until(t(10_000_000_000)), // lease valid for 10 s
-//!     Watchdog::new(Duration::from_millis(100)), // 100 ms link timeout
-//!     0.0, // safe output: zero thrust
-//! ).unwrap();
-//! let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
-//!
-//! // A fresh command is applied (first command: range-limited only).
-//! assert_eq!(node.tick(t(0), Some(0.8)), 0.8);
-//!
-//! // 200 ms later with no command: the link is considered lost -> safe output.
-//! let out = node.tick(t(200_000_000), None);
-//! assert_eq!(out, 0.0);
-//! assert!(node.in_safe_state());
-//! assert_eq!(
-//!     node.last_decision().unwrap().outcome,
-//!     Outcome::SafeState(SafeReason::LinkLost),
-//! );
+//! let t = |n| Timestamp::new(ClockDomain::Monotonic, n);
+//! // This fixture shares one clock and uses a simulation-only generation.
+//! // Real startup requires a durable, non-reused generation and clock relationship.
+//! let generation = Generation::new(1).unwrap();
+//! let policy = CommandPolicy::new(SharedTimeline::new(1, ClockDomain::Monotonic).unwrap(),
+//!     Duration::from_secs(1), Duration::ZERO, Duration::from_millis(100)).unwrap();
+//! let lease = AuthorityLease::new(1, 2, SessionConfig::new(generation, t(0), t(10_000_000_000), policy).unwrap());
+//! let mut gate = CommandGate::new(Limits::new(-1.0, 1.0, 0.5).unwrap(), lease, 0.0).unwrap();
+//! let input = Command { holder: 1, capability: 2, value: 0.8,
+//!     meta: CommandMeta { generation, sequence: 0, source_at: t(0), deadline: t(1_000_000_000), timeline: 1 } };
+//! assert_eq!(gate.evaluate(Some(input), t(0)).applied, 0.8);
+//! assert_eq!(gate.evaluate(None, t(200_000_000)).outcome,
+//!     Outcome::SafeState(SafeReason::WatchdogExpired));
 //! ```
 
 #![cfg_attr(not(test), no_std)]
@@ -61,9 +51,15 @@ pub mod lease;
 pub mod node;
 pub mod watchdog;
 
-pub use gate::{CommandGate, GateConfigError, GateDecision, Limits, Outcome, SafeReason};
+pub use gate::{Command, CommandGate, GateConfigError, GateDecision, Limits, Outcome, SafeReason};
 pub use health::HealthState;
 pub use identity::{DeploymentId, NodeId};
 pub use lease::AuthorityLease;
 pub use node::{EmbeddedComponent, PropulsionNode};
 pub use watchdog::Watchdog;
+
+/// Shared command validity configuration and metadata.
+pub use neuradix_command_core::{
+    CommandMeta, CommandPolicy, ConfigError as SessionError, Generation, SessionConfig,
+    SharedTimeline,
+};

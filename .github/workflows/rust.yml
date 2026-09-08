@@ -37,14 +37,22 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Trusted command regressions
-        run: cargo test --locked -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
+        run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
       - name: Tests (workspace)
         run: cargo test --locked --workspace
 
+      - name: Migrated command examples
+        run: |
+          cargo run --locked -p neuradix-example-minimal-depth-stream
+          cargo run --locked -p neuradix-example-auv-depth-sim
+          cargo run --locked -p neuradix-example-embedded-propulsion
+
       - name: Embedded no_std configuration
         run: |
           cargo check --locked -p neuradix-time --no-default-features
+          cargo check --locked -p neuradix-command-core --no-default-features
+          cargo check --locked -p neuradix-embedded-transport --no-default-features
           cargo check --locked -p neuradix-embedded-core --no-default-features
 
       - name: Docs (no deps)
@@ -55,7 +63,7 @@ jobs:
         run: |
           cargo fmt --all
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
-          git diff -- crates
+          git diff -- crates examples
 
   avr-codegen:
     name: Arduino Uno codec ABI

@@ -56,6 +56,15 @@ pub fn command(file: &Path, at_nanos: i128) -> Result<Outcome, AppError> {
         .min_by_key(|e| (e.at_nanos - at_nanos).unsigned_abs())
         .expect("entries is non-empty");
 
+    let requested = if chosen.requested.is_finite() {
+        json!(chosen.requested)
+    } else if chosen.requested.is_nan() {
+        json!("NaN")
+    } else if chosen.requested.is_sign_positive() {
+        json!("Infinity")
+    } else {
+        json!("-Infinity")
+    };
     let chain = vec![
         json!({
             "stage": "sensor",
@@ -64,7 +73,7 @@ pub fn command(file: &Path, at_nanos: i128) -> Result<Outcome, AppError> {
             "value": chosen.origin.value,
             "unit": chosen.origin.unit,
         }),
-        json!({ "stage": "control", "requested": chosen.requested }),
+        json!({ "stage": "control", "requested": requested }),
         json!({
             "stage": "authority-and-constraints",
             "outcome": chosen.outcome,
