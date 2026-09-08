@@ -34,7 +34,7 @@
 //!     AuthorityLease::until(t(10_000_000_000)), // lease valid for 10 s
 //!     Watchdog::new(Duration::from_millis(100)), // 100 ms link timeout
 //!     0.0, // safe output: zero thrust
-//! );
+//! ).unwrap();
 //! let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
 //!
 //! // A fresh command is applied (first command: range-limited only).
@@ -61,7 +61,7 @@ pub mod lease;
 pub mod node;
 pub mod watchdog;
 
-pub use gate::{CommandGate, GateDecision, Limits, Outcome, SafeReason};
+pub use gate::{CommandGate, GateConfigError, GateDecision, Limits, Outcome, SafeReason};
 pub use health::HealthState;
 pub use identity::{DeploymentId, NodeId};
 pub use lease::AuthorityLease;

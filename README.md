@@ -13,6 +13,7 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 - [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
 - [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
 - [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
+- [A04.1 trusted evaluation, numeric validation and API migration](docs/implementation/WP-A04.1-Trusted-Evaluation.md)
 - [Gate A codec implementation and validation](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
 - [Embedded Plan v0.2](docs/Neuradix_Embedded_Profile_Implementation_Plan_v0.2.md), [Studio Plan v0.2](docs/Neuradix_Studio_Implementation_Plan_v0.2.md), [CLI Specification v0.2](docs/Neuradix_CLI_Command_Specification_v0.2.md)
 - [RFC Backlog v0.4](docs/Neuradix_RFC_Backlog_v0.4.md), [architecture RFCs](docs/rfcs/), [decision records](docs/decisions/)
@@ -35,7 +36,7 @@ Embedded Rust/C++ generation uses canonical field order, the versioned
 require the producer's bound wire identity. `--cpp-target avr-uno` rejects
 binary64, and generated C++ checks the actual compiler ABI.
 
-Validation passed: **191 workspace tests plus two AVR checks**, formatting,
+Integrated codec baseline validation passed: **191 workspace tests plus two AVR checks**, formatting,
 Clippy and the documentation build. The actual ATmega328P compiler built/linked
 supported scalar code and rejected binary64 with the intended diagnostic.
 See [the implementation evidence](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md).
@@ -44,7 +45,7 @@ Current limits:
 
 - `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
-- Host authority/finite-value checks and Python I/O, cleanup and resource bounds require the remaining Gate A fixes.
+- A04.1 in this branch implements trusted evaluation time and validated numeric configuration; command freshness/epoch/deadline, slew alignment and physical safety evidence remain open. Python I/O, cleanup and resource bounds still require Gate A fixes.
 - MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.

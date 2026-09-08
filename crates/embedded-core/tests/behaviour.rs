@@ -19,6 +19,7 @@ fn gate() -> CommandGate {
         Watchdog::new(Duration::from_millis(100)),
         0.0,
     )
+    .unwrap()
 }
 
 #[test]
@@ -117,31 +118,19 @@ fn a_non_finite_command_is_rejected_to_safe() {
 }
 
 #[test]
-fn safe_output_is_clamped_into_the_envelope() {
-    // A safe output outside the range is clamped so it is always applicable.
-    let g = CommandGate::new(
-        Limits::new(-1.0, 1.0, 0.5).unwrap(),
-        AuthorityLease::until(t(1_000_000_000)),
-        Watchdog::new(Duration::from_millis(100)),
-        9.0, // absurd safe output
-    );
-    assert_eq!(g.safe_output(), 1.0);
-}
-
-#[test]
-fn a_non_finite_safe_output_is_coerced_finite() {
-    // A NaN safe output must never reach the actuator: it is coerced into the
-    // envelope, and applying the safe state yields a finite value.
-    let mut g = CommandGate::new(
-        Limits::new(-1.0, 1.0, 0.5).unwrap(),
-        AuthorityLease::until(t(1_000)),
-        Watchdog::new(Duration::from_millis(100)),
-        f32::NAN,
-    );
-    assert!(g.safe_output().is_finite());
-    let d = g.evaluate(Some(0.5), t(2_000)); // lease already expired -> safe
-    assert!(d.applied.is_finite());
-    assert_eq!(d.outcome, Outcome::SafeState(SafeReason::LeaseExpired));
+fn invalid_safe_outputs_cannot_create_a_gate() {
+    for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -1.1, 1.1] {
+        let result = CommandGate::new(
+            Limits::new(-1.0, 1.0, 0.5).unwrap(),
+            AuthorityLease::until(t(1_000)),
+            Watchdog::new(Duration::from_millis(100)),
+            value,
+        );
+        assert!(matches!(
+            result,
+            Err(neuradix_embedded_core::GateConfigError::InvalidSafeOutput)
+        ));
+    }
 }
 
 #[test]
@@ -174,4 +163,101 @@ fn recovery_slews_from_the_safe_output() {
     let d = g.evaluate(Some(1.0), t(310_000_000));
     assert_eq!(d.applied, 0.5);
     assert!(d.slew_limited);
+}
+
+#[test]
+fn all_non_finite_limits_and_negative_steps_are_rejected() {
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert!(Limits::new(bad, 1.0, 0.5).is_none());
+        assert!(Limits::new(-1.0, bad, 0.5).is_none());
+        assert!(Limits::new(-1.0, 1.0, bad).is_none());
+    }
+    assert!(Limits::new(-1.0, 1.0, -0.1).is_none());
+    let limits = Limits::new(1.0, 1.0, 0.0).unwrap();
+    assert_eq!(
+        (limits.min(), limits.max(), limits.max_step()),
+        (1.0, 1.0, 0.0)
+    );
+}
+
+#[test]
+fn all_non_finite_commands_use_the_configured_safe_output() {
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        let mut g = CommandGate::new(
+            Limits::new(-1.0, 1.0, 0.5).unwrap(),
+            AuthorityLease::until(t(1_000)),
+            Watchdog::new(Duration::from_millis(100)),
+            -0.25,
+        )
+        .unwrap();
+        let d = g.evaluate(Some(bad), t(0));
+        assert_eq!(d.outcome, Outcome::SafeState(SafeReason::BadCommand));
+        assert_eq!(d.applied, -0.25);
+    }
+}
+
+#[test]
+fn evaluation_clock_faults_latch_before_watchdog_feed() {
+    for (bad_time, reason) in [
+        (t(9), SafeReason::EvaluationTimeRegression),
+        (
+            Timestamp::new(ClockDomain::Simulation, 10),
+            SafeReason::EvaluationClockMismatch,
+        ),
+    ] {
+        let mut g = gate();
+        g.evaluate(Some(0.5), t(10));
+        for now in [bad_time, t(11)] {
+            let d = g.evaluate(Some(0.8), now);
+            assert_eq!(d.outcome, Outcome::SafeState(reason));
+            assert_eq!(d.applied, 0.0);
+        }
+    }
+}
+
+#[test]
+fn expired_embedded_lease_cannot_be_resurrected_by_regression() {
+    let mut g = gate();
+    assert_eq!(
+        g.evaluate(Some(0.8), t(10_000_000_000)).outcome,
+        Outcome::SafeState(SafeReason::LeaseExpired)
+    );
+    assert_eq!(
+        g.evaluate(Some(0.8), t(1)).outcome,
+        Outcome::SafeState(SafeReason::EvaluationTimeRegression)
+    );
+    assert_eq!(g.last_applied(), Some(0.0));
+}
+
+#[test]
+fn embedded_overflow_falls_back_and_normal_outputs_obey_hard_bounds() {
+    let mut g = CommandGate::new(
+        Limits::new(-f32::MAX, f32::MAX, f32::MAX).unwrap(),
+        AuthorityLease::until(t(1_000)),
+        Watchdog::new(Duration::from_millis(100)),
+        0.0,
+    )
+    .unwrap();
+    assert_eq!(g.evaluate(Some(-f32::MAX), t(0)).applied, -f32::MAX);
+    let d = g.evaluate(Some(f32::MAX), t(1)); // finite inputs, overflowing subtraction
+    assert_eq!(d.outcome, Outcome::SafeState(SafeReason::InvalidOutput));
+    assert_eq!(d.applied, 0.0);
+
+    let mut g = gate();
+    for (i, value) in [f32::MAX, -f32::MAX, 0.25, -0.25, 1.0]
+        .into_iter()
+        .enumerate()
+    {
+        let d = g.evaluate(Some(value), t(i as i128));
+        assert!(d.applied.is_finite());
+        assert!((-1.0..=1.0).contains(&d.applied));
+    }
+}
+
+#[test]
+fn equal_evaluation_times_keep_existing_per_step_slew_semantics() {
+    let mut g = gate();
+    g.evaluate(Some(0.0), t(0));
+    assert_eq!(g.evaluate(Some(1.0), t(0)).applied, 0.5);
+    assert_eq!(g.evaluate(Some(1.0), t(0)).applied, 1.0);
 }

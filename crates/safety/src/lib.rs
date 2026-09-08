@@ -31,10 +31,10 @@
 //!     expires: Timestamp::new(ClockDomain::Simulation, 1_000_000_000),
 //!     envelope: None,
 //! });
-//! let mut gate = SafetyGate::new(leases, vec![Constraint::range("range", -4.0, 4.0).unwrap()], 0.0);
+//! let mut gate = SafetyGate::new(leases, vec![Constraint::range("range", -4.0, 4.0).unwrap()], 0.0).unwrap();
 //!
 //! let req = CommandRequest::new(holder, cap, 9.0, Timestamp::new(ClockDomain::Simulation, 10));
-//! let decision = gate.evaluate(req);
+//! let decision = gate.evaluate(req, Timestamp::new(ClockDomain::Simulation, 10));
 //! assert_eq!(decision.outcome, Outcome::Modified); // clamped from 9.0 to 4.0
 //! assert_eq!(decision.applied, 4.0);
 //! ```
