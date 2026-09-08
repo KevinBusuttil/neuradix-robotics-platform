@@ -12,6 +12,8 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
     match crate_name {
         "neuradix-contracts" => BTreeSet::new(),
         "neuradix-time" => BTreeSet::new(),
+        // A04.2 shares validity without pulling the host runtime into MCU gates.
+        "neuradix-command-core" => ["neuradix-time"].into_iter().collect(),
         "neuradix-transport-api" => ["neuradix-contracts"].into_iter().collect(),
         "neuradix-runtime" => ["neuradix-contracts", "neuradix-time"]
             .into_iter()
@@ -19,15 +21,21 @@ fn allowed(crate_name: &str) -> BTreeSet<&'static str> {
         "neuradix-record" => ["neuradix-contracts", "neuradix-time"]
             .into_iter()
             .collect(),
-        "neuradix-safety" => ["neuradix-time", "neuradix-runtime"].into_iter().collect(),
+        "neuradix-safety" => ["neuradix-time", "neuradix-runtime", "neuradix-command-core"]
+            .into_iter()
+            .collect(),
         "neuradix-python" => ["neuradix-runtime"].into_iter().collect(),
         "neuradix-graph" => ["neuradix-contracts"].into_iter().collect(),
         "neuradix-sim" => ["neuradix-time"].into_iter().collect(),
         "neuradix-studio" => ["neuradix-record", "neuradix-time"].into_iter().collect(),
-        "neuradix-embedded-core" => ["neuradix-time"].into_iter().collect(),
-        // Framing depends only on `core`; its embedded-core/time deps are
-        // dev-only (integration tests), which this check does not inspect.
-        "neuradix-embedded-transport" => BTreeSet::new(),
+        "neuradix-embedded-core" => ["neuradix-time", "neuradix-command-core"]
+            .into_iter()
+            .collect(),
+        // A04.2 binds full source metadata to existing framing; still no host
+        // runtime, allocation or std dependency on the embedded path.
+        "neuradix-embedded-transport" => ["neuradix-embedded-core", "neuradix-time"]
+            .into_iter()
+            .collect(),
         "neuradix-embedded-codegen" => ["neuradix-contracts"].into_iter().collect(),
         "neuradix-cli" => [
             "neuradix-contracts",
@@ -89,6 +97,7 @@ fn crate_dependencies_respect_the_layering() {
     let crates = [
         "neuradix-contracts",
         "neuradix-time",
+        "neuradix-command-core",
         "neuradix-transport-api",
         "neuradix-runtime",
         "neuradix-record",
@@ -107,6 +116,7 @@ fn crate_dependencies_respect_the_layering() {
     let manifest_dirs = [
         ("neuradix-contracts", "crates/contracts"),
         ("neuradix-time", "crates/time"),
+        ("neuradix-command-core", "crates/command-core"),
         ("neuradix-transport-api", "crates/transport-api"),
         ("neuradix-runtime", "crates/runtime"),
         ("neuradix-record", "crates/record"),

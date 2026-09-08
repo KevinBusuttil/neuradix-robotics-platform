@@ -32,6 +32,11 @@ bindings, including revoked tombstones. The embedded gate has one binding.
 Payload identities only look up existing state; they never allocate entries.
 Trusted host identity strings and ingress buffers still require deployment bounds.
 
+The dependency-boundary test now includes `command-core -> time`, both gates
+depending on `command-core`, and the existing serial crate's command binding
+depending on `embedded-core/time`. No embedded crate gains a host-runtime or
+std dependency; independent no_std CI checks enforce that configuration.
+
 `CommandPolicy`, `SessionConfig`, `SharedTimeline` and `Generation` have private
 invariant-bearing fields and validated constructors. No default policy silently
 chooses a hazard budget: trusted configuration must supply positive maximum age
