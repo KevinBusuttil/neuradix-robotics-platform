@@ -388,8 +388,21 @@ fn unknown_payload_identities_do_not_allocate_tracking_slots() {
             p.host.evaluate(Some(input), t(100)).outcome,
             Outcome::Rejected(R::UnknownBinding)
         );
+        // Exercise the same rejected evaluations on the MCU: they establish
+        // the safe slew reference even though they create no binding state.
+        let input = mcu::Command {
+            holder: i + 9,
+            capability: 2,
+            value: 0.5,
+            meta: meta(0, 100, 300),
+        };
+        assert_eq!(
+            p.embedded.evaluate(Some(input), t(100)).outcome,
+            mcu::Outcome::SafeState(R::UnknownBinding)
+        );
     }
     assert_eq!(p.host.leases().binding_count(), 1);
+    p.accepted_at(None);
     p.send(meta(0, 100, 300), 100, None);
 }
 
