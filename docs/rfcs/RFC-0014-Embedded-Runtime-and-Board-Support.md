@@ -32,6 +32,12 @@ Periodic idle ticks enforce local expiry without incoming packets. See
 These are host-tested native Rust semantics, not generated AVR gate firmware or
 physical reset/timing evidence. The existing scalar AVR codec checks are preserved.
 
+A04.3 replaces MCU per-evaluation steps with explicit units-per-second rates.
+Both gates use shared binary64 intermediates; MCU binary32 output rounds toward
+the prior applied output. See [A04.3 migration and conformance](../implementation/WP-A04.3-Slew-Alignment.md).
+Native MCU arithmetic cost, stack and timing remain unmeasured; this does not
+introduce a generated AVR gate or change the scalar codec ABI policy.
+
 The earlier ESP32-C3 first-board choice remains historical; the current plan uses
 Uno R3 plus one selected RP2040 board for physical Gate B acceptance.
 

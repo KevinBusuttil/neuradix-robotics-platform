@@ -1,6 +1,7 @@
 //! Validated range and slew-rate limits (§16.4).
 
 use neuradix_time::Duration;
+use neuradix_command_core::SlewRate;
 
 use crate::error::SafetyError;
 
@@ -20,7 +21,7 @@ pub struct Constraint {
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ConstraintKind {
     Range { min: f64, max: f64 },
-    SlewRate { rate_per_sec: f64 },
+    SlewRate(SlewRate),
 }
 
 impl Constraint {
@@ -50,7 +51,7 @@ impl Constraint {
         }
         Ok(Self {
             id,
-            kind: ConstraintKind::SlewRate { rate_per_sec },
+            kind: ConstraintKind::SlewRate(SlewRate::new(rate_per_sec).expect("validated rate")),
         })
     }
 
@@ -65,7 +66,7 @@ impl Constraint {
         value.is_finite()
             && match self.kind {
                 ConstraintKind::Range { min, max } => value >= min && value <= max,
-                ConstraintKind::SlewRate { .. } => true,
+                ConstraintKind::SlewRate(_) => true,
             }
     }
 
@@ -78,21 +79,7 @@ impl Constraint {
         }
         match self.kind {
             ConstraintKind::Range { min, max } => Some(value.clamp(min, max)),
-            ConstraintKind::SlewRate { rate_per_sec } => match previous {
-                Some((prev, dt)) => {
-                    if !prev.is_finite() || dt.as_nanos() < 0 {
-                        return None;
-                    }
-                    let max_delta = rate_per_sec * dt.as_secs_f64();
-                    let lower = prev - max_delta;
-                    let upper = prev + max_delta;
-                    if !max_delta.is_finite() || !lower.is_finite() || !upper.is_finite() {
-                        return None;
-                    }
-                    Some(value.clamp(lower, upper))
-                }
-                None => Some(value),
-            },
+            ConstraintKind::SlewRate(rate) => rate.apply_f64(value, previous),
         }
     }
 }

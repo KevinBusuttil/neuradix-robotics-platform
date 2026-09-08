@@ -18,7 +18,7 @@ No ordinary component may directly and unconditionally drive a safety-relevant
 actuator (§16.1). Actuator requests must pass an authority and constraint path,
 and every actuation must be explainable back to its inputs.
 
-## Implemented (increment 4, updated by A04.2)
+## Implemented (increment 4, updated by A04.3)
 
 The `neuradix-safety` crate provides:
 
@@ -61,8 +61,11 @@ durable restart allocation, explicit shared timeline, rejected-traffic watchdog
 rules and required periodic scheduling. Sequence/generation identifiers are not
 authentication. Lineage includes source metadata separately from runtime time;
 non-finite requested values use explicit JSON markers. Idle decisions retain a
-reason/time but produce no invented command lineage. Host/MCU slew alignment and
-physical safe-response evidence remain open; this RFC and WP-A04 remain partial.
+reason/time but produce no invented command lineage. [A04.3](../implementation/WP-A04.3-Slew-Alignment.md) aligns host/MCU rates in
+units per second using shared no_std arithmetic and runtime elapsed time. Idle
+and equal-time ticks hold output; safing is immediate and recovery uses the
+previous applied safe value. Initialization/rounding exceptions and the renamed
+embedded constructor are explicit. Physical safe-response evidence remains open; this RFC and WP-A04 remain partial.
 Gate A remains open.
 
 ## Scope (future)

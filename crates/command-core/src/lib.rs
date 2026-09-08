@@ -10,6 +10,9 @@
 
 use neuradix_time::{ClockDomain, Duration, Timestamp};
 
+pub mod slew;
+pub use slew::SlewRate;
+
 /// A nonzero, monotonically allocated lease/session generation.
 ///
 /// Trusted startup MUST durably reserve a value greater than every previous

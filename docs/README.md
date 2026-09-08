@@ -10,6 +10,7 @@ The current direction is a unified robotics development and operations platform 
 | [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) | Work packages, dependencies, owner roles, engineer-week ranges, 90-day capacity plan, acceptance catalogue and traceability |
 | [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) | Repository-native revised research report with pinned code findings and external citations |
 | [Capability Status](Neuradix_Capability_Status.md) | Integrated implementation and evidence; partial work packages and open findings |
+| [A04.3 slew alignment evidence](implementation/WP-A04.3-Slew-Alignment.md) | Shared physical rate semantics, changing-period conformance, migration and remaining acceptance |
 | [A04.2 command freshness evidence](implementation/WP-A04.2-Command-Freshness.md) | Bounded freshness, deadlines, generations, sequence, scheduling and API migration |
 | [A04.1 trusted evaluation evidence](implementation/WP-A04.1-Trusted-Evaluation.md) | Trusted runtime time, numeric invariants, API migration and remaining A04 scope |
 | [Gate A codec evidence](implementation/Gate-A-Embedded-Wire-and-ABI.md) | Integrated wire/ABI changes, exact CI results, migration and remaining acceptance work |

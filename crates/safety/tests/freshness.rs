@@ -52,12 +52,12 @@ impl Pair {
         Self {
             host: SafetyGate::new(
                 table,
-                vec![Constraint::range("range", -1.0, 1.0).unwrap()],
+                vec![Constraint::range("range", -1.0, 1.0).unwrap(), Constraint::slew_rate("slew", f32::MAX as f64).unwrap()],
                 0.0,
             )
             .unwrap(),
             embedded: CommandGate::new(
-                Limits::new(-1.0, 1.0, 2.0).unwrap(),
+                Limits::with_slew_rate(-1.0, 1.0, f32::MAX).unwrap(),
                 mcu::AuthorityLease::new(1, 2, config),
                 0.0,
             )

@@ -135,7 +135,9 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **A04.1 integrated:** PR #8 merged as `b4aae739`; trusted runtime evaluation time, private validated numeric configuration, explicit safe-output rejection and final-output checks are implemented. See [A04.1 evidence](implementation/WP-A04.1-Trusted-Evaluation.md).
 
-**A04.2 progress (this branch):** Shared host/no_std validation now enforces source age/future skew, exclusive deadlines, increasing sequences, current lease/session generations and accepted-command watchdog expiry, including idle evaluation ticks. Trusted startup must durably reserve a non-reused generation and provision a supported shared timeline. See [A04.2 policy, API migration and evidence](implementation/WP-A04.2-Command-Freshness.md). WP-A04 remains **partial**. **A04.3** owns host/MCU slew alignment and changing-period conformance; actual rig response and board integration remain unqualified. **Gate A remains open.**
+**A04.2 integrated:** PR #9 merged as `c127c7d` after correcting delayed-renewal and non-finite CLI audit findings. Shared host/no_std validation enforces source age/future skew, deadlines, sequences, generations and accepted-command watchdog expiry, including idle ticks. Trusted startup must durably reserve generations and establish a supported shared timeline. See [A04.2 evidence](implementation/WP-A04.2-Command-Freshness.md).
+
+**A04.3 progress (this branch):** Host and MCU slew use a shared units-per-second calculation from runtime evaluation time. Embedded configuration uses an explicitly renamed rate constructor; paired tests cover changing periods, idle holds, equal timestamps, safing/recovery, session changes and representation boundaries. See [A04.3 policy and evidence](implementation/WP-A04.3-Slew-Alignment.md). The software portion is implemented in this branch; physical safe response, board integration and timing/resource evidence remain missing. WP-A04 remains **partial**, ACC-05 incomplete and **Gate A open**.
 
 <a name="wp-a05"></a>
 
