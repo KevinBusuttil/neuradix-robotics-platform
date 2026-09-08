@@ -399,3 +399,46 @@ fn rejected_output_stays_safe_until_new_valid_input() {
     p.send(meta(1, 103, 300), 103, None);
     p.step(None, t(104), None);
 }
+
+#[test]
+fn capability_binding_is_checked_before_validity_or_numeric_input() {
+    let mut p = Pair::new(config(7, 100, 50));
+    let m = meta(0, 100, 300);
+    let h = CommandRequest::new(
+        Identity::new("controller"),
+        Capability::new("different-actuator"),
+        f64::NAN,
+        m,
+    );
+    let e = mcu::Command {
+        holder: 1,
+        capability: 99,
+        value: f32::NAN,
+        meta: m,
+    };
+    let h = p.host.evaluate(Some(h), t(100));
+    let e = p.embedded.evaluate(Some(e), t(100));
+    assert_eq!(h.outcome, Outcome::Rejected(R::UnknownBinding));
+    assert_eq!(e.outcome, mcu::Outcome::SafeState(R::UnknownBinding));
+    assert_eq!((h.applied, e.applied), (0.0, 0.0));
+    p.accepted_at(None);
+    p.send(m, 101, None);
+}
+
+#[test]
+fn initial_idle_and_unsupported_evaluation_domain_do_not_grant_authority() {
+    let mut p = Pair::new(config(7, 100, 50));
+    p.step(None, t(0), Some(R::NoCommand));
+    p.send(meta(0, 1, 300), 1, None);
+
+    let mut p = Pair::new(config(7, 100, 50));
+    p.step(
+        Some((meta(0, 100, 300), 0.5, true)),
+        Timestamp::new(ClockDomain::Utc, 100),
+        Some(R::UnsupportedClockRelationship),
+    );
+    p.accepted_at(None);
+    // A payload rejection cannot erase the observed runtime clock domain.
+    p.send(meta(0, 101, 300), 101, Some(R::EvaluationClockMismatch));
+    p.step(None, t(102), Some(R::EvaluationClockMismatch));
+}

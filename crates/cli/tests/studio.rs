@@ -44,6 +44,7 @@ fn write_recording(name: &str) -> std::path::PathBuf {
 
         // Command lineage on channel 1.
         let lineage = CommandLineage {
+            command_metadata: None,
             trace: i,
             at_nanos: i as i128 * 25_000_000,
             clock_domain: "monotonic".to_owned(),

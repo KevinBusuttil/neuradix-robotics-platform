@@ -26,6 +26,7 @@ fn entry(
     reject: Option<&str>,
 ) -> CommandLineage {
     CommandLineage {
+        command_metadata: None,
         trace,
         at_nanos,
         clock_domain: "monotonic".to_owned(),

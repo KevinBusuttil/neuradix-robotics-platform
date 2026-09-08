@@ -19,7 +19,7 @@ pub trait EmbeddedComponent {
     fn health(&self) -> HealthState;
 
     /// Advance one control tick at `now`, given the latest command `request`
-    /// (`None` if no fresh command arrived this tick), and return the value
+    /// (`None` if no decodable command arrived this tick), and return the value
     /// applied to the actuator.
     fn tick(&mut self, now: Timestamp, request: Option<Command>) -> f32;
 }
@@ -27,7 +27,7 @@ pub trait EmbeddedComponent {
 /// The reference AUV propulsion node (§ Embedded Profile "Reference
 /// demonstration").
 ///
-/// It validates the authority lease, keeps the link alive with a watchdog,
+/// It validates authority and command metadata, tracks accepted-command liveness,
 /// enforces the thrust envelope (range + slew), applies the output, reports
 /// health, and enters its **local safe state** on lease expiry or link loss —
 /// all through the [`CommandGate`], with no dependency on the host.

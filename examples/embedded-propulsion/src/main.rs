@@ -2,7 +2,7 @@
 //!
 //! The same `#![no_std]` `PropulsionNode` that would run on an ESP32-C3 or RP2040
 //! is driven here by a deterministic host static loop (no board, no sleeping, no
-//! ambient clock). It demonstrates the Embedded Profile exit criteria:
+//! ambient clock). It exercises these local gate scenarios:
 //!
 //! * a commanded phase where thrust is applied under a valid lease and live link
 //!   (slew-limited by the actuator envelope);
@@ -11,8 +11,8 @@
 //! * **lease expiry** — even once the link returns, an expired lease keeps the
 //!   node safe.
 //!
-//! Host and firmware run the identical component logic, so this simulation is a
-//! faithful preview of on-board behaviour.
+//! Board integration, durable generation allocation and physical timing/reset
+//! validation remain separate requirements; this example runs on the host.
 #![forbid(unsafe_code)]
 
 use std::error::Error;

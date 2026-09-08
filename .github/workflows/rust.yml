@@ -42,6 +42,12 @@ jobs:
       - name: Tests (workspace)
         run: cargo test --locked --workspace
 
+      - name: Migrated command examples
+        run: |
+          cargo run --locked -p neuradix-example-minimal-depth-stream
+          cargo run --locked -p neuradix-example-auv-depth-sim
+          cargo run --locked -p neuradix-example-embedded-propulsion
+
       - name: Embedded no_std configuration
         run: |
           cargo check --locked -p neuradix-time --no-default-features
