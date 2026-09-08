@@ -11,7 +11,8 @@ use neuradix_contracts::{Contract, PrimitiveType, schema_identity};
 use serde::Serialize;
 
 use crate::error::CodegenError;
-use crate::wire::{ScalarValue, field_size};
+use crate::layout::{WireLayout, canonical_fields};
+use crate::wire::ScalarValue;
 
 /// One field's value within a golden vector.
 #[derive(Debug, Clone, Serialize)]
@@ -42,6 +43,10 @@ pub struct GoldenSet {
     pub contract: String,
     /// Content-addressed schema identity.
     pub schema_id: String,
+    /// Versioned wire codec.
+    pub codec_id: String,
+    /// Full wire binding identity.
+    pub wire_id: String,
     /// The fixed wire length in bytes.
     pub wire_len: usize,
     /// The vectors.
@@ -49,16 +54,17 @@ pub struct GoldenSet {
 }
 
 impl GoldenSet {
-    /// The concrete scalar values behind each vector, in field order — used by
+    /// The concrete scalar values behind each vector, in canonical name order — used by
     /// the code generators to bake conformance harnesses. Recomputed
     /// deterministically from the same profiles.
     pub fn value_rows(
         contract: &Contract,
     ) -> Result<Vec<(String, Vec<ScalarValue>)>, CodegenError> {
         let mut rows = Vec::new();
+        let fields = canonical_fields(contract);
         for profile in PROFILES {
             let mut values = Vec::new();
-            for (i, field) in contract.spec.payload.fields.iter().enumerate() {
+            for (i, field) in fields.iter().enumerate() {
                 values.push(sample(field.ty, *profile, i)?);
             }
             rows.push((profile.name().to_owned(), values));
@@ -96,17 +102,14 @@ impl Profile {
 
 /// Build the golden set for a contract.
 pub fn golden_vectors(contract: &Contract) -> Result<GoldenSet, CodegenError> {
-    // Validate all field types up front (also computes the wire length).
-    let mut wire_len = 0usize;
-    for field in &contract.spec.payload.fields {
-        wire_len += field_size(field.ty, &field.name)?;
-    }
+    let layout = WireLayout::for_contract(contract)?;
+    let ordered = canonical_fields(contract);
 
     let mut vectors = Vec::new();
     for profile in PROFILES {
         let mut bytes = Vec::new();
         let mut fields = Vec::new();
-        for (i, field) in contract.spec.payload.fields.iter().enumerate() {
+        for (i, field) in ordered.iter().enumerate() {
             let value = sample(field.ty, *profile, i)?;
             value.encode(&mut bytes);
             fields.push(GoldenField {
@@ -128,7 +131,9 @@ pub fn golden_vectors(contract: &Contract) -> Result<GoldenSet, CodegenError> {
             contract.metadata.namespace, contract.metadata.name, contract.metadata.version
         ),
         schema_id: schema_identity(contract).as_str().to_owned(),
-        wire_len,
+        codec_id: layout.codec_id,
+        wire_id: layout.wire_id,
+        wire_len: layout.wire_len,
         vectors,
     })
 }

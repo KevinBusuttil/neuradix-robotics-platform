@@ -48,18 +48,17 @@ fn nostd_rust_and_cpp_generate() {
 /// Compile the generated C++ header + a self-checking harness with `g++` and run
 /// it: it verifies every golden vector encodes to the expected bytes and round
 /// trips. This proves the C++ projection agrees with the Rust reference on the
-/// wire. Skips cleanly when no C++ compiler is available.
+/// wire. A host C++ compiler is a required test prerequisite.
 #[test]
 fn cpp_projection_agrees_with_golden_vectors() {
-    let compiler = match ["g++", "c++", "clang++"]
-        .into_iter()
-        .find(|cc| Command::new(cc).arg("--version").output().is_ok())
-    {
+    let compiler = match ["g++", "c++", "clang++"].into_iter().find(|cc| {
+        Command::new(cc)
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }) {
         Some(cc) => cc,
-        None => {
-            eprintln!("no C++ compiler; skipping C++ conformance");
-            return;
-        }
+        None => panic!("C++ conformance requires g++, c++, or clang++"),
     };
 
     let c = contract();
@@ -75,7 +74,7 @@ fn cpp_projection_agrees_with_golden_vectors() {
     let bin = dir.join("harness");
 
     let compile = Command::new(compiler)
-        .args(["-std=c++17", "-O2", "-Wall", "-Wextra", "-Werror"])
+        .args(["-std=c++11", "-O2", "-Wall", "-Wextra", "-Werror"])
         .arg(&main_cpp)
         .arg("-I")
         .arg(&dir)

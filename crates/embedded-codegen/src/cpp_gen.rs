@@ -7,9 +7,30 @@ use neuradix_contracts::{Contract, PrimitiveType, schema_identity};
 
 use crate::error::CodegenError;
 use crate::golden::GoldenSet;
+use crate::layout::{WireLayout, canonical_fields};
 use crate::names::{to_pascal_case, to_snake_case};
 use crate::rust_gen::GENERATOR_VERSION;
-use crate::wire::field_size;
+
+/// Numeric ABI capabilities checked before generating a C++ header.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CppTarget {
+    /// Defer ABI validation to generated compile-time assertions.
+    #[default]
+    Portable,
+    /// Classic Arduino Uno R3 / ATmega328P: binary32 `float` and `double`.
+    /// `float64` is rejected; it is never silently narrowed.
+    AvrUno,
+}
+
+impl CppTarget {
+    /// Stable target spelling for manifests and diagnostics.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Portable => "portable",
+            Self::AvrUno => "avr-uno",
+        }
+    }
+}
 
 /// A generated C++ header.
 #[derive(Debug, Clone)]
@@ -45,6 +66,15 @@ fn uint_type(size: usize) -> &'static str {
 
 /// Generate the C++ header projection of a contract.
 pub fn generate_cpp(contract: &Contract) -> Result<GeneratedCpp, CodegenError> {
+    generate_cpp_for_target(contract, CppTarget::Portable)
+}
+
+/// Generate for an explicit numeric ABI. Every header also checks the actual
+/// compiler ABI, so a portable header cannot bypass the width guards on AVR.
+pub fn generate_cpp_for_target(
+    contract: &Contract,
+    target: CppTarget,
+) -> Result<GeneratedCpp, CodegenError> {
     let type_name = to_pascal_case(&contract.metadata.name);
     if type_name.is_empty() {
         return Err(CodegenError::BadName(contract.identifier()));
@@ -52,14 +82,18 @@ pub fn generate_cpp(contract: &Contract) -> Result<GeneratedCpp, CodegenError> {
     let header_name = to_snake_case(&contract.metadata.name);
     let schema_id = schema_identity(contract);
 
-    let mut offsets = Vec::new();
-    let mut offset = 0usize;
-    for field in &contract.spec.payload.fields {
-        let size = field_size(field.ty, &field.name)?;
-        offsets.push((offset, size));
-        offset += size;
+    let layout = WireLayout::for_contract(contract)?;
+    let fields = canonical_fields(contract);
+    for field in &fields {
+        if target == CppTarget::AvrUno && field.ty == PrimitiveType::Float64 {
+            return Err(CodegenError::UnsupportedTargetType {
+                field: field.name.clone(),
+                ty: field.ty.as_contract_str(),
+                target: target.as_str(),
+            });
+        }
     }
-    let wire_len = offset;
+    let wire_len = layout.wire_len;
 
     let mut code = String::new();
     let _ = writeln!(
@@ -72,37 +106,72 @@ pub fn generate_cpp(contract: &Contract) -> Result<GeneratedCpp, CodegenError> {
         contract.metadata.namespace, contract.metadata.name, contract.metadata.version
     );
     let _ = writeln!(code, "// Schema identity: {schema_id}");
+    let _ = writeln!(code, "// Codec: {}", layout.codec_id);
+    let _ = writeln!(code, "// Wire identity: {}", layout.wire_id);
+    let _ = writeln!(code, "// C++ target: {}", target.as_str());
     let _ = writeln!(code, "// Wire: fixed little-endian, {wire_len} bytes.");
     code.push_str("#pragma once\n");
-    code.push_str("#include <cstdint>\n#include <cstddef>\n#include <cstring>\n\n");
+    // avr-libc supplies these C headers without requiring a C++ standard library.
+    code.push_str("#include <stdint.h>\n#include <stddef.h>\n#include <string.h>\n");
+    code.push_str("#include <limits.h>\n#include <float.h>\n\n");
+    code.push_str("static_assert(CHAR_BIT == 8, \"Neuradix requires 8-bit bytes\");\n");
+    for ty in [PrimitiveType::Float32, PrimitiveType::Float64] {
+        if fields.iter().any(|field| field.ty == ty) {
+            let (name, size, prefix, mantissa, exponent) = match ty {
+                PrimitiveType::Float32 => ("float", 4, "FLT", 24, 128),
+                _ => ("double", 8, "DBL", 53, 1024),
+            };
+            let _ = writeln!(
+                code,
+                "static_assert(sizeof({name}) == {size} && FLT_RADIX == 2 && {prefix}_MANT_DIG == {mantissa} && {prefix}_MAX_EXP == {exponent}, \"Neuradix {} requires IEEE-754 binary{}; unsupported target ABI\");",
+                ty.as_contract_str(),
+                size * 8
+            );
+        }
+    }
+    code.push_str("#if defined(__FLOAT_WORD_ORDER__) && defined(__BYTE_ORDER__)\n");
+    code.push_str("static_assert(__FLOAT_WORD_ORDER__ == __BYTE_ORDER__, \"Neuradix requires matching float and integer byte order\");\n#endif\n\n");
     code.push_str("namespace neuradix {\n\n");
     let _ = writeln!(code, "struct {type_name} {{");
-    for field in &contract.spec.payload.fields {
+    for field in &fields {
         let _ = writeln!(code, "  {} {};", cpp_type(field.ty), field.name);
     }
     code.push('\n');
     let _ = writeln!(code, "  static constexpr size_t WIRE_LEN = {wire_len};");
+    for (name, value) in [
+        ("SCHEMA_ID", schema_id.as_str()),
+        ("CODEC_ID", layout.codec_id.as_str()),
+        ("WIRE_ID", layout.wire_id.as_str()),
+    ] {
+        let _ = writeln!(code, "  static constexpr const char* {name} = \"{value}\";");
+    }
     code.push('\n');
 
     // encode
     code.push_str("  // Encode into `out` (>= WIRE_LEN); returns bytes written, 0 if too small.\n");
     code.push_str("  size_t encode(uint8_t* out, size_t cap) const {\n");
-    code.push_str("    if (cap < WIRE_LEN) return 0;\n");
-    for (field, (off, size)) in contract.spec.payload.fields.iter().zip(&offsets) {
-        emit_cpp_encode_field(&mut code, &field.name, field.ty, *off, *size);
+    code.push_str("    if (out == nullptr || cap < WIRE_LEN) return 0;\n");
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        emit_cpp_encode_field(&mut code, &field.name, field.ty, wire.offset, wire.size);
     }
     let _ = writeln!(code, "    return WIRE_LEN;\n  }}");
     code.push('\n');
 
     // decode
-    code.push_str("  // Decode from `in` (>= WIRE_LEN); returns false if too small.\n");
+    code.push_str("  // Require the sender's bound identity and exact payload length.\n");
+    code.push_str("  // Returns false on invalid input; leaves out unchanged on failure.\n");
     let _ = writeln!(
         code,
-        "  static bool decode(const uint8_t* in, size_t len, {type_name}& out) {{"
+        "  static bool decode(const uint8_t* in, size_t len, {type_name}& out, const char* peer_wire_id) {{"
     );
-    code.push_str("    if (len < WIRE_LEN) return false;\n");
-    for (field, (off, size)) in contract.spec.payload.fields.iter().zip(&offsets) {
-        emit_cpp_decode_field(&mut code, &field.name, field.ty, *off, *size);
+    code.push_str("    if (in == nullptr || peer_wire_id == nullptr || len != WIRE_LEN || strcmp(peer_wire_id, WIRE_ID) != 0) return false;\n");
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        if field.ty == PrimitiveType::Bool {
+            let _ = writeln!(code, "    if (in[{}] > 1) return false;", wire.offset);
+        }
+    }
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        emit_cpp_decode_field(&mut code, &field.name, field.ty, wire.offset, wire.size);
     }
     code.push_str("    return true;\n  }\n");
 
@@ -131,7 +200,10 @@ fn emit_cpp_encode_field(
     let _ = writeln!(code, "    {{");
     let _ = writeln!(code, "      {ut} b;");
     if matches!(ty, PrimitiveType::Float64 | PrimitiveType::Float32) {
-        let _ = writeln!(code, "      memcpy(&b, &this->{name}, {size});");
+        let _ = writeln!(
+            code,
+            "      memcpy(&b, &this->{name}, sizeof(this->{name}));"
+        );
     } else {
         let _ = writeln!(code, "      b = ({ut})this->{name};");
     }
@@ -161,7 +233,7 @@ fn emit_cpp_decode_field(
         "      for (size_t k = 0; k < {size}; ++k) b |= ({ut})in[{off} + k] << (8 * k);"
     );
     if matches!(ty, PrimitiveType::Float64 | PrimitiveType::Float32) {
-        let _ = writeln!(code, "      memcpy(&out.{name}, &b, {size});");
+        let _ = writeln!(code, "      memcpy(&out.{name}, &b, sizeof(out.{name}));");
     } else {
         let _ = writeln!(code, "      out.{name} = ({})b;", cpp_type(ty));
     }
@@ -183,11 +255,11 @@ pub fn cpp_conformance_main(
 
     let mut code = String::new();
     let _ = writeln!(code, "#include \"{header}.h\"");
-    code.push_str("#include <cstdio>\n#include <cstring>\n\n");
+    code.push_str("#include <stdio.h>\n#include <string.h>\n\n");
     code.push_str("int main() {\n  int failures = 0;\n");
 
     for ((vname, values), vector) in rows.iter().zip(&golden.vectors) {
-        let fields = &contract.spec.payload.fields;
+        let fields = canonical_fields(contract);
         let expected = hex_to_cpp_array(&vector.bytes_hex);
         let _ = writeln!(code, "  {{");
         let _ = writeln!(code, "    neuradix::{type_name} v;");
@@ -206,7 +278,7 @@ pub fn cpp_conformance_main(
         let _ = writeln!(code, "    uint8_t buf2[neuradix::{type_name}::WIRE_LEN];");
         let _ = writeln!(
             code,
-            "    if (!neuradix::{type_name}::decode(expected, sizeof(expected), d) || d.encode(buf2, sizeof(buf2)) != sizeof(expected) || memcmp(buf2, expected, sizeof(expected)) != 0) {{ printf(\"FAIL roundtrip {vname}\\n\"); failures++; }}"
+            "    if (!neuradix::{type_name}::decode(expected, sizeof(expected), d, neuradix::{type_name}::WIRE_ID) || d.encode(buf2, sizeof(buf2)) != sizeof(expected) || memcmp(buf2, expected, sizeof(expected)) != 0) {{ printf(\"FAIL roundtrip {vname}\\n\"); failures++; }}"
         );
         let _ = writeln!(code, "  }}");
     }

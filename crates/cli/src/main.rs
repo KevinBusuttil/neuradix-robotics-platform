@@ -67,9 +67,10 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
                 file,
                 language,
                 out_dir,
+                cpp_target,
             } => (
                 "contract.generate".to_owned(),
-                app::contract::generate(&file, language, &out_dir),
+                app::contract::generate(&file, language, &out_dir, cpp_target),
             ),
         },
         Command::Record { command } => match command {

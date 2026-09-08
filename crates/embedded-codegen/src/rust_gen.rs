@@ -6,8 +6,8 @@ use std::fmt::Write as _;
 use neuradix_contracts::{Contract, PrimitiveType, schema_identity};
 
 use crate::error::CodegenError;
+use crate::layout::{WireLayout, canonical_fields};
 use crate::names::{to_pascal_case, to_snake_case};
-use crate::wire::field_size;
 
 /// The generator version, embedded for traceability.
 pub const GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -32,15 +32,9 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
     let module_name = to_snake_case(&contract.metadata.name);
     let schema_id = schema_identity(contract);
 
-    // Validate types and compute offsets before emitting anything.
-    let mut offsets = Vec::new();
-    let mut offset = 0usize;
-    for field in &contract.spec.payload.fields {
-        let size = field_size(field.ty, &field.name)?;
-        offsets.push((offset, size));
-        offset += size;
-    }
-    let wire_len = offset;
+    let layout = WireLayout::for_contract(contract)?;
+    let fields = canonical_fields(contract);
+    let wire_len = layout.wire_len;
 
     let mut code = String::new();
     let _ = writeln!(
@@ -54,6 +48,8 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
         contract.metadata.namespace, contract.metadata.name, contract.metadata.version
     );
     let _ = writeln!(code, "// Schema identity: {schema_id}");
+    let _ = writeln!(code, "// Codec: {}", layout.codec_id);
+    let _ = writeln!(code, "// Wire identity: {}", layout.wire_id);
     let _ = writeln!(code, "// Wire: fixed little-endian, {wire_len} bytes.");
     code.push_str("//\n");
     code.push_str("// Regenerate with:\n");
@@ -69,7 +65,7 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
     code.push_str("#[allow(dead_code)]\n");
     code.push_str("#[derive(Clone, Copy, Debug, PartialEq)]\n");
     let _ = writeln!(code, "pub struct {type_name} {{");
-    for field in &contract.spec.payload.fields {
+    for field in &fields {
         let _ = writeln!(
             code,
             "    /// {}",
@@ -85,6 +81,10 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
     let _ = writeln!(code, "    pub const WIRE_LEN: usize = {wire_len};");
     let _ = writeln!(code, "    /// Content-addressed schema identity.");
     emit_str_const(&mut code, "SCHEMA_ID", schema_id.as_str());
+    code.push_str("    /// Versioned scalar codec.\n");
+    emit_str_const(&mut code, "CODEC_ID", &layout.codec_id);
+    code.push_str("    /// Full wire binding identity; compare with the sender's manifest.\n");
+    emit_str_const(&mut code, "WIRE_ID", &layout.wire_id);
     code.push('\n');
 
     // encode
@@ -92,7 +92,8 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
     code.push_str("    /// bytes written, or `None` if `out` is shorter than `WIRE_LEN`.\n");
     code.push_str("    pub fn encode(&self, out: &mut [u8]) -> Option<usize> {\n");
     code.push_str("        if out.len() < Self::WIRE_LEN {\n            return None;\n        }\n");
-    for (field, (off, size)) in contract.spec.payload.fields.iter().zip(&offsets) {
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        let (off, size) = (wire.offset, wire.size);
         if field.ty == PrimitiveType::Bool {
             let _ = writeln!(code, "        out[{off}] = self.{} as u8;", field.name);
         } else {
@@ -107,14 +108,21 @@ pub fn generate_nostd_rust(contract: &Contract) -> Result<GeneratedRust, Codegen
     code.push_str("        Some(Self::WIRE_LEN)\n    }\n\n");
 
     // decode
-    code.push_str("    /// Decode from little-endian `input`. Returns `None` if\n");
-    code.push_str("    /// `input` is shorter than `WIRE_LEN`.\n");
-    code.push_str("    pub fn decode(input: &[u8]) -> Option<Self> {\n");
+    code.push_str("    /// Decode an exact payload using the sender's bound wire identity.\n");
+    code.push_str("    /// Rejects identity/length mismatches and non-canonical booleans.\n");
+    code.push_str("    pub fn decode(input: &[u8], peer_wire_id: &str) -> Option<Self> {\n");
     code.push_str(
-        "        if input.len() < Self::WIRE_LEN {\n            return None;\n        }\n",
+        "        if peer_wire_id != Self::WIRE_ID || input.len() != Self::WIRE_LEN {\n            return None;\n        }\n",
     );
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        if field.ty == PrimitiveType::Bool {
+            let _ = writeln!(code, "        if input[{}] > 1 {{", wire.offset);
+            code.push_str("            return None;\n        }\n");
+        }
+    }
     code.push_str("        Some(Self {\n");
-    for (field, (off, size)) in contract.spec.payload.fields.iter().zip(&offsets) {
+    for (field, wire) in fields.iter().zip(&layout.fields) {
+        let (off, size) = (wire.offset, wire.size);
         if field.ty == PrimitiveType::Bool {
             let _ = writeln!(code, "            {}: input[{off}] != 0,", field.name);
         } else {

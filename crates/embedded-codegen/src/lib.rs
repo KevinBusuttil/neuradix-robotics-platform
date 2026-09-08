@@ -12,19 +12,23 @@
 //!   them byte-for-byte. [`cpp_conformance_main`] emits a self-checking C++
 //!   program against them.
 //!
-//! The wire is a fixed layout (each scalar field, in order, little-endian), so a
-//! frame size is known at compile time and there is no ambiguity between
-//! implementations. Variable-length fields are rejected.
+//! The wire has a versioned, canonical name-sorted layout, separate from the
+//! semantic schema identity. Decoders require the sender's full wire identity;
+//! see [`WireLayout`] for the binding rules. Variable-length fields are rejected.
 
 pub mod cpp_gen;
 pub mod error;
 pub mod golden;
+pub mod layout;
 pub mod names;
 pub mod rust_gen;
 pub mod wire;
 
-pub use cpp_gen::{GeneratedCpp, cpp_conformance_main, generate_cpp};
+pub use cpp_gen::{
+    CppTarget, GeneratedCpp, cpp_conformance_main, generate_cpp, generate_cpp_for_target,
+};
 pub use error::CodegenError;
 pub use golden::{GoldenField, GoldenSet, GoldenVector, golden_vectors};
+pub use layout::{CODEC_ID, WireField, WireLayout};
 pub use rust_gen::{GENERATOR_VERSION, GeneratedRust, generate_nostd_rust};
 pub use wire::{ScalarValue, field_size};

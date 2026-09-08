@@ -2,6 +2,8 @@
 //
 // Source contract: io.neuradix.navigation/vehicle-depth@1.0.0
 // Schema identity: sha256:4c9c5d9381658f7779ef0d3ef11eda3f29006f7e751d06dba40a12d6f4ce2a73
+// Codec: neuradix.scalar-le.v2
+// Wire identity: sha256:4780f56bd7e4780987152907da8156c19dd2946470bc550c35abb16285d7b11d
 // Wire: fixed little-endian, 16 bytes.
 //
 // Regenerate with:
@@ -24,6 +26,11 @@ impl VehicleDepth {
     /// Content-addressed schema identity.
     pub const SCHEMA_ID: &'static str =
         "sha256:4c9c5d9381658f7779ef0d3ef11eda3f29006f7e751d06dba40a12d6f4ce2a73";
+    /// Versioned scalar codec.
+    pub const CODEC_ID: &'static str = "neuradix.scalar-le.v2";
+    /// Full wire binding identity; compare with the sender's manifest.
+    pub const WIRE_ID: &'static str =
+        "sha256:4780f56bd7e4780987152907da8156c19dd2946470bc550c35abb16285d7b11d";
 
     /// Encode into `out` (little-endian). Returns the number of
     /// bytes written, or `None` if `out` is shorter than `WIRE_LEN`.
@@ -36,10 +43,10 @@ impl VehicleDepth {
         Some(Self::WIRE_LEN)
     }
 
-    /// Decode from little-endian `input`. Returns `None` if
-    /// `input` is shorter than `WIRE_LEN`.
-    pub fn decode(input: &[u8]) -> Option<Self> {
-        if input.len() < Self::WIRE_LEN {
+    /// Decode an exact payload using the sender's bound wire identity.
+    /// Rejects identity/length mismatches and non-canonical booleans.
+    pub fn decode(input: &[u8], peer_wire_id: &str) -> Option<Self> {
+        if peer_wire_id != Self::WIRE_ID || input.len() != Self::WIRE_LEN {
             return None;
         }
         Some(Self {

@@ -57,7 +57,7 @@ fn generated_rust_encodes_and_decodes_the_golden_vectors() {
         assert_eq!(hex(&buf), vector.bytes_hex, "vector `{}`", vector.name);
 
         // decode(golden bytes) round-trips exactly.
-        let decoded = VehicleDepth::decode(&buf).expect("decode");
+        let decoded = VehicleDepth::decode(&buf, VehicleDepth::WIRE_ID).expect("decode");
         assert_eq!(decoded, sample);
     }
 }
@@ -70,5 +70,5 @@ fn generated_rust_rejects_a_short_buffer() {
     };
     let mut small = [0u8; 8];
     assert_eq!(sample.encode(&mut small), None);
-    assert!(VehicleDepth::decode(&small).is_none());
+    assert!(VehicleDepth::decode(&small, VehicleDepth::WIRE_ID).is_none());
 }

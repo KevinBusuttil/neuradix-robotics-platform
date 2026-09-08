@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
-use crate::app::contract::Language;
+use crate::app::contract::{CppTarget, Language};
 use crate::render::OutputFormat;
 
 /// The `neuradix` command-line interface.
@@ -197,6 +197,10 @@ pub enum ContractCommand {
         /// The target language.
         #[arg(long, value_enum, default_value_t = Language::Rust)]
         language: Language,
+
+        /// Numeric ABI profile for C++ only; defaults to portable compile-time checks.
+        #[arg(long, value_enum)]
+        cpp_target: Option<CppTarget>,
 
         /// The directory to write generated code into.
         ///
