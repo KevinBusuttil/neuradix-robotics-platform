@@ -1,6 +1,7 @@
 # Gate A implementation 1: embedded wire identity and numeric ABI
 
-Status: implementation proposed; validation results are recorded below before review.
+Status: implemented and CI verified; proposed for integration in
+[PR #6](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/6), not merged.
 Scope: the first bounded increment of WP-A01, WP-A02 and WP-A03 in the
 [Arduino-to-enterprise implementation plan](https://github.com/KevinBusuttil/neuradix-robotics-platform/blob/codex/arduino-enterprise-documentation-plan/docs/Neuradix_Implementation_Plan_v0.4.md).
 The broader strategy and consolidated specifications are proposed separately in
@@ -108,9 +109,24 @@ No truncated hash is introduced here.
 
 ## Validation and work-package status
 
-Validation is pending the implementation branch's CI run. The final review
-description will link the exact tested commit and jobs; passing host checks
-alone does not satisfy the AVR gate.
+Code commit [`b05baed`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/b05baed366a91098b0bc0f0401c754d6974b6f46)
+passed [CI run 34247995985](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34247995985)
+on 2026-09-08. The subsequent documentation update records these results without
+changing the tested implementation.
+
+| Check | Observed result |
+| --- | --- |
+| Rust 1.94.1, locked workspace dependencies | Format check, Clippy with warnings denied, workspace tests and documentation build passed. |
+| Workspace tests including doctests | 191 passed, 0 failed; the 2 explicitly ignored AVR tests ran separately below. |
+| Independent wire exchange | Generated C++ producer sent bytes plus its identity to independently generated Rust from a reordered contract; values and bytes matched. |
+| Rejection and numeric boundaries | Mixed codec/schema identities, invalid lengths/booleans, signed/unsigned limits, binary32 special-value bits and CLI target rejection passed. |
+| `no_std` source | Generated scalar library compiled without `std` using host `rustc`; this is not an MCU Rust target build. |
+| AVR GCC 7.3.0 / ATmega328P | Both tests passed: supported scalar harness compiled/linked; portable binary64 header was rejected by the expected ABI assertion. |
+| AVR harness static sections | `.text` 2,778 bytes, `.data` 322, `.bss` 6: 3,100 bytes of flash and 328 bytes of static SRAM. Stack and hardware timing are unmeasured. |
+| Local C++ fixture | C++11, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer passed for binary64 bytes, identity/length rejection and special-value bits. Leak detection was disabled because this workspace runs under tracing. |
+
+These results validate the codec increment. They do not validate a deployed
+firmware image, real serial communication or physical board execution.
 
 | Work package | This increment | Remaining acceptance work |
 | --- | --- | --- |
