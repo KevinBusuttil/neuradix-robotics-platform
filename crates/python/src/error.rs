@@ -33,23 +33,31 @@ pub enum WorkerError {
 
     /// Incoming line exceeded the validated byte limit.
     #[error("incoming worker line exceeds {limit} bytes")]
-    IncomingTooLarge { /// Inclusive newline-counted limit.
-        limit: usize },
+    IncomingTooLarge {
+        /// Inclusive newline-counted limit.
+        limit: usize,
+    },
 
     /// Outgoing line exceeded the validated byte limit before any write.
     #[error("outgoing worker line exceeds {limit} bytes")]
-    OutgoingTooLarge { /// Inclusive newline-counted limit.
-        limit: usize },
+    OutgoingTooLarge {
+        /// Inclusive newline-counted limit.
+        limit: usize,
+    },
 
     /// Complete and partial incoming lines exceeded the storage budget.
     #[error("worker receive storage exceeds {limit} bytes")]
-    QueueBytesExceeded { /// Maximum queued bytes.
-        limit: usize },
+    QueueBytesExceeded {
+        /// Maximum queued bytes.
+        limit: usize,
+    },
 
     /// An incoming burst exceeded the complete-message queue budget.
     #[error("worker receive queue exceeds {limit} messages")]
-    QueueMessagesExceeded { /// Maximum complete queued lines.
-        limit: usize },
+    QueueMessagesExceeded {
+        /// Maximum complete queued lines.
+        limit: usize,
+    },
 
     /// Cleanup could not establish normal direct-child reaping. The original
     /// operation failure and bounded cleanup outcome are retained together.

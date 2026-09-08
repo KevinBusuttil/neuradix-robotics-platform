@@ -1,28 +1,43 @@
 //! Synchronous bounded Python-worker stdio, outside the local control executor.
 
-use std::io;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
-use neuradix_runtime::HealthState;
-use serde_json::Value;
+pub use crate::config::WorkerConfig;
 use crate::process::{Process, pause_until};
 use crate::protocol::{Frames, encode};
 use crate::{CleanupReport, CleanupState, Timeouts, WorkerError};
-pub use crate::config::WorkerConfig;
+use neuradix_runtime::HealthState;
+use serde_json::Value;
+use std::io;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
-struct Deadline { io: Instant, end: Instant, reserve: Duration }
+struct Deadline {
+    io: Instant,
+    end: Instant,
+    reserve: Duration,
+}
 impl Deadline {
     fn new(total: Duration, reserve: Duration) -> Result<Self, WorkerError> {
         let start = Instant::now();
-        let end = start.checked_add(total).ok_or(WorkerError::InvalidConfig("deadline overflow"))?;
-        let io = end.checked_sub(reserve).ok_or(WorkerError::InvalidConfig("cleanup reserve overflow"))?;
+        let end = start
+            .checked_add(total)
+            .ok_or(WorkerError::InvalidConfig("deadline overflow"))?;
+        let io = end
+            .checked_sub(reserve)
+            .ok_or(WorkerError::InvalidConfig("cleanup reserve overflow"))?;
         Ok(Self { io, end, reserve })
     }
     fn check(&self) -> Result<(), WorkerError> {
-        if Instant::now() >= self.io { Err(WorkerError::Timeout) } else { Ok(()) }
+        if Instant::now() >= self.io {
+            Err(WorkerError::Timeout)
+        } else {
+            Ok(())
+        }
     }
     fn cleanup_end(&self) -> Instant {
-        Instant::now().checked_add(self.reserve).unwrap_or(self.end).min(self.end)
+        Instant::now()
+            .checked_add(self.reserve)
+            .unwrap_or(self.end)
+            .min(self.end)
     }
 }
 
@@ -68,54 +83,121 @@ impl PythonWorker {
     /// Launch and handshake within one total budget. This library must exclusively
     /// own child reaping (no external waitpid(-1) or SIGCHLD auto-reaping).
     pub fn launch(config: &WorkerConfig) -> Result<Self, WorkerError> {
-        if !cfg!(all(target_os = "linux", not(target_env = "uclibc"))) { return Err(WorkerError::UnsupportedPlatform); }
+        if !cfg!(all(target_os = "linux", not(target_env = "uclibc"))) {
+            return Err(WorkerError::UnsupportedPlatform);
+        }
         let deadline = Deadline::new(config.timeouts.handshake(), config.timeouts.cleanup())?;
-        let encoded_config = encode(&config.config, None, config.limits.outgoing_bytes(), deadline.io)?;
+        let encoded_config = encode(
+            &config.config,
+            None,
+            config.limits.outgoing_bytes(),
+            deadline.io,
+        )?;
         let mut command = Command::new(&config.interpreter);
-        command.arg(&config.script).args(&config.args)
-            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
+        command
+            .arg(&config.script)
+            .args(&config.args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
         if !config.python_path.is_empty() {
-            let joined = std::env::join_paths(&config.python_path).map_err(|_| WorkerError::InvalidConfig("invalid Python import path"))?;
+            let joined = std::env::join_paths(&config.python_path)
+                .map_err(|_| WorkerError::InvalidConfig("invalid Python import path"))?;
             command.env("PYTHONPATH", joined);
         }
-        command.env("NEURADIX_WORKER_CONFIG", std::str::from_utf8(&encoded_config).expect("JSON UTF-8"));
-        command.env("NEURADIX_WORKER_SKIP_INPUTS", config.skip_inputs.to_string());
-        command.env("NEURADIX_WORKER_MAX_INPUT_BYTES", config.limits.outgoing_bytes().to_string());
-        command.env("NEURADIX_WORKER_MAX_OUTPUT_BYTES", config.limits.incoming_bytes().to_string());
+        command.env(
+            "NEURADIX_WORKER_CONFIG",
+            std::str::from_utf8(&encoded_config).expect("JSON UTF-8"),
+        );
+        command.env(
+            "NEURADIX_WORKER_SKIP_INPUTS",
+            config.skip_inputs.to_string(),
+        );
+        command.env(
+            "NEURADIX_WORKER_MAX_INPUT_BYTES",
+            config.limits.outgoing_bytes().to_string(),
+        );
+        command.env(
+            "NEURADIX_WORKER_MAX_OUTPUT_BYTES",
+            config.limits.incoming_bytes().to_string(),
+        );
         deadline.check()?;
         let process = Process::spawn(&mut command, deadline.cleanup_end())?;
-        let mut worker = Self { process, frames: Frames::new(config.limits), sequence: 0, outgoing_limit: config.limits.outgoing_bytes(), outgoing_high: 0, timeouts: config.timeouts, ready: ReadyInfo { name: String::new(), skip_policy: String::new() }, unavailable: false, cleanup: None };
+        let mut worker = Self {
+            process,
+            frames: Frames::new(config.limits),
+            sequence: 0,
+            outgoing_limit: config.limits.outgoing_bytes(),
+            outgoing_high: 0,
+            timeouts: config.timeouts,
+            ready: ReadyInfo {
+                name: String::new(),
+                skip_policy: String::new(),
+            },
+            unavailable: false,
+            cleanup: None,
+        };
         let handshake = worker.receive(&deadline).and_then(|value| {
             if value.get("kind").and_then(Value::as_str) != Some("ready") {
                 return Err(WorkerError::Protocol("expected ready handshake".into()));
             }
-            let name = value.get("name").and_then(Value::as_str).ok_or_else(|| WorkerError::Protocol("ready.name must be a string".into()))?;
-            let skip_policy = value.get("skipPolicy").and_then(Value::as_str).ok_or_else(|| WorkerError::Protocol("ready.skipPolicy must be a string".into()))?;
-            worker.ready = ReadyInfo { name: name.to_owned(), skip_policy: skip_policy.to_owned() };
+            let name = value
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| WorkerError::Protocol("ready.name must be a string".into()))?;
+            let skip_policy = value
+                .get("skipPolicy")
+                .and_then(Value::as_str)
+                .ok_or_else(|| WorkerError::Protocol("ready.skipPolicy must be a string".into()))?;
+            worker.ready = ReadyInfo {
+                name: name.to_owned(),
+                skip_policy: skip_policy.to_owned(),
+            };
             deadline.check()
         });
         if let Err(error) = handshake {
-            let error = if matches!(error, WorkerError::Timeout) { WorkerError::HandshakeTimeout } else { error };
+            let error = if matches!(error, WorkerError::Timeout) {
+                WorkerError::HandshakeTimeout
+            } else {
+                error
+            };
             return Err(worker.fail(error, &deadline));
         }
         Ok(worker)
     }
     /// Bounded startup metadata; worker declarations grant no authority.
-    pub fn ready_info(&self) -> &ReadyInfo { &self.ready }
+    pub fn ready_info(&self) -> &ReadyInfo {
+        &self.ready
+    }
     /// Direct child PID, for diagnosis (do not reap it externally).
-    pub fn process_id(&self) -> u32 { self.process.id() }
+    pub fn process_id(&self) -> u32 {
+        self.process.id()
+    }
     /// Most recent bounded cleanup result, including deferred reaping.
-    pub fn cleanup_report(&self) -> Option<CleanupReport> { self.cleanup }
+    pub fn cleanup_report(&self) -> Option<CleanupReport> {
+        self.cleanup
+    }
     /// Actual receive/outbound high-water marks, retained after cleanup.
-    pub fn io_stats(&self) -> IoStats { IoStats { queued_bytes: self.frames.high_bytes, queued_messages: self.frames.high_messages, outgoing_bytes: self.outgoing_high } }
+    pub fn io_stats(&self) -> IoStats {
+        IoStats {
+            queued_bytes: self.frames.high_bytes,
+            queued_messages: self.frames.high_messages,
+            outgoing_bytes: self.outgoing_high,
+        }
+    }
 
     /// Send a borrowed payload without cloning its tree. Encoding is bounded
     /// before any write. Sequences start at 1, never wrap and are consumed only
     /// when a write is attempted. Unrelated lines never extend the deadline.
     pub fn send(&mut self, payload: &Value) -> Result<Value, WorkerError> {
-        if self.unavailable { return Err(WorkerError::Unavailable); }
+        if self.unavailable {
+            return Err(WorkerError::Unavailable);
+        }
         let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?;
-        let sequence = self.sequence.checked_add(1).ok_or(WorkerError::SequenceExhausted)?;
+        let sequence = self
+            .sequence
+            .checked_add(1)
+            .ok_or(WorkerError::SequenceExhausted)?;
         let line = match encode(payload, Some(sequence), self.outgoing_limit, deadline.io) {
             Ok(line) => line,
             Err(WorkerError::Timeout) => return Err(self.fail(WorkerError::Timeout, &deadline)),
@@ -127,18 +209,27 @@ impl PythonWorker {
             self.write(&line, &deadline)?;
             loop {
                 let mut value = self.receive(&deadline)?;
-                if value.get("seq").and_then(Value::as_u64) != Some(sequence) { continue; }
+                if value.get("seq").and_then(Value::as_u64) != Some(sequence) {
+                    continue;
+                }
                 match value.get("kind").and_then(Value::as_str) {
                     Some("response") => {
                         deadline.check()?;
-                        return Ok(value.get_mut("payload").map(Value::take).unwrap_or(Value::Null));
-                    },
+                        return Ok(value
+                            .get_mut("payload")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null));
+                    }
                     Some("error") => {
-                        let message = value.get("message").and_then(Value::as_str).unwrap_or("unspecified worker error").to_owned();
+                        let message = value
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("unspecified worker error")
+                            .to_owned();
                         deadline.check()?;
                         return Err(WorkerError::Remote(message));
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
             }
         })();
@@ -152,16 +243,29 @@ impl PythonWorker {
         let mut written = 0;
         while written < bytes.len() {
             deadline.check()?;
-            if self.process.has_exited()? { return Err(WorkerError::WorkerExited { status: "observed exit".into() }); }
+            if self.process.has_exited()? {
+                return Err(WorkerError::WorkerExited {
+                    status: "observed exit".into(),
+                });
+            }
             let before = written;
-            match self.process.write(&bytes[written..bytes.len().min(written + 4096)]) {
+            match self
+                .process
+                .write(&bytes[written..bytes.len().min(written + 4096)])
+            {
                 Ok(0) => return Err(WorkerError::Io(io::ErrorKind::WriteZero.into())),
                 Ok(n) => written += n,
-                Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) => {},
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) => {}
                 Err(e) => return Err(WorkerError::Io(e)),
             }
             let read = self.pump()?;
-            if written == before && !read { pause_until(deadline.io); }
+            if written == before && !read {
+                pause_until(deadline.io);
+            }
         }
         deadline.check()
     }
@@ -169,11 +273,26 @@ impl PythonWorker {
         let mut buffer = [0u8; 1024];
         match self.process.read(&mut buffer) {
             Ok(0) => {
-                if self.process.has_exited()? { Err(WorkerError::WorkerExited { status: "stdout EOF after exit".into() }) }
-                else { Err(WorkerError::StdoutClosed) }
-            },
-            Ok(n) => { self.frames.push(&buffer[..n])?; Ok(true) },
-            Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) => Ok(false),
+                if self.process.has_exited()? {
+                    Err(WorkerError::WorkerExited {
+                        status: "stdout EOF after exit".into(),
+                    })
+                } else {
+                    Err(WorkerError::StdoutClosed)
+                }
+            }
+            Ok(n) => {
+                self.frames.push(&buffer[..n])?;
+                Ok(true)
+            }
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) =>
+            {
+                Ok(false)
+            }
             Err(e) => Err(WorkerError::Io(e)),
         }
     }
@@ -181,13 +300,24 @@ impl PythonWorker {
         loop {
             deadline.check()?;
             if let Some(line) = self.frames.pop() {
-                let value: Value = serde_json::from_slice(&line).map_err(|e| WorkerError::Protocol(format!("invalid worker JSON: {e}")))?;
+                let value: Value = serde_json::from_slice(&line)
+                    .map_err(|e| WorkerError::Protocol(format!("invalid worker JSON: {e}")))?;
                 deadline.check()?;
-                if !value.is_object() { return Err(WorkerError::Protocol("protocol line must be an object".into())); }
+                if !value.is_object() {
+                    return Err(WorkerError::Protocol(
+                        "protocol line must be an object".into(),
+                    ));
+                }
                 return Ok(value);
             }
-            if self.process.has_exited()? { return Err(WorkerError::WorkerExited { status: "observed exit".into() }); }
-            if !self.pump()? { pause_until(deadline.io); }
+            if self.process.has_exited()? {
+                return Err(WorkerError::WorkerExited {
+                    status: "observed exit".into(),
+                });
+            }
+            if !self.pump()? {
+                pause_until(deadline.io);
+            }
         }
     }
     fn finish(&mut self, end: Instant) -> CleanupReport {
@@ -199,17 +329,27 @@ impl PythonWorker {
     }
     fn fail(&mut self, error: WorkerError, deadline: &Deadline) -> WorkerError {
         let report = self.finish(deadline.cleanup_end());
-        if report.state == CleanupState::Reaped && report.signal_error.is_none() { error }
-        else { WorkerError::Cleanup { cause: Box::new(error), report } }
+        if report.state == CleanupState::Reaped && report.signal_error.is_none() {
+            error
+        } else {
+            WorkerError::Cleanup {
+                cause: Box::new(error),
+                report,
+            }
+        }
     }
     /// Available running process status, not a heartbeat or handler liveness proof.
     pub fn is_running(&mut self) -> bool {
-        if self.unavailable { return false; }
+        if self.unavailable {
+            return false;
+        }
         matches!(self.process.has_exited(), Ok(false))
     }
     /// Failed sessions remain Unavailable until replaced, even if reaping is deferred.
     pub fn health(&mut self) -> HealthState {
-        if self.unavailable { return HealthState::Unavailable; }
+        if self.unavailable {
+            return HealthState::Unavailable;
+        }
         match self.process.has_exited() {
             Ok(false) => HealthState::Healthy,
             Ok(true) => HealthState::Unavailable,
@@ -219,12 +359,17 @@ impl PythonWorker {
     /// Best-effort graceful shutdown, group termination and bounded reaping,
     /// within the configured total. Repeated calls reuse the cleanup report.
     pub fn shutdown(&mut self) -> CleanupReport {
-        if let Some(report) = self.cleanup { return report; }
-        let deadline = Deadline::new(self.timeouts.shutdown(), self.timeouts.cleanup()).expect("validated timeouts");
+        if let Some(report) = self.cleanup {
+            return report;
+        }
+        let deadline = Deadline::new(self.timeouts.shutdown(), self.timeouts.cleanup())
+            .expect("validated timeouts");
         let _ = self.write(b"{\"kind\":\"shutdown\"}\n", &deadline);
         self.process.close_stdin();
         while deadline.check().is_ok() {
-            if !matches!(self.process.has_exited(), Ok(false)) { break; }
+            if !matches!(self.process.has_exited(), Ok(false)) {
+                break;
+            }
             pause_until(deadline.io);
         }
         self.finish(deadline.cleanup_end())
@@ -233,7 +378,9 @@ impl PythonWorker {
 impl Drop for PythonWorker {
     fn drop(&mut self) {
         if self.cleanup.is_none() {
-            let end = Instant::now().checked_add(self.timeouts.cleanup()).unwrap_or_else(Instant::now);
+            let end = Instant::now()
+                .checked_add(self.timeouts.cleanup())
+                .unwrap_or_else(Instant::now);
             self.finish(end);
         }
     }

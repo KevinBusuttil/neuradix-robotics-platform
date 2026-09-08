@@ -77,7 +77,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         "  restarted worker (restarts used: {})",
         supervisor.restarts_used()
     );
-    let out = supervisor.worker().unwrap().send(&json!({ "depth": 9.0 }))?;
+    let out = supervisor
+        .worker()
+        .unwrap()
+        .send(&json!({ "depth": 9.0 }))?;
     println!("  depth=9.0m -> belowThreshold={}", out["belowThreshold"]);
 
     if let Some(cleanup) = supervisor.shutdown() {

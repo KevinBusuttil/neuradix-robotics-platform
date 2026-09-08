@@ -25,15 +25,15 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub mod error;
 pub mod config;
+pub mod error;
 mod process;
 mod protocol;
 pub mod supervisor;
 pub mod worker;
 
-pub use error::WorkerError;
-pub use supervisor::WorkerSupervisor;
 pub use config::{IoLimits, Timeouts, WorkerConfig};
+pub use error::WorkerError;
 pub use process::{CleanupReport, CleanupState};
+pub use supervisor::WorkerSupervisor;
 pub use worker::{IoStats, PythonWorker, ReadyInfo};

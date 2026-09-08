@@ -57,7 +57,10 @@ fn python_crash_is_isolated_and_recoverable() {
         .send(&json!({ "crash": true }))
         .expect_err("worker should die");
     assert!(
-        matches!(err, WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed),
+        matches!(
+            err,
+            WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed
+        ),
         "got {err:?}"
     );
     assert_eq!(worker.health(), HealthState::Unavailable);
@@ -108,7 +111,9 @@ fn a_slow_request_times_out_without_killing_the_supervisor() {
         eprintln!("skipping: python3 not available");
         return;
     }
-    let config = base_config().with_request_timeout(Duration::from_millis(200)).unwrap();
+    let config = base_config()
+        .with_request_timeout(Duration::from_millis(200))
+        .unwrap();
     let mut worker = PythonWorker::launch(&config).expect("launch");
 
     let err = worker

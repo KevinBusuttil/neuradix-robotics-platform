@@ -29,7 +29,9 @@ pub struct CleanupReport {
 
 pub(crate) fn pause_until(deadline: Instant) {
     let remaining = deadline.saturating_duration_since(Instant::now());
-    if !remaining.is_zero() { std::thread::sleep(remaining.min(Duration::from_millis(1))); }
+    if !remaining.is_zero() {
+        std::thread::sleep(remaining.min(Duration::from_millis(1)));
+    }
 }
 
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
@@ -61,32 +63,56 @@ mod linux {
     static REAPER: LazyLock<io::Result<Reaper>> = LazyLock::new(|| {
         let (release, available) = mpsc::sync_channel(PROCESS_SLOTS);
         let (pending, rx) = mpsc::sync_channel::<Child>(PROCESS_SLOTS);
-        for _ in 0..PROCESS_SLOTS { release.try_send(()).expect("empty admission queue"); }
+        for _ in 0..PROCESS_SLOTS {
+            release.try_send(()).expect("empty admission queue");
+        }
         let free = release.clone();
-        std::thread::Builder::new().name("neuradix-child-reaper".into()).spawn(move || {
-            let mut children = Vec::<Child>::with_capacity(PROCESS_SLOTS);
-            loop {
-                match rx.recv_timeout(Duration::from_millis(10)) {
-                    Ok(child) => children.push(child),
-                    Err(mpsc::RecvTimeoutError::Timeout) => {},
-                    Err(mpsc::RecvTimeoutError::Disconnected) => return,
+        std::thread::Builder::new()
+            .name("neuradix-child-reaper".into())
+            .spawn(move || {
+                let mut children = Vec::<Child>::with_capacity(PROCESS_SLOTS);
+                loop {
+                    match rx.recv_timeout(Duration::from_millis(10)) {
+                        Ok(child) => children.push(child),
+                        Err(mpsc::RecvTimeoutError::Timeout) => {}
+                        Err(mpsc::RecvTimeoutError::Disconnected) => return,
+                    }
+                    children.retain_mut(|child| match child.try_wait() {
+                        Ok(Some(_)) => {
+                            let _ = free.try_send(());
+                            false
+                        }
+                        // External reaping violates ownership, but do not leak a slot.
+                        Err(e) if e.raw_os_error() == Some(Errno::ECHILD as i32) => {
+                            let _ = free.try_send(());
+                            false
+                        }
+                        _ => true,
+                    });
                 }
-                children.retain_mut(|child| match child.try_wait() {
-                    Ok(Some(_)) => { let _ = free.try_send(()); false },
-                    // External reaping violates ownership, but do not leak a slot.
-                    Err(e) if e.raw_os_error() == Some(Errno::ECHILD as i32) => { let _ = free.try_send(()); false },
-                    _ => true,
-                });
-            }
-        })?;
-        Ok(Reaper { available: Mutex::new(available), release, pending })
+            })?;
+        Ok(Reaper {
+            available: Mutex::new(available),
+            release,
+            pending,
+        })
     });
 
-    struct Permit { active: bool }
+    struct Permit {
+        active: bool,
+    }
     impl Permit {
         fn acquire() -> Result<Self, WorkerError> {
-            let reaper = REAPER.as_ref().map_err(|e| WorkerError::Io(io::Error::new(e.kind(), "cannot start bounded child reaper")))?;
-            let queue = reaper.available.try_lock().map_err(|_| WorkerError::ProcessCapacity)?;
+            let reaper = REAPER.as_ref().map_err(|e| {
+                WorkerError::Io(io::Error::new(
+                    e.kind(),
+                    "cannot start bounded child reaper",
+                ))
+            })?;
+            let queue = reaper
+                .available
+                .try_lock()
+                .map_err(|_| WorkerError::ProcessCapacity)?;
             queue.try_recv().map_err(|_| WorkerError::ProcessCapacity)?;
             Ok(Self { active: true })
         }
@@ -94,7 +120,12 @@ mod linux {
             // The token remains reserved until the reaper observes actual exit.
             // With 32 shared tokens a 32-entry channel cannot overflow normally.
             self.active = false;
-            match REAPER.as_ref().expect("admitted reaper").pending.try_send(child) {
+            match REAPER
+                .as_ref()
+                .expect("admitted reaper")
+                .pending
+                .try_send(child)
+            {
                 Ok(()) => CleanupState::Deferred,
                 Err(_) => CleanupState::ReaperUnavailable,
             }
@@ -102,7 +133,13 @@ mod linux {
     }
     impl Drop for Permit {
         fn drop(&mut self) {
-            if self.active { let _ = REAPER.as_ref().expect("admitted reaper").release.try_send(()); }
+            if self.active {
+                let _ = REAPER
+                    .as_ref()
+                    .expect("admitted reaper")
+                    .release
+                    .try_send(());
+            }
         }
     }
 
@@ -124,67 +161,128 @@ mod linux {
     impl Process {
         pub fn spawn(command: &mut Command, cleanup_end: Instant) -> Result<Self, WorkerError> {
             let permit = Permit::acquire()?;
-            let mut child = command.process_group(0).spawn().map_err(WorkerError::Launch)?;
+            let mut child = command
+                .process_group(0)
+                .spawn()
+                .map_err(WorkerError::Launch)?;
             let pid = Pid::from_raw(child.id() as i32);
             let stdin = child.stdin.take();
             let stdout = child.stdout.take();
-            let mut process = Self { child: Some(child), stdin, stdout, pid, permit: Some(permit), report: None, owns_child: true };
+            let mut process = Self {
+                child: Some(child),
+                stdin,
+                stdout,
+                pid,
+                permit: Some(permit),
+                report: None,
+                owns_child: true,
+            };
             let setup = (|| {
-                nonblocking(process.stdin.as_ref().ok_or_else(|| io::Error::other("missing stdin"))?)?;
-                nonblocking(process.stdout.as_ref().ok_or_else(|| io::Error::other("missing stdout"))?)
+                nonblocking(
+                    process
+                        .stdin
+                        .as_ref()
+                        .ok_or_else(|| io::Error::other("missing stdin"))?,
+                )?;
+                nonblocking(
+                    process
+                        .stdout
+                        .as_ref()
+                        .ok_or_else(|| io::Error::other("missing stdout"))?,
+                )
             })();
             if let Err(error) = setup {
                 let cleanup = process.finish(cleanup_end);
-                return Err(WorkerError::Cleanup { cause: Box::new(WorkerError::Io(error)), report: cleanup });
+                return Err(WorkerError::Cleanup {
+                    cause: Box::new(WorkerError::Io(error)),
+                    report: cleanup,
+                });
             }
             Ok(process)
         }
-        pub fn id(&self) -> u32 { self.pid.as_raw() as u32 }
+        pub fn id(&self) -> u32 {
+            self.pid.as_raw() as u32
+        }
         pub fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-            self.stdout.as_mut().ok_or_else(|| io::Error::other("closed stdout"))?.read(bytes)
+            self.stdout
+                .as_mut()
+                .ok_or_else(|| io::Error::other("closed stdout"))?
+                .read(bytes)
         }
         pub fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.stdin.as_mut().ok_or_else(|| io::Error::other("closed stdin"))?.write(bytes)
+            self.stdin
+                .as_mut()
+                .ok_or_else(|| io::Error::other("closed stdin"))?
+                .write(bytes)
         }
-        pub fn close_stdin(&mut self) { self.stdin.take(); }
+        pub fn close_stdin(&mut self) {
+            self.stdin.take();
+        }
         pub fn has_exited(&mut self) -> Result<bool, WorkerError> {
-            if self.report.is_some() { return Ok(true); }
+            if self.report.is_some() {
+                return Ok(true);
+            }
             // Keep the leader waitable until killpg has run: reaping it earlier
             // would let its PID/PGID be reused before group cleanup.
-            match waitid(Id::Pid(self.pid), WaitPidFlag::WEXITED | WaitPidFlag::WNOHANG | WaitPidFlag::WNOWAIT) {
+            match waitid(
+                Id::Pid(self.pid),
+                WaitPidFlag::WEXITED | WaitPidFlag::WNOHANG | WaitPidFlag::WNOWAIT,
+            ) {
                 Ok(WaitStatus::StillAlive) => Ok(false),
                 Ok(_) => Ok(true),
                 Err(Errno::EINTR) => Ok(false),
-                Err(Errno::ECHILD) => { self.owns_child = false; Err(WorkerError::ProcessOwnershipLost) },
+                Err(Errno::ECHILD) => {
+                    self.owns_child = false;
+                    Err(WorkerError::ProcessOwnershipLost)
+                }
                 Err(error) => Err(WorkerError::Io(error.into())),
             }
         }
         pub fn finish(&mut self, deadline: Instant) -> CleanupReport {
-            if let Some(report) = self.report { return report; }
-            self.stdin.take(); self.stdout.take();
+            if let Some(report) = self.report {
+                return report;
+            }
+            self.stdin.take();
+            self.stdout.take();
             let _ = self.has_exited();
             let mut signal_error = None;
             let state = if !self.owns_child {
-                self.child.take(); self.permit.take();
+                self.child.take();
+                self.permit.take();
                 CleanupState::OwnershipLost
             } else {
                 if let Err(error) = killpg(self.pid, Signal::SIGKILL) {
-                    if error != Errno::ESRCH { signal_error = Some(error as i32); }
+                    if error != Errno::ESRCH {
+                        signal_error = Some(error as i32);
+                    }
                 }
                 let mut child = self.child.take().expect("owned child");
                 let reaped = loop {
                     match child.try_wait() {
                         Ok(Some(_)) => break true,
-                        Err(error) if error.raw_os_error() == Some(Errno::ECHILD as i32) => break true,
-                        _ => {},
+                        Err(error) if error.raw_os_error() == Some(Errno::ECHILD as i32) => {
+                            break true;
+                        }
+                        _ => {}
                     }
-                    if Instant::now() >= deadline { break false; }
+                    if Instant::now() >= deadline {
+                        break false;
+                    }
                     pause_until(deadline);
                 };
                 let permit = self.permit.take().expect("owned admission");
-                if reaped { drop(permit); CleanupState::Reaped } else { permit.defer(child) }
+                if reaped {
+                    drop(permit);
+                    CleanupState::Reaped
+                } else {
+                    permit.defer(child)
+                }
             };
-            let report = CleanupReport { pid: self.id(), state, signal_error };
+            let report = CleanupReport {
+                pid: self.id(),
+                state,
+                signal_error,
+            };
             self.report = Some(report);
             report
         }
@@ -193,7 +291,9 @@ mod linux {
         fn drop(&mut self) {
             // Emergency/unwind path performs no timed wait and never sends a
             // second signal after an earlier cleanup (avoids PID reuse).
-            if self.report.is_none() { self.finish(Instant::now()); }
+            if self.report.is_none() {
+                self.finish(Instant::now());
+            }
         }
     }
 }
@@ -203,18 +303,34 @@ pub(crate) use linux::Process;
 
 #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
 mod unsupported {
-    use std::{io, process::Command, time::Instant};
     use super::{CleanupReport, CleanupState};
     use crate::WorkerError;
+    use std::{io, process::Command, time::Instant};
     pub(crate) struct Process;
     impl Process {
-        pub fn spawn(_: &mut Command, _: Instant) -> Result<Self, WorkerError> { Err(WorkerError::UnsupportedPlatform) }
-        pub fn id(&self) -> u32 { 0 }
-        pub fn read(&mut self, _: &mut [u8]) -> io::Result<usize> { Err(io::ErrorKind::Unsupported.into()) }
-        pub fn write(&mut self, _: &[u8]) -> io::Result<usize> { Err(io::ErrorKind::Unsupported.into()) }
+        pub fn spawn(_: &mut Command, _: Instant) -> Result<Self, WorkerError> {
+            Err(WorkerError::UnsupportedPlatform)
+        }
+        pub fn id(&self) -> u32 {
+            0
+        }
+        pub fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Err(io::ErrorKind::Unsupported.into())
+        }
+        pub fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(io::ErrorKind::Unsupported.into())
+        }
         pub fn close_stdin(&mut self) {}
-        pub fn has_exited(&mut self) -> Result<bool, WorkerError> { Err(WorkerError::UnsupportedPlatform) }
-        pub fn finish(&mut self, _: Instant) -> CleanupReport { CleanupReport { pid: 0, state: CleanupState::OwnershipLost, signal_error: None } }
+        pub fn has_exited(&mut self) -> Result<bool, WorkerError> {
+            Err(WorkerError::UnsupportedPlatform)
+        }
+        pub fn finish(&mut self, _: Instant) -> CleanupReport {
+            CleanupReport {
+                pid: 0,
+                state: CleanupState::OwnershipLost,
+                signal_error: None,
+            }
+        }
     }
 }
 #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
