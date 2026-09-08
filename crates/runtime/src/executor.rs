@@ -22,7 +22,8 @@ use crate::error::ComponentError;
 /// Context passed to a [`Processor`] on each input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TickContext {
-    /// The current time, as positioned by the executor for this input.
+    /// Runtime-owned evaluation time, as positioned by the executor. Keep it
+    /// independent of untrusted source timestamps carried inside the input.
     pub now: Timestamp,
     /// The zero-based index of this input within the run.
     pub sequence: u64,
@@ -52,6 +53,8 @@ pub trait Processor {
 /// processor is invoked; all outputs are collected in order. The clock domain of
 /// every input timestamp must match `clock`'s domain, otherwise a typed error is
 /// returned before any state changes for that input.
+/// The outer timestamps are the trusted execution/replay schedule; a source
+/// timestamp inside `P::Input` is separate metadata and must not set live time.
 pub fn run_lockstep<C, P>(
     clock: &C,
     processor: &mut P,

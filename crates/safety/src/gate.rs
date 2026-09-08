@@ -88,12 +88,10 @@ impl SafetyGate {
         if !request.value.is_finite() {
             return self.reject(request, now, RejectReason::NonFiniteCommand, Vec::new());
         }
-        if let Err(denial) = self.leases.authorize(
-            &request.holder,
-            &request.capability,
-            now,
-            request.value,
-        ) {
+        if let Err(denial) =
+            self.leases
+                .authorize(&request.holder, &request.capability, now, request.value)
+        {
             return self.reject(request, now, RejectReason::Authority(denial), Vec::new());
         }
 

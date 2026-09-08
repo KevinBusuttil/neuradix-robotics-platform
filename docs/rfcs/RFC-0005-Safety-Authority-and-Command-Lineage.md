@@ -18,16 +18,16 @@ No ordinary component may directly and unconditionally drive a safety-relevant
 actuator (§16.1). Actuator requests must pass an authority and constraint path,
 and every actuation must be explainable back to its inputs.
 
-## Implemented (increment 4)
+## Implemented (increment 4, updated by A04.1)
 
 The `neuradix-safety` crate provides:
 
 - **`AuthorityLease` / `LeaseTable`**: holder identity, capability, priority,
-  `issued`/`expires` (checked against the command's injected timestamp) and an
+  `issued`/`expires` (checked against runtime-owned evaluation time) and an
   optional permitted `CommandEnvelope`. `authorize` returns the winning lease or
   a typed `AuthorityDenial` (`NoLease` / `NotYetValid` / `Expired` /
-  `OutOfEnvelope`).
-- **`Constraint`**: `Range { min, max }` and `SlewRate { rate_per_sec }`, each
+  `OutOfEnvelope` / `ClockDomainMismatch` / `NonFiniteCommand`).
+- **`Constraint`**: validated private range and units-per-second slew limits, each
   carrying a stable rule id. A rate limit is a no-op on the first command (no
   reference value), so hard limits always govern — a constraint is never
   silently undone.
@@ -41,6 +41,20 @@ The `neuradix-safety` crate provides:
   outcome → applied value. Recorded on the `safety/command-lineage` channel and
   read back by `neuradix explain command <recording> --at <nanos>`, which prints
   the causal chain for the command nearest the requested time.
+
+## A04.1 trusted evaluation and configuration
+
+`SafetyGate::new` is fallible; safe outputs must be finite and satisfy every hard
+range. `evaluate(request, now)` takes runtime-owned evaluation time, and the
+`Processor` implementation passes `TickContext.now`. `CommandRequest.at` remains
+source metadata. Clock-domain changes, time regression and elapsed-time overflow
+latch local fallback until gate reconstruction. Non-finite commands and invalid
+constraint/final outputs produce typed rejections. Configuration cannot bypass
+validated constructors through public fields/variants.
+
+See [A04.1 policy, API migration and evidence](../implementation/WP-A04.1-Trusted-Evaluation.md).
+Freshness/epoch/sequence/deadline and host/MCU slew alignment remain future A04
+work. The RFC remains partially implemented; Gate A remains open.
 
 ## Scope (future)
 

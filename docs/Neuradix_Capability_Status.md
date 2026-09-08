@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated 8 September 2026 after code integration.** This register is the current
+**Updated for the WP-A04.1 implementation branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -14,6 +14,14 @@ and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
 | [Codec CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34248323298) | Host formatting, Clippy, 191 workspace tests/doctests and docs passed; the two AVR tests passed in their separate job. |
 | [Integration CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34250744255) | Host and AVR jobs passed on PR #7's combined code before integration into main. |
 | Historical review | Main `e39da5e` and development `c8aa467` remain the pinned pre-fix assessment in [Review and Strategy](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md); they are not the current main/development split. |
+
+## WP-A04.1 branch increment (pending integration)
+
+[A04.1 implementation evidence](implementation/WP-A04.1-Trusted-Evaluation.md)
+records trusted host evaluation, validated host/embedded configuration, local
+fallback and final-output invariants. The branch starts from main `e95a0ac`;
+it does not claim these changes are already integrated. The following inventory
+retains the integrated baseline and records this increment separately.
 
 ## Capability inventory
 
@@ -57,7 +65,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 |---|---|---|---|
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
-| Host authority/finite values | Sender evaluation time and insufficient numeric/configuration validation remain | A04 | Open |
+| Host authority/finite values | A04.1 branch separates trusted evaluation time, validates private configuration and safe/final outputs, with local fallback | A04 | Trusted-time/numeric portion implemented in branch; source freshness, sequence/epoch/deadline, slew alignment and rig evidence remain open |
 | Worker bounds | Blocking write/wait and unbounded line/channel can escape the deadline | A05 | Open |
 | MCAP subset | Private encodings/metadata and unsupported chunks can fail or omit external data | A06 | Open |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |

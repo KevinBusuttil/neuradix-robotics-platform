@@ -18,7 +18,8 @@ fn gate() -> CommandGate {
         AuthorityLease::until(t(10_000_000_000)),
         Watchdog::new(Duration::from_millis(100)),
         0.0,
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 #[test]
@@ -125,7 +126,10 @@ fn invalid_safe_outputs_cannot_create_a_gate() {
             Watchdog::new(Duration::from_millis(100)),
             value,
         );
-        assert!(matches!(result, Err(neuradix_embedded_core::GateConfigError::InvalidSafeOutput)));
+        assert!(matches!(
+            result,
+            Err(neuradix_embedded_core::GateConfigError::InvalidSafeOutput)
+        ));
     }
 }
 
@@ -170,7 +174,10 @@ fn all_non_finite_limits_and_negative_steps_are_rejected() {
     }
     assert!(Limits::new(-1.0, 1.0, -0.1).is_none());
     let limits = Limits::new(1.0, 1.0, 0.0).unwrap();
-    assert_eq!((limits.min(), limits.max(), limits.max_step()), (1.0, 1.0, 0.0));
+    assert_eq!(
+        (limits.min(), limits.max(), limits.max_step()),
+        (1.0, 1.0, 0.0)
+    );
 }
 
 #[test]
@@ -181,7 +188,8 @@ fn all_non_finite_commands_use_the_configured_safe_output() {
             AuthorityLease::until(t(1_000)),
             Watchdog::new(Duration::from_millis(100)),
             -0.25,
-        ).unwrap();
+        )
+        .unwrap();
         let d = g.evaluate(Some(bad), t(0));
         assert_eq!(d.outcome, Outcome::SafeState(SafeReason::BadCommand));
         assert_eq!(d.applied, -0.25);
@@ -192,7 +200,10 @@ fn all_non_finite_commands_use_the_configured_safe_output() {
 fn evaluation_clock_faults_latch_before_watchdog_feed() {
     for (bad_time, reason) in [
         (t(9), SafeReason::EvaluationTimeRegression),
-        (Timestamp::new(ClockDomain::Simulation, 10), SafeReason::EvaluationClockMismatch),
+        (
+            Timestamp::new(ClockDomain::Simulation, 10),
+            SafeReason::EvaluationClockMismatch,
+        ),
     ] {
         let mut g = gate();
         g.evaluate(Some(0.5), t(10));
@@ -207,10 +218,14 @@ fn evaluation_clock_faults_latch_before_watchdog_feed() {
 #[test]
 fn expired_embedded_lease_cannot_be_resurrected_by_regression() {
     let mut g = gate();
-    assert_eq!(g.evaluate(Some(0.8), t(10_000_000_000)).outcome,
-        Outcome::SafeState(SafeReason::LeaseExpired));
-    assert_eq!(g.evaluate(Some(0.8), t(1)).outcome,
-        Outcome::SafeState(SafeReason::EvaluationTimeRegression));
+    assert_eq!(
+        g.evaluate(Some(0.8), t(10_000_000_000)).outcome,
+        Outcome::SafeState(SafeReason::LeaseExpired)
+    );
+    assert_eq!(
+        g.evaluate(Some(0.8), t(1)).outcome,
+        Outcome::SafeState(SafeReason::EvaluationTimeRegression)
+    );
     assert_eq!(g.last_applied(), Some(0.0));
 }
 
@@ -221,14 +236,18 @@ fn embedded_overflow_falls_back_and_normal_outputs_obey_hard_bounds() {
         AuthorityLease::until(t(1_000)),
         Watchdog::new(Duration::from_millis(100)),
         0.0,
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(g.evaluate(Some(-f32::MAX), t(0)).applied, -f32::MAX);
     let d = g.evaluate(Some(f32::MAX), t(1)); // finite inputs, overflowing subtraction
     assert_eq!(d.outcome, Outcome::SafeState(SafeReason::InvalidOutput));
     assert_eq!(d.applied, 0.0);
 
     let mut g = gate();
-    for (i, value) in [f32::MAX, -f32::MAX, 0.25, -0.25, 1.0].into_iter().enumerate() {
+    for (i, value) in [f32::MAX, -f32::MAX, 0.25, -0.25, 1.0]
+        .into_iter()
+        .enumerate()
+    {
         let d = g.evaluate(Some(value), t(i as i128));
         assert!(d.applied.is_finite());
         assert!((-1.0..=1.0).contains(&d.applied));

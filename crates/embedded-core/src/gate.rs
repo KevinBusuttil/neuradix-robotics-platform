@@ -172,13 +172,13 @@ impl CommandGate {
     /// domain change or regression latches a safe state before watchdog feeding.
     /// Equal times are allowed; slew remains per evaluation in this increment.
     pub fn evaluate(&mut self, request: Option<f32>, now: Timestamp) -> GateDecision {
-        if self.time_fault.is_none() {
-            if let Some(previous) = self.last_evaluated {
-                if now.domain() != previous.domain() {
-                    self.time_fault = Some(SafeReason::EvaluationClockMismatch);
-                } else if now.as_nanos() < previous.as_nanos() {
-                    self.time_fault = Some(SafeReason::EvaluationTimeRegression);
-                }
+        if self.time_fault.is_none()
+            && let Some(previous) = self.last_evaluated
+        {
+            if now.domain() != previous.domain() {
+                self.time_fault = Some(SafeReason::EvaluationClockMismatch);
+            } else if now.as_nanos() < previous.as_nanos() {
+                self.time_fault = Some(SafeReason::EvaluationTimeRegression);
             }
         }
         if let Some(reason) = self.time_fault {

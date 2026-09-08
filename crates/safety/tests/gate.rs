@@ -119,10 +119,7 @@ fn expired_lease_is_rejected() {
 
 #[test]
 fn out_of_envelope_is_rejected() {
-    let mut gate = gate_with(
-        vec![],
-        Some(CommandEnvelope::new(-5.0, 5.0).unwrap()),
-    );
+    let mut gate = gate_with(vec![], Some(CommandEnvelope::new(-5.0, 5.0).unwrap()));
     let d = gate.evaluate(request(6.0, 10), ts(10));
     assert_eq!(
         d.outcome,
@@ -165,7 +162,10 @@ fn decisions_replay_identically_through_the_executor() {
 fn source_time_inside_expired_lease_cannot_authorize_at_evaluation_time() {
     let mut gate = gate_with(vec![], None);
     let d = gate.evaluate(request(0.5, 500_000_000), ts(1_000_000_000));
-    assert_eq!(d.outcome, Outcome::Rejected(RejectReason::Authority(AuthorityDenial::Expired)));
+    assert_eq!(
+        d.outcome,
+        Outcome::Rejected(RejectReason::Authority(AuthorityDenial::Expired))
+    );
     assert_eq!(d.applied, 0.0);
     assert_eq!(d.at, ts(1_000_000_000));
     assert_eq!(d.request.at, ts(500_000_000));
@@ -175,9 +175,15 @@ fn source_time_inside_expired_lease_cannot_authorize_at_evaluation_time() {
 fn processor_uses_tick_context_for_authority_and_decision_time() {
     use neuradix_runtime::{Processor, TickContext};
     let mut gate = gate_with(vec![], None);
-    let ctx = TickContext { now: ts(2_000_000_000), sequence: 0 };
+    let ctx = TickContext {
+        now: ts(2_000_000_000),
+        sequence: 0,
+    };
     let decisions = gate.process(&ctx, request(0.5, 0)).unwrap();
-    assert_eq!(decisions[0].outcome, Outcome::Rejected(RejectReason::Authority(AuthorityDenial::Expired)));
+    assert_eq!(
+        decisions[0].outcome,
+        Outcome::Rejected(RejectReason::Authority(AuthorityDenial::Expired))
+    );
     assert_eq!(decisions[0].at, ctx.now);
     assert_eq!(decisions[0].request.at, ts(0));
 }
@@ -187,8 +193,15 @@ fn slew_uses_evaluation_elapsed_time_and_equal_time_holds_output() {
     let mut gate = gate_with(vec![Constraint::slew_rate("slew", 2.0).unwrap()], None);
     assert_eq!(gate.evaluate(request(0.0, 900_000_000), ts(0)).applied, 0.0);
     // Source time regresses; evaluation time advances by 0.25 s.
-    assert_eq!(gate.evaluate(request(10.0, 0), ts(250_000_000)).applied, 0.5);
-    assert_eq!(gate.evaluate(request(-10.0, i128::MAX), ts(250_000_000)).applied, 0.5);
+    assert_eq!(
+        gate.evaluate(request(10.0, 0), ts(250_000_000)).applied,
+        0.5
+    );
+    assert_eq!(
+        gate.evaluate(request(-10.0, i128::MAX), ts(250_000_000))
+            .applied,
+        0.5
+    );
 }
 
 #[test]
@@ -203,7 +216,12 @@ fn source_clock_is_diagnostic_but_lease_clock_must_match_evaluation() {
 
     let mut gate = gate_with(vec![], None);
     let d = gate.evaluate(request(0.5, 0), Timestamp::new(ClockDomain::Monotonic, 10));
-    assert_eq!(d.outcome, Outcome::Rejected(RejectReason::Authority(AuthorityDenial::ClockDomainMismatch)));
+    assert_eq!(
+        d.outcome,
+        Outcome::Rejected(RejectReason::Authority(
+            AuthorityDenial::ClockDomainMismatch
+        ))
+    );
     assert_eq!(d.applied, 0.0);
 }
 
@@ -211,10 +229,16 @@ fn source_clock_is_diagnostic_but_lease_clock_must_match_evaluation() {
 fn evaluation_clock_faults_latch_even_after_time_appears_valid() {
     for (bad_time, reason) in [
         (ts(9), RejectReason::EvaluationTimeRegression),
-        (Timestamp::new(ClockDomain::Utc, 10), RejectReason::EvaluationClockMismatch),
+        (
+            Timestamp::new(ClockDomain::Utc, 10),
+            RejectReason::EvaluationClockMismatch,
+        ),
     ] {
         let mut gate = gate_with(vec![], None);
-        assert_eq!(gate.evaluate(request(0.5, 0), ts(10)).outcome, Outcome::Accepted);
+        assert_eq!(
+            gate.evaluate(request(0.5, 0), ts(10)).outcome,
+            Outcome::Accepted
+        );
         for now in [bad_time, ts(11)] {
             let d = gate.evaluate(request(0.5, 0), now);
             assert_eq!(d.outcome, Outcome::Rejected(reason));
@@ -228,9 +252,15 @@ fn evaluation_clock_faults_latch_even_after_time_appears_valid() {
 #[test]
 fn regression_after_expiry_cannot_resurrect_the_lease() {
     let mut gate = gate_with(vec![], None);
-    assert!(gate.evaluate(request(0.5, 0), ts(2_000_000_000)).is_rejected());
+    assert!(
+        gate.evaluate(request(0.5, 0), ts(2_000_000_000))
+            .is_rejected()
+    );
     let d = gate.evaluate(request(0.5, 0), ts(500_000_000));
-    assert_eq!(d.outcome, Outcome::Rejected(RejectReason::EvaluationTimeRegression));
+    assert_eq!(
+        d.outcome,
+        Outcome::Rejected(RejectReason::EvaluationTimeRegression)
+    );
     assert_eq!(d.applied, 0.0);
 }
 
@@ -242,9 +272,15 @@ fn elapsed_time_overflow_latches_a_safe_decision() {
     wide_lease.expires = ts(i128::MAX);
     leases.grant(wide_lease);
     let mut gate = SafetyGate::new(leases, vec![], 0.0).unwrap();
-    assert_eq!(gate.evaluate(request(0.5, 0), ts(i128::MIN)).outcome, Outcome::Accepted);
+    assert_eq!(
+        gate.evaluate(request(0.5, 0), ts(i128::MIN)).outcome,
+        Outcome::Accepted
+    );
     let d = gate.evaluate(request(0.5, 0), ts(i128::MAX - 1));
-    assert_eq!(d.outcome, Outcome::Rejected(RejectReason::EvaluationTimeOverflow));
+    assert_eq!(
+        d.outcome,
+        Outcome::Rejected(RejectReason::EvaluationTimeOverflow)
+    );
     assert_eq!(d.applied, 0.0);
 }
 
@@ -265,23 +301,38 @@ fn invalid_numeric_configuration_is_rejected() {
     assert!(Constraint::range("point", 1.0, 1.0).is_ok());
     assert!(Constraint::slew_rate("hold", 0.0).is_ok());
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.1, 1.1] {
-        assert!(matches!(SafetyGate::new(
-            LeaseTable::new(), vec![Constraint::range("range", -1.0, 1.0).unwrap()], bad,
-        ), Err(SafetyError::InvalidSafeOutput)));
+        assert!(matches!(
+            SafetyGate::new(
+                LeaseTable::new(),
+                vec![Constraint::range("range", -1.0, 1.0).unwrap()],
+                bad,
+            ),
+            Err(SafetyError::InvalidSafeOutput)
+        ));
     }
-    assert!(SafetyGate::new(LeaseTable::new(), vec![
-        Constraint::range("left", -2.0, -1.0).unwrap(),
-        Constraint::range("right", 1.0, 2.0).unwrap(),
-    ], 0.0).is_err());
+    assert!(
+        SafetyGate::new(
+            LeaseTable::new(),
+            vec![
+                Constraint::range("left", -2.0, -1.0).unwrap(),
+                Constraint::range("right", 1.0, 2.0).unwrap(),
+            ],
+            0.0
+        )
+        .is_err()
+    );
 }
 
 #[test]
 fn non_finite_commands_fall_back_locally_and_recovery_slews_from_safe() {
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-        let mut gate = gate_with(vec![
-            Constraint::range("range", -1.0, 1.0).unwrap(),
-            Constraint::slew_rate("slew", 2.0).unwrap(),
-        ], None);
+        let mut gate = gate_with(
+            vec![
+                Constraint::range("range", -1.0, 1.0).unwrap(),
+                Constraint::slew_rate("slew", 2.0).unwrap(),
+            ],
+            None,
+        );
         assert_eq!(gate.evaluate(request(0.8, 0), ts(0)).applied, 0.8);
         let d = gate.evaluate(request(bad, 0), ts(100_000_000));
         assert_eq!(d.outcome, Outcome::Rejected(RejectReason::NonFiniteCommand));
@@ -300,9 +351,14 @@ fn constraint_order_and_extreme_finite_values_preserve_all_hard_bounds() {
             Constraint::slew_rate("slew", 2.0).unwrap(),
             Constraint::range("narrow", -0.5, 0.5).unwrap(),
         ];
-        if reverse { constraints.reverse(); }
+        if reverse {
+            constraints.reverse();
+        }
         let mut gate = gate_with(constraints, None);
-        for (i, value) in [f64::MAX, -f64::MAX, 0.25, -0.25, 0.5].into_iter().enumerate() {
+        for (i, value) in [f64::MAX, -f64::MAX, 0.25, -0.25, 0.5]
+            .into_iter()
+            .enumerate()
+        {
             let d = gate.evaluate(request(value, 0), ts(i as i128 * 100_000_000));
             assert!(d.applied.is_finite());
             assert!((-0.5..=0.5).contains(&d.applied));
@@ -314,18 +370,23 @@ fn constraint_order_and_extreme_finite_values_preserve_all_hard_bounds() {
 #[test]
 fn overflowing_slew_arithmetic_rejects_to_valid_output() {
     for (rate, first, second, elapsed) in [
-        (f64::MAX, 0.0, 1.0, 3_000_000_000), // rate * dt overflow
-        (f64::MAX, f64::MAX, 0.0, 500_000_000), // previous + delta overflow
+        (f64::MAX, 0.0, 1.0, 3_000_000_000),     // rate * dt overflow
+        (f64::MAX, f64::MAX, 0.0, 500_000_000),  // previous + delta overflow
         (f64::MAX, -f64::MAX, 0.0, 500_000_000), // previous - delta overflow
     ] {
         let mut leases = LeaseTable::new();
         let mut long_lease = lease(None);
         long_lease.expires = ts(10_000_000_000);
         leases.grant(long_lease);
-        let mut gate = SafetyGate::new(leases, vec![
-            Constraint::range("range", -f64::MAX, f64::MAX).unwrap(),
-            Constraint::slew_rate("slew", rate).unwrap(),
-        ], 0.0).unwrap();
+        let mut gate = SafetyGate::new(
+            leases,
+            vec![
+                Constraint::range("range", -f64::MAX, f64::MAX).unwrap(),
+                Constraint::slew_rate("slew", rate).unwrap(),
+            ],
+            0.0,
+        )
+        .unwrap();
         assert_eq!(gate.evaluate(request(first, 0), ts(0)).applied, first);
         let d = gate.evaluate(request(second, 0), ts(elapsed));
         assert_eq!(d.outcome, Outcome::Rejected(RejectReason::InvalidOutput));
@@ -339,9 +400,16 @@ fn lease_issue_boundary_and_zero_rate_remain_valid() {
     let mut future = lease(None);
     future.issued = ts(10);
     leases.grant(future);
-    let mut gate = SafetyGate::new(leases, vec![Constraint::slew_rate("hold", 0.0).unwrap()], 0.0).unwrap();
-    assert_eq!(gate.evaluate(request(0.5, 0), ts(9)).outcome,
-        Outcome::Rejected(RejectReason::Authority(AuthorityDenial::NotYetValid)));
+    let mut gate = SafetyGate::new(
+        leases,
+        vec![Constraint::slew_rate("hold", 0.0).unwrap()],
+        0.0,
+    )
+    .unwrap();
+    assert_eq!(
+        gate.evaluate(request(0.5, 0), ts(9)).outcome,
+        Outcome::Rejected(RejectReason::Authority(AuthorityDenial::NotYetValid))
+    );
     let d = gate.evaluate(request(0.5, 0), ts(10));
     assert_eq!(d.outcome, Outcome::Modified);
     assert_eq!(d.applied, 0.0); // zero rate holds the previous safe output

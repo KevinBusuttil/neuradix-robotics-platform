@@ -133,6 +133,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Confusing sender timestamps or CRC with trusted authority.
 
+**A04.1 progress (this branch):** Trusted runtime evaluation time, private validated numeric configuration, explicit safe-output rejection and final-output checks are implemented with focused regressions. See [A04.1 evidence and API migration](implementation/WP-A04.1-Trusted-Evaluation.md). This completes only the trusted-evaluation/numeric portion. Source freshness/future skew, sequence/epoch/deadline protocols, host/MCU slew alignment and physical response evidence remain open; WP-A04 is partial and Gate A remains open.
+
 <a name="wp-a05"></a>
 
 ## WP-A05: Bounded extension processes

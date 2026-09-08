@@ -36,6 +36,9 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      - name: Trusted command regressions
+        run: cargo test --locked -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
+
       - name: Tests (workspace)
         run: cargo test --locked --workspace
 
