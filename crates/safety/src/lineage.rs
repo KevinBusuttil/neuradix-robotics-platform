@@ -140,14 +140,14 @@ mod tests {
             leases,
             vec![Constraint::range("range", -2.0, 2.0).unwrap()],
             0.0,
-        );
+        ).unwrap();
 
         let decision = gate.evaluate(CommandRequest::new(
             holder,
             cap,
             9.0,
             Timestamp::new(ClockDomain::Simulation, 500),
-        ));
+        ), Timestamp::new(ClockDomain::Simulation, 500));
         let origin = LineageOrigin::new("navigation/vehicle-depth", "depth", "m", 3.0);
         let lineage = CommandLineage::from_decision(7, origin, &decision);
 

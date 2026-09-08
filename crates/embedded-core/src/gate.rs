@@ -13,17 +13,39 @@ use crate::lease::AuthorityLease;
 use crate::watchdog::Watchdog;
 
 /// The actuator envelope a command must satisfy.
+///
+/// ```compile_fail
+/// use neuradix_embedded_core::Limits;
+/// let mut limits = Limits::new(-1.0, 1.0, 0.5).unwrap();
+/// limits.min = f32::NAN;
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Limits {
-    /// Minimum applied value.
-    pub min: f32,
-    /// Maximum applied value.
-    pub max: f32,
-    /// Maximum change in the applied value per evaluation (slew limit).
-    pub max_step: f32,
+    min: f32,
+    max: f32,
+    max_step: f32,
 }
 
 impl Limits {
+    /// Minimum applied value.
+    pub fn min(&self) -> f32 {
+        self.min
+    }
+
+    /// Maximum applied value.
+    pub fn max(&self) -> f32 {
+        self.max
+    }
+
+    /// Maximum change per evaluation (not units per second).
+    pub fn max_step(&self) -> f32 {
+        self.max_step
+    }
+
+    fn permits(&self, value: f32) -> bool {
+        value.is_finite() && value >= self.min && value <= self.max
+    }
+
     /// Validated construction: `min <= max`, `max_step >= 0`, all finite.
     pub fn new(min: f32, max: f32, max_step: f32) -> Option<Self> {
         if min.is_finite()
@@ -39,6 +61,21 @@ impl Limits {
     }
 }
 
+/// Invalid embedded gate configuration. Construction never coerces safe output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateConfigError {
+    /// Safe output must be finite and inside the inclusive actuator envelope.
+    InvalidSafeOutput,
+}
+
+impl core::fmt::Display for GateConfigError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("safe output must be finite and inside the actuator envelope")
+    }
+}
+
+impl core::error::Error for GateConfigError {}
+
 /// Why the gate applied the safe output instead of a command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SafeReason {
@@ -48,6 +85,12 @@ pub enum SafeReason {
     LinkLost,
     /// The command value was not a finite number.
     BadCommand,
+    /// The evaluation clock changed domain; latched until gate reconstruction.
+    EvaluationClockMismatch,
+    /// Evaluation time regressed; latched until gate reconstruction.
+    EvaluationTimeRegression,
+    /// Constraint arithmetic or the final output violated finite hard bounds.
+    InvalidOutput,
 }
 
 /// The disposition of a gate evaluation.
@@ -82,32 +125,31 @@ pub struct CommandGate {
     watchdog: Watchdog,
     safe_output: f32,
     last_applied: Option<f32>,
+    last_evaluated: Option<Timestamp>,
+    time_fault: Option<SafeReason>,
 }
 
 impl CommandGate {
-    /// Build a gate. `safe_output` is the value applied whenever authority or the
-    /// link is lost; it is clamped into the envelope so it is always applicable.
+    /// Build a gate with a finite safe output inside the validated envelope.
+    /// Invalid safe outputs are rejected, never clamped or replaced silently.
     pub fn new(
         limits: Limits,
         lease: AuthorityLease,
         watchdog: Watchdog,
         safe_output: f32,
-    ) -> Self {
-        // A non-finite safe output must never reach the actuator; coerce it into
-        // the (validated, finite) envelope from a neutral zero.
-        let candidate = if safe_output.is_finite() {
-            safe_output
-        } else {
-            0.0
-        };
-        let safe_output = clamp(candidate, limits.min, limits.max);
-        Self {
+    ) -> Result<Self, GateConfigError> {
+        if !limits.permits(safe_output) {
+            return Err(GateConfigError::InvalidSafeOutput);
+        }
+        Ok(Self {
             limits,
             lease,
             watchdog,
             safe_output,
             last_applied: None,
-        }
+            last_evaluated: None,
+            time_fault: None,
+        })
     }
 
     /// The safe output value.
@@ -126,7 +168,23 @@ impl CommandGate {
     /// the watchdog) and `None` otherwise. The order is deliberate: authority is
     /// checked before the link, and both before the command is shaped, so a
     /// lapsed lease or a lost link always wins over any requested value.
+    /// `now` must come from the local runtime, never the command source. A clock
+    /// domain change or regression latches a safe state before watchdog feeding.
+    /// Equal times are allowed; slew remains per evaluation in this increment.
     pub fn evaluate(&mut self, request: Option<f32>, now: Timestamp) -> GateDecision {
+        if self.time_fault.is_none() {
+            if let Some(previous) = self.last_evaluated {
+                if now.domain() != previous.domain() {
+                    self.time_fault = Some(SafeReason::EvaluationClockMismatch);
+                } else if now.as_nanos() < previous.as_nanos() {
+                    self.time_fault = Some(SafeReason::EvaluationTimeRegression);
+                }
+            }
+        }
+        if let Some(reason) = self.time_fault {
+            return self.enter_safe(reason);
+        }
+        self.last_evaluated = Some(now);
         if request.is_some() {
             self.watchdog.feed(now);
         }
@@ -166,6 +224,9 @@ impl CommandGate {
         let (applied, slew_limited) = match self.last_applied {
             Some(prev) => {
                 let delta = clamped - prev;
+                if !delta.is_finite() {
+                    return self.enter_safe(SafeReason::InvalidOutput);
+                }
                 if delta > self.limits.max_step {
                     (prev + self.limits.max_step, true)
                 } else if delta < -self.limits.max_step {
@@ -177,6 +238,10 @@ impl CommandGate {
             None => (clamped, false),
         };
 
+        // Check after all arithmetic, including rounding/overflow in slew.
+        if !self.limits.permits(applied) {
+            return self.enter_safe(SafeReason::InvalidOutput);
+        }
         self.last_applied = Some(applied);
         let outcome = if range_clamped || slew_limited {
             Outcome::Modified
@@ -202,9 +267,7 @@ impl CommandGate {
     }
 }
 
-/// A panic-free clamp: unlike `f32::clamp`, this never panics (the envelope is
-/// validated so `min <= max`, but a manual clamp also tolerates a stray NaN
-/// bound without a debug panic).
+/// Clamp finite input to the private, validated envelope without allocation.
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
     let mut v = value;
     if v < min {

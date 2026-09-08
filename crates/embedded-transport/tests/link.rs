@@ -45,7 +45,7 @@ fn a_clean_link_applies_commands() {
         AuthorityLease::until(t(10_000_000_000)),
         Watchdog::new(Duration::from_millis(100)),
         0.0,
-    );
+    ).unwrap();
     let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
     let mut decoder = FrameDecoder::<32>::new();
 
@@ -62,7 +62,7 @@ fn sustained_corruption_drives_the_node_to_safe_state() {
         AuthorityLease::until(t(10_000_000_000)),
         Watchdog::new(Duration::from_millis(100)), // 100 ms link timeout
         0.0,
-    );
+    ).unwrap();
     let mut node = PropulsionNode::new(NodeId::new("thruster"), gate);
     let mut decoder = FrameDecoder::<32>::new();
 

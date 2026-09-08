@@ -4,6 +4,8 @@ use std::cmp::Ordering;
 
 use neuradix_time::Timestamp;
 
+use crate::error::SafetyError;
+
 /// The identity of a command source (operator, planner, controller).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Identity(String);
@@ -47,18 +49,40 @@ impl std::fmt::Display for Capability {
 }
 
 /// The permitted command envelope of a lease: an inclusive value range.
+///
+/// Bounds can only be set through validated construction.
+/// ```compile_fail
+/// use neuradix_safety::CommandEnvelope;
+/// let envelope = CommandEnvelope { min: f64::NAN, max: 1.0 };
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CommandEnvelope {
-    /// Minimum permitted command value.
-    pub min: f64,
-    /// Maximum permitted command value.
-    pub max: f64,
+    min: f64,
+    max: f64,
 }
 
 impl CommandEnvelope {
+    /// Construct finite, inclusive bounds with `min <= max`.
+    pub fn new(min: f64, max: f64) -> Result<Self, SafetyError> {
+        if !min.is_finite() || !max.is_finite() || min > max {
+            return Err(SafetyError::InvalidEnvelope);
+        }
+        Ok(Self { min, max })
+    }
+
+    /// Minimum permitted command value.
+    pub fn min(&self) -> f64 {
+        self.min
+    }
+
+    /// Maximum permitted command value.
+    pub fn max(&self) -> f64 {
+        self.max
+    }
+
     /// Whether `value` is within the envelope.
     pub fn permits(&self, value: f64) -> bool {
-        value >= self.min && value <= self.max
+        value.is_finite() && value >= self.min && value <= self.max
     }
 }
 
@@ -108,6 +132,12 @@ pub enum AuthorityDenial {
     /// The commanded value is outside the lease's permitted envelope.
     #[error("commanded value is outside the permitted envelope")]
     OutOfEnvelope,
+    /// No matching lease has both endpoints in the evaluation clock domain.
+    #[error("authority lease clock domain differs from evaluation time")]
+    ClockDomainMismatch,
+    /// Non-finite values cannot be authorized, even without an envelope.
+    #[error("commanded value is not finite")]
+    NonFiniteCommand,
 }
 
 /// A table of active authority leases.
@@ -135,7 +165,8 @@ impl LeaseTable {
     /// Authorize a command: returns the winning lease, or a typed denial.
     ///
     /// Among leases matching holder+capability, the highest-priority lease valid
-    /// at `at` wins. If it carries an envelope, `value` must be within it.
+    /// at runtime-owned `at` wins. Never pass a sender timestamp as `at`.
+    /// If it carries an envelope, `value` must be within it.
     pub fn authorize(
         &self,
         holder: &Identity,
@@ -143,6 +174,9 @@ impl LeaseTable {
         at: Timestamp,
         value: f64,
     ) -> Result<&AuthorityLease, AuthorityDenial> {
+        if !value.is_finite() {
+            return Err(AuthorityDenial::NonFiniteCommand);
+        }
         let matching: Vec<&AuthorityLease> = self
             .leases
             .iter()
@@ -150,6 +184,14 @@ impl LeaseTable {
             .collect();
         if matching.is_empty() {
             return Err(AuthorityDenial::NoLease);
+        }
+
+        let matching: Vec<&AuthorityLease> = matching
+            .into_iter()
+            .filter(|l| l.issued.domain() == at.domain() && l.expires.domain() == at.domain())
+            .collect();
+        if matching.is_empty() {
+            return Err(AuthorityDenial::ClockDomainMismatch);
         }
 
         let winner = matching

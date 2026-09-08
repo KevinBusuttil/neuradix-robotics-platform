@@ -366,7 +366,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Constraint::range("thrust-range", -0.8, 0.8)?,
         Constraint::slew_rate("thrust-slew", 50.0)?,
     ];
-    let mut gate = SafetyGate::new(leases, constraints, 0.0);
+    let mut gate = SafetyGate::new(leases, constraints, 0.0)?;
 
     let safety_clock = ManualClock::new(Timestamp::new(domain, 0));
     let requests = thrust_live.iter().map(|c| {

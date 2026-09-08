@@ -13,7 +13,8 @@ pub struct CommandRequest {
     pub capability: Capability,
     /// The requested value.
     pub value: f64,
-    /// When the command was issued (domain-tagged).
+    /// Source issue time (domain-tagged), retained for diagnostics and future
+    /// freshness checks. Never used as the runtime evaluation clock.
     pub at: Timestamp,
 }
 
@@ -34,12 +35,27 @@ impl CommandRequest {
 pub enum RejectReason {
     /// Authority was denied.
     Authority(crate::authority::AuthorityDenial),
+    /// The requested scalar was NaN or infinite.
+    NonFiniteCommand,
+    /// The evaluation clock changed domain after the first evaluation.
+    EvaluationClockMismatch,
+    /// Evaluation time moved backwards. The gate latches this fault.
+    EvaluationTimeRegression,
+    /// The elapsed evaluation time could not be represented.
+    EvaluationTimeOverflow,
+    /// Constraint arithmetic or the final output violated finite hard bounds.
+    InvalidOutput,
 }
 
 impl std::fmt::Display for RejectReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RejectReason::Authority(d) => write!(f, "authority denied: {d}"),
+            RejectReason::NonFiniteCommand => f.write_str("command is not finite"),
+            RejectReason::EvaluationClockMismatch => f.write_str("evaluation clock changed domain"),
+            RejectReason::EvaluationTimeRegression => f.write_str("evaluation time regressed"),
+            RejectReason::EvaluationTimeOverflow => f.write_str("evaluation elapsed time overflow"),
+            RejectReason::InvalidOutput => f.write_str("constraint output is invalid"),
         }
     }
 }
@@ -80,7 +96,7 @@ pub struct SafetyDecision {
     pub applied: f64,
     /// Identifiers of the constraint rules that modified the value, in order.
     pub acted_rules: Vec<&'static str>,
-    /// The decision time.
+    /// Runtime-owned evaluation time, including the supplied time on rejection.
     pub at: Timestamp,
 }
 

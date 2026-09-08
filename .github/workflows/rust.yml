@@ -39,6 +39,11 @@ jobs:
       - name: Tests (workspace)
         run: cargo test --locked --workspace
 
+      - name: Embedded no_std configuration
+        run: |
+          cargo check --locked -p neuradix-time --no-default-features
+          cargo check --locked -p neuradix-embedded-core --no-default-features
+
       - name: Docs (no deps)
         run: cargo doc --locked --workspace --no-deps
 

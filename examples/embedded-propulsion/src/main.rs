@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         AuthorityLease::until(Timestamp::new(ClockDomain::Monotonic, LEASE_NANOS)),
         Watchdog::new(WATCHDOG),
         0.0, // safe output: zero thrust
-    );
+    )?;
     let mut node = PropulsionNode::new(NodeId::new("auv/vertical-thruster"), gate);
 
     let mut now = Timestamp::new(ClockDomain::Monotonic, 0);

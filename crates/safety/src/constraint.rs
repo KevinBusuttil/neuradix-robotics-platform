@@ -1,77 +1,97 @@
-//! Safety constraints: range and slew-rate limits (§16.4).
-//!
-//! Each constraint carries a stable rule identifier so that a decision can
-//! report exactly which rule modified a command (NRX-SAF-003).
+//! Validated range and slew-rate limits (§16.4).
 
 use neuradix_time::Duration;
 
 use crate::error::SafetyError;
 
-/// A safety constraint applied to a scalar command value.
+/// A scalar constraint with private, validated configuration.
+///
+/// Use [`Self::range`] or [`Self::slew_rate`]; unchecked variants are unavailable.
+/// ```compile_fail
+/// use neuradix_safety::Constraint;
+/// let constraint = Constraint::Range { id: "bad", min: f64::NAN, max: 1.0 };
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Constraint {
-    /// Clamp the value to an inclusive `[min, max]` range.
-    Range {
-        /// Stable rule identifier.
-        id: &'static str,
-        /// Lower bound.
-        min: f64,
-        /// Upper bound.
-        max: f64,
-    },
-    /// Limit the change from the previous applied value to `rate_per_sec * dt`.
-    SlewRate {
-        /// Stable rule identifier.
-        id: &'static str,
-        /// Maximum rate of change per second (absolute).
-        rate_per_sec: f64,
-    },
+pub struct Constraint {
+    id: &'static str,
+    kind: ConstraintKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ConstraintKind {
+    Range { min: f64, max: f64 },
+    SlewRate { rate_per_sec: f64 },
 }
 
 impl Constraint {
-    /// A range constraint, validated so `min <= max`.
+    /// Construct a finite inclusive range with `min <= max`.
     pub fn range(id: &'static str, min: f64, max: f64) -> Result<Self, SafetyError> {
-        if min > max {
+        if !min.is_finite() || !max.is_finite() || min > max {
             return Err(SafetyError::InvalidRange {
                 id,
                 min: min.to_string(),
                 max: max.to_string(),
             });
         }
-        Ok(Constraint::Range { id, min, max })
+        Ok(Self {
+            id,
+            kind: ConstraintKind::Range { min, max },
+        })
     }
 
-    /// A slew-rate constraint, validated so `rate_per_sec >= 0`.
+    /// Construct a finite, non-negative rate in units per second. Zero holds
+    /// the previous output; the first command has no slew reference.
     pub fn slew_rate(id: &'static str, rate_per_sec: f64) -> Result<Self, SafetyError> {
-        if rate_per_sec < 0.0 || rate_per_sec.is_nan() {
+        if !rate_per_sec.is_finite() || rate_per_sec < 0.0 {
             return Err(SafetyError::InvalidSlew {
                 id,
                 rate: rate_per_sec.to_string(),
             });
         }
-        Ok(Constraint::SlewRate { id, rate_per_sec })
+        Ok(Self {
+            id,
+            kind: ConstraintKind::SlewRate { rate_per_sec },
+        })
     }
 
     /// The stable rule identifier.
     pub fn id(&self) -> &'static str {
-        match self {
-            Constraint::Range { id, .. } | Constraint::SlewRate { id, .. } => id,
-        }
+        self.id
     }
 
-    /// Apply the constraint to `value`. `previous` is the previously-applied
-    /// value and the elapsed time since it, or `None` if this is the first
-    /// command (in which case a rate limit has no reference and is a no-op).
-    /// Returns the constrained value.
-    pub fn apply(&self, value: f64, previous: Option<(f64, Duration)>) -> f64 {
-        match self {
-            Constraint::Range { min, max, .. } => value.clamp(*min, *max),
-            Constraint::SlewRate { rate_per_sec, .. } => match previous {
+    /// Whether a value satisfies this constraint's hard output bounds. A slew
+    /// constraint has no hard range; it still requires a finite output.
+    pub fn permits_output(&self, value: f64) -> bool {
+        value.is_finite()
+            && match self.kind {
+                ConstraintKind::Range { min, max } => value >= min && value <= max,
+                ConstraintKind::SlewRate { .. } => true,
+            }
+    }
+
+    /// Apply a constraint using a finite previous output and non-negative
+    /// runtime elapsed time. `None` reports invalid input or arithmetic overflow.
+    /// The gate additionally validates the result against *all* hard ranges.
+    pub fn apply(&self, value: f64, previous: Option<(f64, Duration)>) -> Option<f64> {
+        if !value.is_finite() {
+            return None;
+        }
+        match self.kind {
+            ConstraintKind::Range { min, max } => Some(value.clamp(min, max)),
+            ConstraintKind::SlewRate { rate_per_sec } => match previous {
                 Some((prev, dt)) => {
-                    let max_delta = rate_per_sec * dt.as_secs_f64().abs();
-                    value.clamp(prev - max_delta, prev + max_delta)
+                    if !prev.is_finite() || dt.as_nanos() < 0 {
+                        return None;
+                    }
+                    let max_delta = rate_per_sec * dt.as_secs_f64();
+                    let lower = prev - max_delta;
+                    let upper = prev + max_delta;
+                    if !max_delta.is_finite() || !lower.is_finite() || !upper.is_finite() {
+                        return None;
+                    }
+                    Some(value.clamp(lower, upper))
                 }
-                None => value,
+                None => Some(value),
             },
         }
     }

@@ -74,7 +74,7 @@ impl SafetyGatedController {
         Self {
             gain: 0.6,
             setpoint: SETPOINT,
-            gate: SafetyGate::new(leases, constraints, 0.0),
+            gate: SafetyGate::new(leases, constraints, 0.0).unwrap(),
             holder,
             capability,
             accepted: 0,
@@ -91,7 +91,7 @@ impl Controller for SafetyGatedController {
 
         let request =
             CommandRequest::new(self.holder.clone(), self.capability.clone(), raw, ctx.now);
-        let decision = self.gate.evaluate(request);
+        let decision = self.gate.evaluate(request, ctx.now);
         match decision.outcome {
             Outcome::Accepted => self.accepted += 1,
             Outcome::Modified => self.modified += 1,

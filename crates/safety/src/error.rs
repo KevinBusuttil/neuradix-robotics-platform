@@ -7,8 +7,8 @@
 /// Errors from constructing safety configuration.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum SafetyError {
-    /// A range constraint had `min > max`.
-    #[error("invalid range constraint `{id}`: min ({min}) exceeds max ({max})")]
+    /// A range constraint had non-finite or inverted bounds.
+    #[error("invalid range constraint `{id}`: finite min ({min}) <= max ({max}) required")]
     InvalidRange {
         /// Rule identifier.
         id: &'static str,
@@ -18,12 +18,18 @@ pub enum SafetyError {
         max: String,
     },
 
-    /// A slew-rate constraint had a negative rate.
-    #[error("invalid slew constraint `{id}`: rate ({rate}) must be non-negative")]
+    /// A slew-rate constraint had a non-finite or negative rate.
+    #[error("invalid slew constraint `{id}`: rate ({rate}) must be finite and non-negative")]
     InvalidSlew {
         /// Rule identifier.
         id: &'static str,
         /// Rate as written.
         rate: String,
     },
+    /// An authority envelope had non-finite or inverted bounds.
+    #[error("command envelope requires finite min <= max")]
+    InvalidEnvelope,
+    /// The configured safe output was non-finite or outside a hard range.
+    #[error("safe output must be finite and satisfy every hard output range")]
+    InvalidSafeOutput,
 }
