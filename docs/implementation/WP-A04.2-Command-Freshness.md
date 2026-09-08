@@ -174,12 +174,35 @@ preserved across the link. No new network transport or scalar codec is introduce
 
 ## Verification evidence
 
-Verification is in progress on the branch; final CI identities and results will
-be recorded here before requesting review. Focused tests cover shared host/embedded
-boundaries, replay/exhaustion, renewal/restart, rejected-traffic liveness, idle
-expiry, numeric invariants, arithmetic extremes, bounded state and serial binding.
-The pinned CI workflow retains formatting, Clippy, workspace/doctests, docs,
-independent no_std checks and the separate actual AVR codec conformance job.
+Verified implementation commit:
+[`41ad541b`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/41ad541b253412d74e0a63239b8d07a744b5eb21).
+[PR CI run 34287037280](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287037280)
+and [branch CI run 34287035067](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287035067)
+passed. [PR #9](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/9)
+tracks this unmerged increment; subsequent evidence-only edits do not change the
+tested implementation.
+
+| Check | Observed result |
+|---|---|
+| Pinned tools | Rust 1.94.1 (`e408947bf`), Cargo 1.94.1 (`29ea6fb6a`), locked dependencies; CI `RUSTFLAGS="-D warnings"`. Required host g++ 13.3.0 and Python 3.12.3 were present and their conformance tests executed. |
+| Format and lint | `cargo fmt --all --check` and `cargo clippy --locked --workspace --all-targets -- -D warnings` passed. Dependency-boundary test includes the shared crate while forbidding host-runtime dependencies from embedded crates. |
+| Focused tests | `cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport`: **69 passed, 0 failed, 0 ignored**. This is a workspace subset, not 69 additional unique tests. |
+| Workspace | `cargo test --locked --workspace`: **216 passed, 0 failed, 2 ignored**. The two AVR tests execute explicitly in the separate job below. |
+| Migrated examples | `cargo run --locked -p` each of `neuradix-example-minimal-depth-stream`, `neuradix-example-auv-depth-sim`, `neuradix-example-embedded-propulsion` passed. Deterministic host execution; no hardware claim. |
+| Independent no_std configurations | Separate `cargo check --locked -p <crate> --no-default-features` passed for `neuradix-time`, `neuradix-command-core`, `neuradix-embedded-core`, `neuradix-embedded-transport`, outside workspace feature unification. Host-target no_std compilation, not native MCU execution. |
+| Documentation | `cargo doc --locked --workspace --no-deps` passed. Local changed-document check passed **312 relative paths/anchors across 8 files**, and `git diff main --check` passed. |
+| AVR conformance | `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture`: **2 passed**, AVR GCC 7.3.0. Actual ATmega328P scalar harness compile/link and expected binary64 ABI rejection. Unchanged codec footprint: 2,778 text + 322 data = 3,100 flash bytes; 6 bss + 322 data = 328 static SRAM bytes. This is not an A04.2 gate footprint or a board trial. |
+| Earlier failed checks, fixed | [First run](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34286439287): rustfmt differences. [Second run](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34286565346): missing lineage metadata in CLI fixtures. [Third run](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34286776149): dependency map omitted the new shared crate/binding. All were corrected; the verified implementation passes CI. |
+| Pre-existing failed documentation scan | A broader scan found **32 broken archived links**: 31 missing image references in Specifications v0.4/v0.5, plus the v0.1 plan's absent Specification v0.2. Those historical files are unchanged by this PR; they are not counted as a passed whole-repository link check. |
+| Unavailable / not run | Local Cargo/rustup and AVR tools were absent, and local Rust installation network access was unavailable; executable checks ran in repository CI. No physical Arduino/MCU, HIL rig, durable-storage driver, physical watchdog timing, stack measurement or reset trial was tested. |
+
+The 15 paired regressions in `crates/safety/tests/freshness.rs` drive both actual
+gates through common validity scenarios: exact age/skew/deadline/lease boundaries,
+valid progression and gaps, duplicates/order/exhaustion, renewal/restart and old
+generations, unknown identities/capabilities, explicit clock relationships,
+latched clock faults, arithmetic extremes, rejected-traffic liveness and idle
+expiry. Core configuration tests, migrated A04.1 numeric suites, lineage JSON
+round trips and serial framing-to-gate tests cover the remaining boundaries.
 
 ## Remaining acceptance work
 

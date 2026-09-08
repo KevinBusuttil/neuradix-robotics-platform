@@ -31,8 +31,14 @@ checks, accepted-command watchdogs and periodic idle expiry. This branch adds
 `neuradix-command-core` (16 library/tool crates total), a full metadata binding to
 existing serial frames, and round-trippable non-finite rejection lineage. Trusted
 durable startup generation allocation and a shared reference clock are explicit
-integration requirements. A04.2 is not yet merged; its final checks are recorded
-in the evidence document. WP-A04 remains partial; Gate A remains open.
+integration requirements. A04.2 is not yet merged. Implementation `41ad541b` passed
+[PR CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287037280):
+69 focused tests, 216 workspace tests/doctests, both AVR checks, all three migrated
+examples, formatting, Clippy, docs and four independent no_std checks. The two
+workspace-ignored AVR tests execute separately. Changed-document links pass;
+32 pre-existing broken archived links are explicitly recorded in the evidence.
+No physical hardware or durable-storage integration was tested. WP-A04 remains
+partial; Gate A remains open.
 
 ## Capability inventory
 
