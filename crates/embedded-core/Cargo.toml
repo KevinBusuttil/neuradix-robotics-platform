@@ -1,0 +1,15 @@
+[package]
+name = "neuradix-embedded-core"
+description = "Executor-neutral, no_std component core for constrained MCUs: health, authority lease, watchdog and local safe-state."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Reuse the same time vocabulary as the host runtime, but with no std. Depended
+# on by direct path (not workspace inheritance) so `default-features = false` can
+# be set — Cargo forbids overriding a workspace dependency's default-features.
+neuradix-time = { path = "../time", version = "0.0.1", default-features = false }

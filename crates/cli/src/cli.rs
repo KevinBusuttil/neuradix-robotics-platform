@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
-use crate::app::contract::Language;
+use crate::app::contract::{CppTarget, Language};
 use crate::render::OutputFormat;
 
 /// The `neuradix` command-line interface.
@@ -71,6 +71,37 @@ pub enum Command {
         #[command(subcommand)]
         command: GraphCommand,
     },
+
+    /// Headless inspection of a recording (the Studio read model).
+    Studio {
+        /// The studio subcommand.
+        #[command(subcommand)]
+        command: StudioCommand,
+    },
+}
+
+/// `neuradix studio ...` subcommands.
+#[derive(Debug, Subcommand)]
+pub enum StudioCommand {
+    /// Show a recording's timeline: per-domain spans and channel statistics.
+    Timeline {
+        /// The recording file (native `.nrec` or MCAP).
+        file: PathBuf,
+    },
+
+    /// Extract a plottable scalar series from the command-lineage channel.
+    Series {
+        /// The recording file (native `.nrec` or MCAP).
+        file: PathBuf,
+
+        /// The scalar field: `requested`, `applied` or `sensor`.
+        #[arg(long)]
+        field: String,
+
+        /// The channel id to read (defaults to the command-lineage channel).
+        #[arg(long)]
+        channel: Option<u16>,
+    },
 }
 
 /// `neuradix graph ...` subcommands.
@@ -106,10 +137,20 @@ pub enum ExplainCommand {
 /// `neuradix record ...` subcommands.
 #[derive(Debug, Subcommand)]
 pub enum RecordCommand {
-    /// Show a recording's manifest, channels and replay digest.
+    /// Show a recording's manifest, channels and replay digest (native or MCAP).
     Inspect {
         /// The recording file to inspect.
         file: PathBuf,
+    },
+
+    /// Re-encode a recording as MCAP for external tooling (Foxglove, ROS 2).
+    Export {
+        /// The source recording (native `.nrec` or MCAP).
+        file: PathBuf,
+
+        /// The MCAP file to write.
+        #[arg(long = "out")]
+        out: PathBuf,
     },
 }
 
@@ -156,6 +197,10 @@ pub enum ContractCommand {
         /// The target language.
         #[arg(long, value_enum, default_value_t = Language::Rust)]
         language: Language,
+
+        /// Numeric ABI profile for C++ only; defaults to portable compile-time checks.
+        #[arg(long, value_enum)]
+        cpp_target: Option<CppTarget>,
 
         /// The directory to write generated code into.
         ///

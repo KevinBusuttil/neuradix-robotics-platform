@@ -6,14 +6,17 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::native::NativeRecording;
+use crate::recording::Recording;
 
 /// Compute the `sha256:<hex>` replay digest of a recording.
 ///
 /// The digest covers, for every record in order: channel id, sequence, clock
 /// domain, timestamp and payload bytes. It deliberately excludes the manifest so
-/// that provenance notes do not perturb the behavioural digest.
-pub fn replay_digest(recording: &NativeRecording) -> String {
+/// that provenance notes do not perturb the behavioural digest — and, because it
+/// is defined over the backend-neutral [`Recording`] surface, the same records
+/// digest identically whether they were read from a native `.nrec` or an MCAP
+/// container. That is the basis of cross-container replay equivalence.
+pub fn replay_digest<R: Recording + ?Sized>(recording: &R) -> String {
     let mut hasher = Sha256::new();
     for record in recording.records() {
         hasher.update(record.channel_id.to_le_bytes());

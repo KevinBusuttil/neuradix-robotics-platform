@@ -130,8 +130,8 @@ fn parse_decimal_scaled(number: &str, scale: i128) -> Option<i128> {
     Some(total)
 }
 
-impl std::fmt::Display for Duration {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Duration {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Emit the largest exact unit for readability.
         let n = self.nanos;
         if n == 0 {

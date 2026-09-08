@@ -96,6 +96,50 @@ fn replay_run_rejects_a_wrong_digest_with_exit_9() {
 }
 
 #[test]
+fn export_to_mcap_preserves_the_replay_digest() {
+    let (path, digest) = write_recording("neuradix-cli-export-src.nrec");
+    let mcap = std::env::temp_dir().join("neuradix-cli-export.mcap");
+
+    // Export the native recording to MCAP.
+    let (stdout, code) = run(&[
+        "-o",
+        "json",
+        "record",
+        "export",
+        path.to_str().unwrap(),
+        "--out",
+        mcap.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "export should succeed");
+    let env = ParsedEnvelope::parse(&stdout).unwrap();
+    env.assert_command("record.export").assert_success();
+    assert_eq!(env.data_field("digest").unwrap(), digest.as_str());
+    assert_eq!(env.data_field("outputFormat").unwrap(), "mcap");
+
+    // The exported file is recognized as MCAP and inspects to the same digest.
+    let (stdout, code) = run(&["-o", "json", "record", "inspect", mcap.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    let env = ParsedEnvelope::parse(&stdout).unwrap();
+    assert_eq!(env.data_field("format").unwrap(), "mcap");
+    assert_eq!(env.data_field("digest").unwrap(), digest.as_str());
+    assert_eq!(env.data_field("records").unwrap(), 3);
+
+    // Replaying the MCAP against the *native* digest succeeds: cross-container
+    // replay equivalence.
+    let (_stdout, code) = run(&[
+        "replay",
+        "run",
+        mcap.to_str().unwrap(),
+        "--expect-digest",
+        &digest,
+    ]);
+    assert_eq!(code, 0, "MCAP must replay to the native digest");
+
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&mcap);
+}
+
+#[test]
 fn inspecting_a_non_recording_fails() {
     let path = std::env::temp_dir().join("neuradix-cli-not-a-recording.nrec");
     std::fs::write(&path, b"definitely not a recording").unwrap();

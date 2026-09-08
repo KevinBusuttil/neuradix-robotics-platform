@@ -21,6 +21,15 @@
 //! let t1 = clock.now();
 //! assert_eq!(t1.duration_since(t0).unwrap(), Duration::from_millis(50));
 //! ```
+//! ## `no_std`
+//!
+//! This crate is `no_std`-compatible: with `default-features = false` it depends
+//! only on `core`, so the same [`Timestamp`], [`Duration`] and [`ClockDomain`]
+//! vocabulary is shared by the Linux runtime and by constrained MCU firmware
+//! (`neuradix-embedded-core`). The `std` feature (default) additionally provides
+//! the ambient [`SystemClock`]. The deterministic [`ManualClock`] and all core
+//! types are available in both modes.
+#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -30,7 +39,9 @@ pub mod duration;
 pub mod error;
 pub mod timestamp;
 
-pub use clock::{Clock, ControllableClock, ManualClock, SystemClock};
+#[cfg(feature = "std")]
+pub use clock::SystemClock;
+pub use clock::{Clock, ControllableClock, ManualClock};
 pub use domain::ClockDomain;
 pub use duration::Duration;
 pub use error::TimeError;

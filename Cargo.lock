@@ -210,10 +210,12 @@ version = "0.0.1"
 dependencies = [
  "clap",
  "neuradix-contracts",
+ "neuradix-embedded-codegen",
  "neuradix-graph",
  "neuradix-record",
  "neuradix-runtime",
  "neuradix-safety",
+ "neuradix-studio",
  "neuradix-testkit",
  "neuradix-time",
  "serde",
@@ -231,6 +233,50 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "neuradix-embedded-codegen"
+version = "0.0.1"
+dependencies = [
+ "neuradix-contracts",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-embedded-core"
+version = "0.0.1"
+dependencies = [
+ "neuradix-time",
+]
+
+[[package]]
+name = "neuradix-embedded-transport"
+version = "0.0.1"
+dependencies = [
+ "neuradix-embedded-core",
+ "neuradix-time",
+]
+
+[[package]]
+name = "neuradix-example-auv-depth-sim"
+version = "0.0.1"
+dependencies = [
+ "neuradix-safety",
+ "neuradix-sim",
+ "neuradix-time",
+ "sha2",
+]
+
+[[package]]
+name = "neuradix-example-embedded-propulsion"
+version = "0.0.1"
+dependencies = [
+ "neuradix-embedded-core",
+ "neuradix-time",
 ]
 
 [[package]]
@@ -313,6 +359,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-sim"
+version = "0.0.1"
+dependencies = [
+ "neuradix-time",
+ "thiserror",
+]
+
+[[package]]
+name = "neuradix-studio"
+version = "0.0.1"
+dependencies = [
+ "neuradix-record",
+ "neuradix-time",
+ "thiserror",
+]
+
+[[package]]
 name = "neuradix-testkit"
 version = "0.0.1"
 dependencies = [
@@ -327,9 +390,6 @@ dependencies = [
 [[package]]
 name = "neuradix-time"
 version = "0.0.1"
-dependencies = [
- "thiserror",
-]
 
 [[package]]
 name = "neuradix-transport-api"

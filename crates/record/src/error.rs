@@ -34,6 +34,22 @@ pub enum RecordError {
     #[error("unknown clock-domain code {0}")]
     UnknownClockDomain(u8),
 
+    /// A record's sequence number does not fit the target container.
+    #[error("record sequence {0} is too large for this container")]
+    SequenceTooLarge(u64),
+
+    /// A record's timestamp cannot be represented in the target container.
+    #[error("record timestamp {0} ns is out of range for this container")]
+    TimestampOutOfRange(i128),
+
+    /// The recording has more channels than the container's schema-id space.
+    #[error("too many channels for an MCAP recording: {0} (max 65535)")]
+    TooManyChannels(usize),
+
+    /// The byte stream is not a well-formed MCAP recording.
+    #[error("malformed MCAP recording: {0}")]
+    Mcap(String),
+
     /// A codec failed to decode a payload.
     #[error("payload decode error: {0}")]
     Decode(String),
