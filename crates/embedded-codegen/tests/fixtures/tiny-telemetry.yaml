@@ -1,0 +1,25 @@
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.test
+  name: tiny-telemetry
+  version: 1.0.0
+spec:
+  description: Scalar codec conformance fixture, not a deployable board application.
+  payload:
+    type: object
+    fields:
+      z_unsigned64: { type: uint64 }
+      d_signed64: { type: int64 }
+      b_measurement: { type: float32, unit: m }
+      e_unsigned32: { type: uint32 }
+      a_enabled: { type: bool }
+      c_signed32: { type: int32 }
+  semantics:
+    frame: test/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 100ms
+  delivery:
+    capacity: 1
+    overflow: keep-latest

@@ -85,3 +85,45 @@ fn yaml_output_is_emitted() {
     assert!(stdout.contains("apiVersion: cli.neuradix.io/v1alpha1"));
     assert!(stdout.contains("command: version"));
 }
+
+#[test]
+fn embedded_generation_emits_a_matching_wire_manifest() {
+    let dir = std::env::temp_dir().join(format!("neuradix-cli-wire-{}", std::process::id()));
+    let (stdout, code) = run(&[
+        "-o", "json", "contract", "generate", REFERENCE_CONTRACT,
+        "--language", "cpp", "--cpp-target", "portable",
+        "--out-dir", dir.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{stdout}");
+    let envelope = ParsedEnvelope::parse(&stdout).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("vehicle_depth.wire.json")).unwrap()
+    ).unwrap();
+    assert_eq!(manifest["schema_id"], EXPECTED_SCHEMA_ID);
+    assert_eq!(manifest["codec_id"], "neuradix.scalar-le.v2");
+    assert_eq!(manifest["wire_id"], *envelope.data_field("wireId").unwrap());
+    let header = std::fs::read_to_string(dir.join("vehicle_depth.h")).unwrap();
+    assert!(header.contains(manifest["wire_id"].as_str().unwrap()));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn unsupported_arduino_numeric_type_fails_without_creating_output() {
+    let dir = std::env::temp_dir().join(format!("neuradix-cli-avr-reject-{}", std::process::id()));
+    assert!(!dir.exists());
+    let (stdout, code) = run(&[
+        "-o", "json", "contract", "generate", REFERENCE_CONTRACT,
+        "--language", "cpp", "--cpp-target", "avr-uno",
+        "--out-dir", dir.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 3, "{stdout}");
+    assert!(stdout.contains("float64") && stdout.contains("avr-uno"));
+    assert!(!dir.exists());
+    let (stdout, code) = run(&[
+        "-o", "json", "contract", "generate", REFERENCE_CONTRACT,
+        "--language", "nostd-rust", "--cpp-target", "avr-uno",
+        "--out-dir", dir.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{stdout}");
+    assert!(!dir.exists());
+}

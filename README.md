@@ -1,5 +1,11 @@
 # Neuradix Robotics Platform
 
+Implementation has started on the Arduino-to-enterprise plan. See the
+[first Gate A increment](docs/implementation/Gate-A-Embedded-Wire-and-ABI.md)
+for versioned embedded wire identity, Uno numeric ABI checks, migration rules
+and validation status. The consolidated strategy and master plan are proposed
+in [documentation PR #5](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/5).
+
 Neuradix is a Rust-first, contract-driven platform for dependable autonomous robots across marine, aerial, ground, embedded and space domains.
 
 ![Neuradix Robotics Platform ecosystem mind map.](docs/assets/neuradix_platform_ecosystem_mind_map_light.svg)

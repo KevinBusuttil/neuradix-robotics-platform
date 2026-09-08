@@ -83,9 +83,9 @@ pub struct Spec {
 /// A payload described as an ordered set of scalar fields.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Payload {
-    /// Fields in authored declaration order. Order is preserved for code
-    /// generation but does NOT affect schema identity (fields are sorted by
-    /// name before hashing).
+    /// Fields in authored declaration order for inspection. This order does
+    /// NOT affect schema identity or the embedded v2 wire layout; those sort
+    /// by field name. Host source projections may preserve presentation order.
     pub fields: Vec<Field>,
 }
 

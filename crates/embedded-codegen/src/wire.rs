@@ -1,11 +1,16 @@
 //! The fixed-layout embedded wire format.
 //!
-//! A payload is encoded as its scalar fields in declaration order, each a
+//! A payload is encoded as its scalar fields in canonical name order, each a
 //! fixed-width little-endian value (IEEE-754 for floats, two's-complement for
 //! integers, a single `0`/`1` byte for `bool`). The layout is identical on the
 //! host, in `no_std` Rust and in C++, and the [golden vectors](crate::golden)
 //! pin it. Variable-length types (strings) are rejected — an embedded contract
 //! uses fixed scalars so a frame's size is known at compile time.
+//!
+//! All float bit patterns are preserved, including negative zero, infinities
+//! and NaN payloads. Finite-value policies belong to contract/safety validation,
+//! not a lossy numeric conversion in this codec. Boolean decoders accept only
+//! `0` and `1`. See [`crate::WireLayout`] for identity and versioning.
 
 use neuradix_contracts::PrimitiveType;
 

@@ -5,7 +5,19 @@
 - Crates: `neuradix-embedded-core`, `neuradix-embedded-transport`, `neuradix-embedded-codegen` (implemented)
 - First target (chosen): **ESP32-C3** (RISC-V) with a **serial** link.
 
-## Implemented in increment 15 (WP1 — embedded contract codegen)
+## Gate A update: canonical wire identity and Arduino numeric ABI
+
+The [first Gate A increment](../implementation/Gate-A-Embedded-Wire-and-ABI.md)
+replaces the declaration-order codec below with `neuradix.scalar-le.v2` and a
+separate full wire identity. Generated decoders require the producer's bound
+identity. C++ checks the actual target ABI, and `--cpp-target avr-uno` rejects
+binary64 at generation time. See that implementation note for the breaking
+decoder API, migration rules, test evidence and remaining board work.
+
+The Arduino-to-enterprise plan proposes Uno R3 plus a selected RP2040 board
+for the first physical board work; the ESP32-C3 choice below is historical.
+
+## Historical increment 15 (WP1 — embedded contract codegen)
 
 `neuradix-embedded-codegen` adds target projections over the same validated
 `Contract` the host generator uses: a **`no_std` Rust** payload struct and an
