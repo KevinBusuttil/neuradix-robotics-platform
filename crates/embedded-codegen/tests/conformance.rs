@@ -51,10 +51,12 @@ fn nostd_rust_and_cpp_generate() {
 /// wire. A host C++ compiler is a required test prerequisite.
 #[test]
 fn cpp_projection_agrees_with_golden_vectors() {
-    let compiler = match ["g++", "c++", "clang++"]
-        .into_iter()
-        .find(|cc| Command::new(cc).arg("--version").output().is_ok_and(|o| o.status.success()))
-    {
+    let compiler = match ["g++", "c++", "clang++"].into_iter().find(|cc| {
+        Command::new(cc)
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }) {
         Some(cc) => cc,
         None => panic!("C++ conformance requires g++, c++, or clang++"),
     };

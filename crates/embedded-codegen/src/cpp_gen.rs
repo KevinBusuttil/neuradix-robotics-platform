@@ -124,7 +124,8 @@ pub fn generate_cpp_for_target(
             let _ = writeln!(
                 code,
                 "static_assert(sizeof({name}) == {size} && FLT_RADIX == 2 && {prefix}_MANT_DIG == {mantissa} && {prefix}_MAX_EXP == {exponent}, \"Neuradix {} requires IEEE-754 binary{}; unsupported target ABI\");",
-                ty.as_contract_str(), size * 8
+                ty.as_contract_str(),
+                size * 8
             );
         }
     }
@@ -199,7 +200,10 @@ fn emit_cpp_encode_field(
     let _ = writeln!(code, "    {{");
     let _ = writeln!(code, "      {ut} b;");
     if matches!(ty, PrimitiveType::Float64 | PrimitiveType::Float32) {
-        let _ = writeln!(code, "      memcpy(&b, &this->{name}, sizeof(this->{name}));");
+        let _ = writeln!(
+            code,
+            "      memcpy(&b, &this->{name}, sizeof(this->{name}));"
+        );
     } else {
         let _ = writeln!(code, "      b = ({ut})this->{name};");
     }

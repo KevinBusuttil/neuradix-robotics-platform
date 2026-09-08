@@ -17,7 +17,9 @@ pub enum CodegenError {
     BadName(String),
 
     /// A supported wire scalar cannot be represented by the selected target ABI.
-    #[error("field `{field}` has type `{ty}`, unsupported by C++ target `{target}`; use a supported contract type or an explicit conversion component")]
+    #[error(
+        "field `{field}` has type `{ty}`, unsupported by C++ target `{target}`; use a supported contract type or an explicit conversion component"
+    )]
     UnsupportedTargetType {
         /// Offending field name.
         field: String,

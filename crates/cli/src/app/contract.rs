@@ -146,8 +146,10 @@ pub fn generate(
     let layout = if language == Language::Rust {
         None
     } else {
-        Some(neuradix_embedded_codegen::WireLayout::for_contract(&contract)
-            .map_err(map_codegen_error)?)
+        Some(
+            neuradix_embedded_codegen::WireLayout::for_contract(&contract)
+                .map_err(map_codegen_error)?,
+        )
     };
 
     std::fs::create_dir_all(out_dir).map_err(|e| {

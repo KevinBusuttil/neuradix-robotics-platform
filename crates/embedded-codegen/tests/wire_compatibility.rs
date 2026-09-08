@@ -4,8 +4,7 @@ use std::process::Command;
 
 use neuradix_contracts::{PrimitiveType, schema_identity};
 use neuradix_embedded_codegen::{
-    CODEC_ID, CppTarget, WireLayout, generate_cpp, generate_cpp_for_target,
-    generate_nostd_rust,
+    CODEC_ID, CppTarget, WireLayout, generate_cpp, generate_cpp_for_target, generate_nostd_rust,
 };
 use sha2::{Digest, Sha256};
 
@@ -24,13 +23,19 @@ fn wire_identity_covers_codec_schema_and_ordered_offsets() {
         layout.schema_id
     );
     assert_eq!(layout.descriptor_bytes(), descriptor.as_bytes());
-    assert_eq!(layout.wire_id, format!("sha256:{:x}", Sha256::digest(descriptor)));
+    assert_eq!(
+        layout.wire_id,
+        format!("sha256:{:x}", Sha256::digest(descriptor))
+    );
     let mut changed_codec = layout.clone();
     changed_codec.codec_id = "neuradix.scalar-le.v1".to_owned();
     assert_ne!(layout.descriptor_bytes(), changed_codec.descriptor_bytes());
     let mut changed = c.clone();
     changed.spec.payload.fields[0].ty = PrimitiveType::Float32;
-    assert_ne!(layout.wire_id, WireLayout::for_contract(&changed).unwrap().wire_id);
+    assert_ne!(
+        layout.wire_id,
+        WireLayout::for_contract(&changed).unwrap().wire_id
+    );
 }
 
 #[test]
@@ -43,12 +48,17 @@ fn independently_generated_cpp_sender_and_reordered_rust_receiver_agree() {
     let consumer = generate_nostd_rust(&reordered).unwrap();
     let mut legacy_layout = WireLayout::for_contract(&original).unwrap();
     legacy_layout.codec_id = "neuradix.scalar-le.v1".to_owned();
-    let legacy_id = format!("sha256:{:x}", Sha256::digest(legacy_layout.descriptor_bytes()));
+    let legacy_id = format!(
+        "sha256:{:x}",
+        Sha256::digest(legacy_layout.descriptor_bytes())
+    );
     std::fs::write(dir.0.join("vehicle_depth.h"), producer.code).unwrap();
     std::fs::write(dir.0.join("consumer.rs"), consumer.code).unwrap();
     // Transfer bytes and the PRODUCER's identity via a file. Do not substitute
     // the consumer's constant for the peer identity being verified.
-    run_cpp(&dir, r#"
+    run_cpp(
+        &dir,
+        r#"
 #include "vehicle_depth.h"
 #include <stdio.h>
 int main() {
@@ -62,8 +72,10 @@ int main() {
   fclose(f);
   return ok ? 0 : 3;
 }
-"#);
-    let source = format!(r#"
+"#,
+    );
+    let source = format!(
+        r#"
 mod consumer {{ include!("consumer.rs"); }}
 use consumer::VehicleDepth;
 fn main() {{
@@ -81,14 +93,20 @@ fn main() {{
     assert!(VehicleDepth::decode(&peer[71..86], peer_id).is_none());
     assert!(VehicleDepth::decode(&[0; 17], peer_id).is_none());
 }}
-"#, dir.0.join("peer.bin"));
+"#,
+        dir.0.join("peer.bin")
+    );
     run_rust(&dir, &source);
 }
 
 #[test]
 fn avr_profile_rejects_binary64_before_generation() {
     let error = generate_cpp_for_target(&depth(), CppTarget::AvrUno).unwrap_err();
-    assert!(error.to_string().contains("field `depth` has type `float64`"));
+    assert!(
+        error
+            .to_string()
+            .contains("field `depth` has type `float64`")
+    );
     assert!(error.to_string().contains("avr-uno"));
     assert!(generate_cpp_for_target(&tiny(), CppTarget::AvrUno).is_ok());
 }
@@ -97,12 +115,20 @@ fn avr_profile_rejects_binary64_before_generation() {
 fn mixed_scalar_boundaries_and_invalid_input_match_across_languages() {
     let dir = TempDir::new("scalar-boundaries");
     let c = tiny();
-    std::fs::write(dir.0.join("tiny_telemetry.h"), generate_cpp(&c).unwrap().code).unwrap();
+    std::fs::write(
+        dir.0.join("tiny_telemetry.h"),
+        generate_cpp(&c).unwrap().code,
+    )
+    .unwrap();
     std::fs::write(dir.0.join("tiny.rs"), generate_nostd_rust(&c).unwrap().code).unwrap();
     // Authored fields are shuffled; expected bytes are hand-written in canonical
     // name order: true, -0f32, i32::MIN, i64::MIN, u32::MAX, u64::MAX.
-    let expected = "1,0,0,0,128,0,0,0,128,0,0,0,0,0,0,0,128,255,255,255,255,255,255,255,255,255,255,255,255";
-    run_cpp(&dir, &format!(r#"
+    let expected =
+        "1,0,0,0,128,0,0,0,128,0,0,0,0,0,0,0,128,255,255,255,255,255,255,255,255,255,255,255,255";
+    run_cpp(
+        &dir,
+        &format!(
+            r#"
 #include "tiny_telemetry.h"
 #include <assert.h>
 using T = neuradix::TinyTelemetry;
@@ -139,8 +165,13 @@ int main() {{
     assert(memcmp(buf, roundtrip, sizeof(buf)) == 0);
   }}
 }}
-"#));
-    run_rust(&dir, &format!(r#"
+"#
+        ),
+    );
+    run_rust(
+        &dir,
+        &format!(
+            r#"
 mod generated {{ include!("tiny.rs"); }}
 use generated::TinyTelemetry as T;
 fn main() {{
@@ -167,7 +198,9 @@ fn main() {{
         assert_eq!(roundtrip, buf);
     }}
 }}
-"#));
+"#
+        ),
+    );
 }
 
 #[test]
@@ -176,7 +209,13 @@ fn generated_rust_builds_without_std() {
     let code = format!("#![no_std]\n{}", generate_nostd_rust(&tiny()).unwrap().code);
     let path = dir.0.join("lib.rs");
     std::fs::write(&path, code).unwrap();
-    common::success(Command::new("rustc")
-        .args(["--edition=2024", "--crate-type=lib", "-Dwarnings"])
-        .arg(path).arg("--out-dir").arg(&dir.0).output().unwrap());
+    common::success(
+        Command::new("rustc")
+            .args(["--edition=2024", "--crate-type=lib", "-Dwarnings"])
+            .arg(path)
+            .arg("--out-dir")
+            .arg(&dir.0)
+            .output()
+            .unwrap(),
+    );
 }
