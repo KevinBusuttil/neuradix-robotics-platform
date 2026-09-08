@@ -99,14 +99,29 @@ explicit safe-output rejection, recovery from safe output, extreme arithmetic,
 constraint ordering and final hard bounds. Existing replay, lineage, transport
 and examples remain in the workspace checks.
 
-Verification results will be recorded here after the branch CI completes. The
-local editor environment has no Cargo/rustup or AVR toolchain, and network access
-to install Rust is unavailable; it is not reported as a passing local build.
-The existing GitHub Actions workflow uses pinned Rust **1.94.1**, locked
-dependencies, required C++/Python tools and the separate AVR compile/link job.
-The host job additionally checks `neuradix-time` and `neuradix-embedded-core`
-with `--no-default-features` to exercise the no_std configuration independently
-of workspace feature unification.
+Verified implementation commit: [`9b9d2b2`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/9b9d2b2f92d88b4f3fdae8ff10128fa204498af5).
+[Branch CI run 34278834161](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278834161)
+and [PR CI run 34278839451](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278839451)
+both passed. [PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8)
+tracks integration; subsequent evidence-only edits do not change the tested code.
+
+| Check | Result and evidence |
+|---|---|
+| Pinned toolchain | Rust 1.94.1 (`e408947bf`), Cargo 1.94.1 (`29ea6fb6a`), locked dependencies; CI uses `RUSTFLAGS="-D warnings"`. |
+| Format | `cargo fmt --all --check` passed. |
+| Lint / all callers | `cargo clippy --locked --workspace --all-targets -- -D warnings` passed, including all executable examples. |
+| Focused regressions | `cargo test --locked -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport`: **64 passed, 0 failed, 0 ignored**, including three compile-fail configuration checks. |
+| Workspace | `cargo test --locked --workspace`: **211 passed, 0 failed, 2 ignored**. The two ignored tests are the explicitly executed AVR checks below, not omitted evidence. Focused tests are a subset, not an additional 64 unique tests. |
+| Embedded no_std | Separate `cargo check --locked -p neuradix-time --no-default-features` and `cargo check --locked -p neuradix-embedded-core --no-default-features` passed, independently of workspace feature unification. Host target configuration compilation, not MCU execution. |
+| Documentation | `cargo doc --locked --workspace --no-deps` passed; local checks verified **299 relative Markdown paths/anchors**, and `git diff --check` passed. |
+| Host conformance prerequisites | Required g++ 13.3.0 and Python 3.12.3 were present; the workspace's C++ and Python tests executed. |
+| AVR conformance | `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture`: **2 passed** with AVR GCC 7.3.0. Supported ATmega328P scalar harness compiled/linked; binary64 projection failed with the required ABI diagnostic. The unchanged codec harness reports 2,778 text + 322 data bytes (3,100 flash), 6 bss bytes (328 static SRAM). This is codec evidence, not an embedded gate footprint or board trial. |
+| Earlier failed checks | [Initial run](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278260262) found formatting differences; corrected using pinned rustfmt. [Second run](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278634389) found two missing exhaustive matches in the embedded example; corrected. The verified implementation has no remaining failed checks. |
+| Unavailable / not run | Local Cargo/rustup and AVR tools were absent; local Rust installation network access was unavailable. Builds and executable tests therefore ran in repository CI. No physical Arduino/MCU, HIL rig, stack measurement or hardware timing test was run. |
+
+The existing CI workflow is preserved, with explicit focused regressions and
+independent no_std configuration checks added. Formatting, lint, workspace,
+documentation and the separate AVR job remain required evidence in this flow.
 
 ## Remaining A04 work and limits
 

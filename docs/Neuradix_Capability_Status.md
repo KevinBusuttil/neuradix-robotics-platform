@@ -19,7 +19,10 @@ and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
 
 [A04.1 implementation evidence](implementation/WP-A04.1-Trusted-Evaluation.md)
 records trusted host evaluation, validated host/embedded configuration, local
-fallback and final-output invariants. The branch starts from main `e95a0ac`;
+fallback and final-output invariants. [PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8)
+at implementation commit `9b9d2b2` passed [host and AVR CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34278834161):
+64 focused tests (a workspace subset), 211 workspace tests/doctests, both AVR
+checks, formatting, Clippy, docs and independent no_std configuration checks. The branch starts from main `e95a0ac`;
 it does not claim these changes are already integrated. The following inventory
 retains the integrated baseline and records this increment separately.
 
