@@ -129,7 +129,7 @@ diagnostics report exact per-tick comparisons. No output payload history is reta
 The executable example demonstrates unchanged-program agreement and changed-program
 failure. The existing CLI still verifies record integrity. See
 [A07 evidence](implementation/WP-A07-Program-Replay-Runner.md).
-WP-A07/ACC-07 remain partial; arbitrary graphs and closed-loop evidence are deferred.
+Pinned implementation CI 34380370682 passed: 346 workspace tests/doctests, 20 runtime tests/doctests, preserved A04/A05/A06 and independent MCAP checks, SDK, no_std and separate AVR conformance. WP-A07/ACC-07 remain partial; arbitrary graphs and closed-loop evidence are deferred.
 WP-A01's integrated baseline supplies the prerequisite, while its broader inventory
 remains partial. A04/A05/A06 and Gate A retain their open criteria.
 

@@ -1,7 +1,7 @@
 # WP-A07 — Reusable single-processor replay runner
 
 Status: implemented on `codex/a07-program-replay-runner`, [PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16)
-open and unmerged; final verification pending. WP-A07/ACC-07 remain partial and Gate A stays open.
+open and unmerged; implementation verification passed. WP-A07/ACC-07 remain partial and Gate A stays open.
 
 ## Baseline and review
 
@@ -132,10 +132,33 @@ fail explicitly. This is open-loop program execution, not physical outcome evide
 
 ## Verification
 
-Final pinned CI evidence pending. Required checks: formatting, all-target Clippy,
-externally timed runtime regressions/example, workspace tests/doctests, A04/A05/A06
-regressions, independent MCAP import/export and memory checks, SDK tests, integrated
-examples, four independent no_std checks, documentation and separate AVR conformance.
+Verified implementation revision `bb20bb45ed9d0960bc0327774183163d66598301`:
+[PR CI 34380370682](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34380370682)
+and [push CI 34380365669](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34380365669)
+passed with pinned Rust/Cargo 1.94.1 and locked dependencies. Evidence-only follow-up
+commits are checked again before review readiness; their runs are linked in PR #16.
+
+- Formatting, all-target Clippy with warnings denied and documentation: passed.
+- Runtime: 20 tests/doctests, including seven externally supervised replay scenarios
+  and a recording-backed reusable-runner test; executable replay example passed.
+- Workspace: 346 tests/doctests passed. Two AVR tests ignored by the generic host
+  invocation passed separately in the AVR job (ATmega328P ABI/scalar compilation).
+- Preserved focused regressions: A04 88, A05 75, recording 44; Python SDK 6 passed.
+- Independent MCAP fixtures/export comparison, integrated examples and four independent
+  no_std configurations passed. Import RSS for 8/128 MiB streaming payload was
+  4,144/4,216 KiB (64 MiB budget); 128 MiB materialization was 135,044 KiB
+  (192 MiB budget); bounded rejection 11,960 KiB (64 MiB budget). Writer RSS for
+  8/128 MiB output was 2,996/3,024 KiB (64 MiB budget). These preserve A06 evidence;
+  they do not measure arbitrary replay processor memory.
+- Local fixture regeneration/check and six SDK tests passed. Changed Markdown:
+  8 files, 332 local links/anchors checked with zero errors before this evidence
+  update. Full-document scan: 32 pre-existing missing archived spec/image targets
+  among 51 files/655 links; failed, outside this increment. Whitespace check passed.
+
+Earlier CI attempts failed on formatting and one unused import; those defects were
+corrected before the successful revision above. No failing current compiler gate
+is waived. Test totals exclude duplicate child-process result lines.
+
 The seven adversarial replay scenarios use 10-second external child deadlines;
 the runtime suite has a 60-second CI wrapper and the example a 30-second wrapper.
 
