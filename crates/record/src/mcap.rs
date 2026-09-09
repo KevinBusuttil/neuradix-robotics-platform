@@ -1,12 +1,11 @@
 //! An MCAP recording backend.
 //!
 //! [MCAP](https://mcap.dev) is a widely supported container for timestamped
-//! pub/sub messages (Foxglove, ROS 2 tooling, …). This module implements an
-//! uncompressed, spec-compliant MCAP **writer** and a matching **reader** behind
-//! the same recording surface as the native container: [`McapWriter`] mirrors
-//! `NativeRecordWriter`'s method set, and [`McapRecording`] implements
-//! [`crate::recording::Recording`], so digest, inspection and replay work
-//! unchanged across containers.
+//! pub/sub messages. This module provides the historical buffered, uncompressed
+//! [`McapWriter`] and checked [`McapRecording`] compatibility projection.
+//! General bounded import lives in [`crate::mcap_import`]. Container import does
+//! not decode ROS payloads. Digest/replay use the legacy projection and reject
+//! data it cannot faithfully represent.
 //!
 //! ## What is written
 //!
@@ -57,7 +56,8 @@ const META_SCHEMA_IDENTITY: &str = "schemaIdentity";
 // Writer.
 // ---------------------------------------------------------------------------
 
-/// Streaming writer for the MCAP container, mirroring `NativeRecordWriter`.
+/// Buffered writer for the historical MCAP profile, mirroring `NativeRecordWriter`.
+/// Retains all records until finish; bounded streaming writes remain WP-A06 work.
 ///
 /// Records are buffered and the complete MCAP file is emitted on [`finish`]
 /// (MCAP's summary/statistics require knowing the whole recording).

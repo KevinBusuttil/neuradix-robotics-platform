@@ -110,7 +110,7 @@ fn import_child() {
                 let value = archive(&bytes, limits).unwrap();
                 let s = value.summary();
                 assert_eq!(s.header().profile, "independent-fixture");
-                assert_eq!(s.header().library, "mcap-python/1.3.1");
+                assert_eq!(s.header().library, "python mcap 1.3.1");
                 assert_eq!(s.schemas().len(), 1);
                 assert_eq!(s.channels().len(), 2);
                 let schema = &s.schemas()[&1];

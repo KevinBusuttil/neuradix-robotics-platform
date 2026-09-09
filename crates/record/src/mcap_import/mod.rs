@@ -477,9 +477,7 @@ impl State {
                             .any(|group| group.0 == offset.group_start));
                 let matches_group = self.summary_groups.get(&offset.group_opcode)
                     == Some(&(offset.group_start, end));
-                if (!empty && !matches_group)
-                    || !self.offset_groups.insert(offset.group_opcode)
-                {
+                if (!empty && !matches_group) || !self.offset_groups.insert(offset.group_opcode) {
                     return Err(malformed("summary offset disagrees with group"));
                 }
                 visit(McapEvent {

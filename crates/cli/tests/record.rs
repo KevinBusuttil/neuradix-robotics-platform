@@ -21,6 +21,28 @@ fn run(args: &[&str]) -> (String, i32) {
     )
 }
 
+#[test]
+fn generic_mcap_inspect_preserves_metadata_and_replay_rejects_lossy_projection() {
+    let hex = include_str!("../../record/tests/fixtures/lz4.mcap.hex").trim();
+    let bytes: Vec<_> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+        .collect();
+    let path = std::env::temp_dir().join("neuradix-cli-independent.mcap");
+    std::fs::write(&path, bytes).unwrap();
+    let (stdout, code) = run(&["-o", "json", "record", "inspect", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{stdout}");
+    let envelope = ParsedEnvelope::parse(&stdout).unwrap();
+    assert_eq!(envelope.data_field("records").unwrap(), 3);
+    assert!(envelope.data_field("digest").unwrap().is_null());
+    assert!(stdout.contains("device-boot"));
+    assert!(stdout.contains("custom/schema"));
+    let (stdout, code) = run(&["-o", "json", "replay", "run", path.to_str().unwrap()]);
+    assert_ne!(code, 0, "{stdout}");
+    assert!(stdout.contains("legacy Recording cannot preserve"));
+    std::fs::remove_file(path).unwrap();
+}
+
 /// Write a small deterministic recording and return (path, digest).
 fn write_recording(name: &str) -> (std::path::PathBuf, String) {
     let path = std::env::temp_dir().join(name);

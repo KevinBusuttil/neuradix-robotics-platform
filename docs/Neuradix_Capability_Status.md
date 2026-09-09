@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A05 per-process resource branch.** This register is the current
+**Updated for the WP-A06 bounded MCAP import branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -50,7 +50,7 @@ distinguishes corrected CI failures, unavailable hardware and archived link debt
 No physical hardware, durable-storage or board timing/resource validation is
 claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
 
-## WP-A05 integrated I/O/heartbeat and resource branch
+## WP-A05 integrated I/O, heartbeat and per-process resources
 
 [PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11) adds
 validated protocol/storage limits, one deadline with cleanup reserve, Linux
@@ -80,7 +80,10 @@ four independent no_std checks, formatting, Clippy and docs. The PR records
 current-revision checks after final documentation/shared-observation changes.
 [PR #13](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/13) adds
 [Linux per-process CPU-time and address-space limits](implementation/WP-A05-Worker-Resource-Limits.md)
-and remains unmerged. A required trusted native launcher installs and verifies
+and merged as `741b5bc53ddf293c7d809497018dbc36f8a60b78`.
+[Post-merge main CI 34327790906](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34327790906)
+passed. This verified status correction does not change A05 implementation.
+A required trusted native launcher installs and verifies
 private validated limits before Python executes; auditable setup and exit results
 preserve existing bounded supervision. Actual Linux enforcement and current
 verification are recorded in that evidence document. Implementation `4742a1ce`
@@ -92,6 +95,15 @@ and docs. Counts exclude repeated subprocess reports. Aggregate process-tree
 CPU/RSS, GPU limits, escaped-session containment, other OS qualification and
 deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open.
 
+## WP-A06 bounded import branch
+
+Bounded uncompressed/LZ4 import, full semantic data preservation, checked legacy
+projection, independent Python fixtures and timed adversarial/memory workloads
+are implemented on `codex/a06-bounded-mcap-import`. Current revision verification
+and integration are pending; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
+This establishes neither decoded ROS interoperability nor writer/replay completion.
+WP-A06/ACC-08 remain partial; WP-A04, WP-A05 and Gate A retain their open criteria.
+
 ## Capability inventory
 
 | Capability | Integrated scope on main | Remaining work |
@@ -100,8 +112,8 @@ deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
-| Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat health and bounded recovery through PRs #11/#12 | Per-process CPU/AS is unmerged in PR #13; aggregate resources, OS qualification and deployment remain: A05/B07 |
-| Recording/replay | Native recording and digest, handwritten MCAP subset; processor re-execution exists in a runtime test | Independent MCAP interchange and arbitrary program replay: A06/A07/C06 |
+| Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
+| Recording/replay | Native recording/digest and historical buffered MCAP writer; processor re-execution exists in a runtime test | A06 bounded import is implemented on its unmerged branch; independent export decoding, bounded writing and arbitrary replay remain: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
 | Embedded runtime/link | Host-tested no_std core and serial CRC/sequence framing; actual AVR compiler checks for generated scalars | Complete firmware, flash/monitor, physical board execution, timing and stack: B04/B05/B06 |
@@ -136,8 +148,8 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
 | Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
-| Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: resource PR unmerged; aggregate resources and additional OS/deployment work remain |
-| MCAP subset | Private encodings/metadata and unsupported chunks can fail or omit external data | A06 | Open |
+| Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
+| MCAP subset | A06 branch replaces silent chunk skipping with bounded maintained parsing and explicit unsupported outcomes; full opaque schemas/encodings and both timestamps retained | A06 | Partial, unmerged: current verification, bounded writing and independent export/scale evidence remain |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |
 

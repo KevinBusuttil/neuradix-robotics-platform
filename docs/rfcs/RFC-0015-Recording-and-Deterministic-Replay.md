@@ -16,7 +16,9 @@ be verifiable — two replays of the same recording must be provably identical.
 Implemented in this increment: a native, self-describing recording container; a
 payload-agnostic codec; a deterministic replay digest; and `neuradix record
 inspect` / `neuradix replay run` (with `--expect-digest` wiring exit code 9).
-Out of scope: MCAP, live `record start/stop` against a running graph, branch and
+MCAP now has a buffered writer and bounded semantic import; see
+[RFC-0021](RFC-0021-MCAP-Recording-Backend.md). Out of scope: live
+`record start/stop` against a running graph, branch and
 counterfactual replay, and a recording-driven replay clock feeding a live graph.
 
 ## Proposed decision
@@ -59,8 +61,10 @@ returns exit code **9** (determinism/replay mismatch) when the digest differs.
 ### Backend neutrality
 
 `NativeRecordWriter`/`NativeRecording` are the first backend. MCAP is intended
-as an additional backend behind the same writer/reader surface, mirroring how
-`neuradix-transport-api` hides its backend — no recorded component code changes.
+as an additional backend. The historical `McapRecording` implements `Recording`;
+WP-A06 adds `McapArchive`/`import_mcap` to preserve full external schemas and both
+source/log times. Checked conversion rejects data the one-timestamp trait cannot
+represent. Generic import does not invent clock provenance or imply replay execution.
 
 ## Public interfaces affected
 
@@ -103,7 +107,7 @@ example records its run and verifies replay fidelity at runtime.
 
 ## Unresolved questions
 
-- MCAP backend mapping (channels/schemas/attachments) and when to add it.
+- Bounded MCAP writing and independent export decoding; attachments remain unsupported.
 - Live `record start/stop` against a running graph and a recording-driven replay
   clock that re-drives components in lockstep.
 - Branch and counterfactual replay (§24.4) and partial-graph replay.

@@ -157,7 +157,7 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 Heartbeat implementation `58e2b224` passed 55 Python-crate tests/doctests, six SDK tests, 88 command regressions, 287 workspace tests/doctests and two separate AVR checks, plus formatting, Clippy, examples, independent no_std and docs. Current checks also cover its integrated final revision.
 
-**Per-process resource increment (PR #13, unmerged):** Private validated CPU-time/virtual-address-space policy and a trusted native Linux launcher install/verify equal soft/hard limits before Python executes. Setup failures, observed exits, inherited bounds and replacement accounting are explicit. See [resource policy, migration and verification](implementation/WP-A05-Worker-Resource-Limits.md). WP-A05/ACC-09 remain **partial**: aggregate process-tree CPU/RSS, GPU limits, escaped-session containment, other OS qualification and deployment supervision remain open. Gate A remains open.
+**Per-process resource increment integrated:** [PR #13](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/13) merged as `741b5bc53ddf293c7d809497018dbc36f8a60b78`; [post-merge main CI 34327790906](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34327790906) passed. Private validated CPU-time/virtual-address-space policy and a trusted native Linux launcher install/verify equal soft/hard limits before Python executes. Setup failures, observed exits, inherited bounds and replacement accounting are explicit. See [resource policy, migration and verification](implementation/WP-A05-Worker-Resource-Limits.md). WP-A05/ACC-09 remain **partial**: aggregate process-tree CPU/RSS, GPU limits, escaped-session containment, other OS qualification and deployment supervision remain open. Gate A remains open.
 
 Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324402352`: 75 Python-crate tests/doctests, six SDK tests, 88 command regressions, 307 workspace tests/doctests and two separate AVR checks, plus formatting, Clippy, migrated examples, four independent no_std checks and docs. Host/kernel and compiler checks do not supply physical acceptance evidence.
 
@@ -172,6 +172,8 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 **Acceptance:** Independent writers and readers agree on messages, payloads, schemas and timestamps. Unsupported data is explicitly rejected or retained opaquely; it is never silently omitted. Peak memory is measured against a declared budget.
 
 **Primary risk:** Valid MCAP containers being advertised as decoded ROS/viewer interoperability.
+
+**Bounded import implemented, integration pending:** The A06 branch replaces silent skipping with pinned maintained parsing, private validated limits, capped uncompressed/LZ4 chunk import, full schema/encoding/metadata and separate source/log times, plus explicit legacy conversion. Independent Python fixtures, timed malformed/expansion cases and declared memory workloads are tracked in [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md). Current-revision verification is pending. WP-A06/ACC-08 remain **partial**: bounded streaming writing, independent export decoding and broader interchange/scale evidence remain. WP-A01 supplies the integrated source/compiler prerequisite while its broader evidence inventory remains partial. Gate A stays open.
 
 <a name="wp-a07"></a>
 
