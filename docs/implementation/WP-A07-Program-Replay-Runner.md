@@ -1,7 +1,7 @@
 # WP-A07 — Reusable single-processor replay runner
 
-Status: implemented on `codex/a07-program-replay-runner`; verification and
-integration pending. WP-A07/ACC-07 remain partial and Gate A stays open.
+Status: implemented on `codex/a07-program-replay-runner`, [PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16)
+open and unmerged; final verification pending. WP-A07/ACC-07 remain partial and Gate A stays open.
 
 ## Baseline and review
 

@@ -121,7 +121,8 @@ qualification. A04/A05 and Gate A retain their remaining acceptance criteria.
 
 ## WP-A07 single-processor replay branch
 
-`neuradix-runtime::replay` admits bounded owned cases, immutable configuration/seed,
+[PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16), open and unmerged,
+adds `neuradix-runtime::replay` with bounded owned cases, immutable configuration/seed,
 a separate evaluation schedule and original source timestamps. Each run calls a
 selected factory and fresh processor; fixed-size error evidence and capped mismatch
 diagnostics report exact per-tick comparisons. No output payload history is retained.
