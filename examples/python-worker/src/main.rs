@@ -24,7 +24,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let manifest = env!("CARGO_MANIFEST_DIR");
     let config = WorkerConfig::new("python3", PathBuf::from(format!("{manifest}/detector.py")))
         .with_python_path(PathBuf::from(format!("{manifest}/../../python")))
-        .with_heartbeat(HeartbeatPolicy::new(Duration::from_millis(100), Duration::from_secs(1))?)
+        .with_heartbeat(HeartbeatPolicy::new(
+            Duration::from_millis(100),
+            Duration::from_secs(1),
+        )?)
         .with_config(json!({ "threshold": 12.0 }));
 
     println!("Neuradix — isolated Python worker example");
@@ -36,7 +39,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         (info.name.clone(), info.skip_policy.clone())
     };
     println!("  worker   : {name} (skip policy: {skip_policy})");
-    println!("  startup  : {} (ready is not responsiveness proof)", supervisor.health());
+    println!(
+        "  startup  : {} (ready is not responsiveness proof)",
+        supervisor.health()
+    );
 
     // 1. Normal operation: the Python component classifies depth samples.
     println!("\ndetection");

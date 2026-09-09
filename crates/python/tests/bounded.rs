@@ -362,13 +362,21 @@ fn local_control(heartbeat: bool) {
         0.0,
     )
     .unwrap();
-    let cfg = config("hang").with_heartbeat(neuradix_python::HeartbeatPolicy::new(
-        Duration::from_millis(20), Duration::from_millis(250),
-    ).unwrap());
+    let cfg = config("hang").with_heartbeat(
+        neuradix_python::HeartbeatPolicy::new(
+            Duration::from_millis(20),
+            Duration::from_millis(250),
+        )
+        .unwrap(),
+    );
     let mut worker = PythonWorker::launch(&cfg).unwrap();
     let task = std::thread::spawn(move || {
         if heartbeat {
-            std::thread::sleep(worker.heartbeat_due().saturating_duration_since(Instant::now()));
+            std::thread::sleep(
+                worker
+                    .heartbeat_due()
+                    .saturating_duration_since(Instant::now()),
+            );
             let error = worker.check_heartbeat().unwrap_err();
             assert!(matches!(cause(&error), WorkerError::HeartbeatTimeout));
         } else {

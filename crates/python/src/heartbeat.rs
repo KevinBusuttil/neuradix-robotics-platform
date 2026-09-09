@@ -41,8 +41,10 @@ impl WorkerFailure {
             WorkerError::Timeout => Self::RequestTimeout,
             WorkerError::SequenceExhausted => Self::SequenceExhausted,
             WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed => Self::Exited,
-            WorkerError::Protocol(_) | WorkerError::IncomingTooLarge { .. }
-            | WorkerError::OutgoingTooLarge { .. } | WorkerError::QueueBytesExceeded { .. }
+            WorkerError::Protocol(_)
+            | WorkerError::IncomingTooLarge { .. }
+            | WorkerError::OutgoingTooLarge { .. }
+            | WorkerError::QueueBytesExceeded { .. }
             | WorkerError::QueueMessagesExceeded { .. } => Self::Protocol,
             _ => Self::Io,
         }
@@ -59,9 +61,20 @@ pub(crate) struct Heartbeat {
 }
 impl Heartbeat {
     pub fn new(policy: HeartbeatPolicy, now: Instant) -> Result<Self, WorkerError> {
-        let due = now.checked_add(policy.interval()).ok_or(WorkerError::SupervisionClock)?;
-        let expires = due.checked_add(policy.response()).ok_or(WorkerError::SupervisionClock)?;
-        Ok(Self { policy, observed: now, due, expires, confirmed: false, failure: None })
+        let due = now
+            .checked_add(policy.interval())
+            .ok_or(WorkerError::SupervisionClock)?;
+        let expires = due
+            .checked_add(policy.response())
+            .ok_or(WorkerError::SupervisionClock)?;
+        Ok(Self {
+            policy,
+            observed: now,
+            due,
+            expires,
+            confirmed: false,
+            failure: None,
+        })
     }
     pub fn observe(&mut self, now: Instant) -> Result<HealthState, WorkerError> {
         if self.failure.is_some() {
@@ -91,12 +104,18 @@ impl Heartbeat {
         self.confirmed = true;
         Ok(())
     }
-    pub fn due(&self) -> Instant { self.due }
-    pub fn expires(&self) -> Instant { self.expires }
+    pub fn due(&self) -> Instant {
+        self.due
+    }
+    pub fn expires(&self) -> Instant {
+        self.expires
+    }
     pub fn fail(&mut self, reason: WorkerFailure) {
         self.failure.get_or_insert(reason);
     }
-    pub fn failure(&self) -> Option<WorkerFailure> { self.failure }
+    pub fn failure(&self) -> Option<WorkerFailure> {
+        self.failure
+    }
 }
 
 #[cfg(test)]
@@ -113,13 +132,30 @@ mod tests {
         let mut state = Heartbeat::new(policy, now).unwrap();
         assert_eq!(state.observe(now).unwrap(), HealthState::Unknown);
         state.confirm(now).unwrap();
-        assert_eq!(state.observe(now + interval - Duration::from_nanos(1)).unwrap(), HealthState::Healthy);
-        assert_eq!(state.observe(now + interval).unwrap(), HealthState::Degraded);
+        assert_eq!(
+            state
+                .observe(now + interval - Duration::from_nanos(1))
+                .unwrap(),
+            HealthState::Healthy
+        );
+        assert_eq!(
+            state.observe(now + interval).unwrap(),
+            HealthState::Degraded
+        );
         let expiry = now + interval + response;
-        assert_eq!(state.observe(expiry - Duration::from_nanos(1)).unwrap(), HealthState::Degraded);
-        assert!(matches!(state.confirm(expiry), Err(WorkerError::HeartbeatExpired)));
+        assert_eq!(
+            state.observe(expiry - Duration::from_nanos(1)).unwrap(),
+            HealthState::Degraded
+        );
+        assert!(matches!(
+            state.confirm(expiry),
+            Err(WorkerError::HeartbeatExpired)
+        ));
         assert_eq!(state.failure(), Some(WorkerFailure::HeartbeatExpired));
-        assert!(matches!(state.confirm(expiry), Err(WorkerError::Unavailable)));
+        assert!(matches!(
+            state.confirm(expiry),
+            Err(WorkerError::Unavailable)
+        ));
         state.fail(WorkerFailure::Shutdown);
         assert_eq!(state.failure(), Some(WorkerFailure::HeartbeatExpired));
         let mut replacement = Heartbeat::new(policy, expiry).unwrap();
@@ -137,9 +173,15 @@ mod tests {
         let now = Instant::now();
         let mut state = Heartbeat::new(HeartbeatPolicy::default(), now).unwrap();
         state.observe(now + Duration::from_nanos(1)).unwrap();
-        assert!(matches!(state.confirm(now), Err(WorkerError::SupervisionClock)));
+        assert!(matches!(
+            state.confirm(now),
+            Err(WorkerError::SupervisionClock)
+        ));
         assert_eq!(state.failure(), Some(WorkerFailure::Clock));
-        assert!(matches!(state.observe(now + Duration::from_secs(1)), Err(WorkerError::Unavailable)));
+        assert!(matches!(
+            state.observe(now + Duration::from_secs(1)),
+            Err(WorkerError::Unavailable)
+        ));
     }
     #[test]
     fn representable_instant_boundary_fails_closed() {
@@ -154,9 +196,15 @@ mod tests {
         }
         let edge = now.checked_add(Duration::from_secs(seconds)).unwrap();
         let policy = HeartbeatPolicy::new(Duration::from_secs(1), Duration::from_secs(1)).unwrap();
-        assert!(matches!(Heartbeat::new(policy, edge), Err(WorkerError::SupervisionClock)));
+        assert!(matches!(
+            Heartbeat::new(policy, edge),
+            Err(WorkerError::SupervisionClock)
+        ));
         let mut state = Heartbeat::new(policy, edge - Duration::from_secs(2)).unwrap();
-        assert!(matches!(state.confirm(edge - Duration::from_nanos(1)), Err(WorkerError::SupervisionClock)));
+        assert!(matches!(
+            state.confirm(edge - Duration::from_nanos(1)),
+            Err(WorkerError::SupervisionClock)
+        ));
         assert_eq!(state.failure(), Some(WorkerFailure::Clock));
     }
 }

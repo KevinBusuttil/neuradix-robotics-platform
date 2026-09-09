@@ -153,10 +153,13 @@ impl HeartbeatPolicy {
     /// Set the interval after a confirmation (or initial handshake) and the
     /// response-processing budget after that due time. Equality expires.
     pub fn new(interval: Duration, response: Duration) -> Result<Self, WorkerError> {
-        if [interval, response].into_iter().any(|value| {
-            value < Duration::from_millis(1) || value > Duration::from_secs(60)
-        }) {
-            return Err(WorkerError::InvalidConfig("heartbeat durations must be 1ms..=60s"));
+        if [interval, response]
+            .into_iter()
+            .any(|value| value < Duration::from_millis(1) || value > Duration::from_secs(60))
+        {
+            return Err(WorkerError::InvalidConfig(
+                "heartbeat durations must be 1ms..=60s",
+            ));
         }
         Ok(Self { interval, response })
     }

@@ -2,9 +2,9 @@
 
 use neuradix_runtime::HealthState;
 
+use crate::WorkerFailure;
 use crate::error::WorkerError;
 use crate::worker::{PythonWorker, WorkerConfig};
-use crate::WorkerFailure;
 
 /// Supervises a single Python worker with a bounded restart budget, so a
 /// crashing (flapping) worker cannot restart forever.
@@ -59,7 +59,10 @@ impl WorkerSupervisor {
     /// Most recent terminal worker or replacement-launch failure. Retained after
     /// replacement and shutdown for audit; this is not the new worker's health.
     pub fn last_failure(&self) -> Option<WorkerFailure> {
-        self.worker.as_ref().and_then(PythonWorker::last_failure).or(self.last_failure)
+        self.worker
+            .as_ref()
+            .and_then(PythonWorker::last_failure)
+            .or(self.last_failure)
     }
 
     /// Periodic supervision outside conventional control. A call performs at
@@ -76,7 +79,11 @@ impl WorkerSupervisor {
                 self.last_failure = worker.last_failure();
                 return Err(error);
             }
-            return Ok(worker.health());
+            let result = worker.check_session();
+            if result.is_err() {
+                self.last_failure = worker.last_failure();
+            }
+            return result;
         }
         self.ensure_alive()?;
         Ok(self.health())

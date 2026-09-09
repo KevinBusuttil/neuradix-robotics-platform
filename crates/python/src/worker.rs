@@ -45,12 +45,18 @@ impl Deadline {
         }
     }
     fn heartbeat(io: Instant, reserve: Duration) -> Result<Self, WorkerError> {
-        let end = io.checked_add(reserve).ok_or(WorkerError::SupervisionClock)?;
+        let end = io
+            .checked_add(reserve)
+            .ok_or(WorkerError::SupervisionClock)?;
         Ok(Self { io, end, reserve })
     }
     fn cap_io(mut self, expiry: Instant) -> Result<Self, WorkerError> {
         self.io = self.io.min(expiry);
-        self.end = self.end.min(self.io.checked_add(self.reserve).ok_or(WorkerError::SupervisionClock)?);
+        self.end = self.end.min(
+            self.io
+                .checked_add(self.reserve)
+                .ok_or(WorkerError::SupervisionClock)?,
+        );
         Ok(self)
     }
     fn cleanup_end(&self) -> Instant {
@@ -231,7 +237,9 @@ impl PythonWorker {
         }
         let result = self.heartbeat.observe(Instant::now()).and_then(|state| {
             if self.process.has_exited()? {
-                Err(WorkerError::WorkerExited { status: "observed exit".into() })
+                Err(WorkerError::WorkerExited {
+                    status: "observed exit".into(),
+                })
             } else {
                 Ok(state)
             }
@@ -259,20 +267,37 @@ impl PythonWorker {
     pub fn send(&mut self, payload: &Value) -> Result<Value, WorkerError> {
         self.check_session()?;
         let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?
-            .cap_io(self.heartbeat.expires()).map_err(|error| self.retire(error))?;
+            .cap_io(self.heartbeat.expires())
+            .map_err(|error| self.retire(error))?;
         self.exchange(Some(payload), deadline)
     }
-    fn exchange(&mut self, payload: Option<&Value>, deadline: Deadline) -> Result<Value, WorkerError> {
-        let sequence = self.sequence.checked_add(1)
-            .ok_or(WorkerError::SequenceExhausted).map_err(|error| self.fail(error, &deadline))?;
+    fn exchange(
+        &mut self,
+        payload: Option<&Value>,
+        deadline: Deadline,
+    ) -> Result<Value, WorkerError> {
+        let sequence = self
+            .sequence
+            .checked_add(1)
+            .ok_or(WorkerError::SequenceExhausted)
+            .map_err(|error| self.fail(error, &deadline))?;
         let encoded = match payload {
             Some(payload) => encode(payload, Some(sequence), self.outgoing_limit, deadline.io),
-            None => encode(&json!({"kind": "ping", "seq": sequence}), None, self.outgoing_limit, deadline.io),
+            None => encode(
+                &json!({"kind": "ping", "seq": sequence}),
+                None,
+                self.outgoing_limit,
+                deadline.io,
+            ),
         };
         let line = match encoded {
             Ok(line) => line,
             Err(WorkerError::Timeout) => {
-                let error = if payload.is_none() { WorkerError::HeartbeatTimeout } else { WorkerError::Timeout };
+                let error = if payload.is_none() {
+                    WorkerError::HeartbeatTimeout
+                } else {
+                    WorkerError::Timeout
+                };
                 return Err(self.fail(error, &deadline));
             }
             Err(error) => return Err(error),
@@ -314,16 +339,26 @@ impl PythonWorker {
         // Both application responses and matching Remote errors demonstrate
         // loop/handler responsiveness, not application correctness. Pongs are
         // accepted only for a ping using this session's next sequence.
-        if result.is_ok() || matches!(&result, Err(WorkerError::Remote(_))) {
-            if let Err(error) = deadline.check().and_then(|()| self.heartbeat.confirm(Instant::now())) {
-                let error = if payload.is_none() && matches!(error, WorkerError::Timeout) { WorkerError::HeartbeatTimeout } else { error };
-                return Err(self.fail(error, &deadline));
-            }
+        if (result.is_ok() || matches!(&result, Err(WorkerError::Remote(_))))
+            && let Err(error) = deadline
+                .check()
+                .and_then(|()| self.heartbeat.confirm(Instant::now()))
+        {
+            let error = if payload.is_none() && matches!(error, WorkerError::Timeout) {
+                WorkerError::HeartbeatTimeout
+            } else {
+                error
+            };
+            return Err(self.fail(error, &deadline));
         }
         match result {
             Err(error @ WorkerError::Remote(_)) => Err(error),
             Err(error) => {
-                let error = if payload.is_none() && matches!(error, WorkerError::Timeout) { WorkerError::HeartbeatTimeout } else { error };
+                let error = if payload.is_none() && matches!(error, WorkerError::Timeout) {
+                    WorkerError::HeartbeatTimeout
+                } else {
+                    error
+                };
                 Err(self.fail(error, &deadline))
             }
             ok => ok,
@@ -491,9 +526,15 @@ mod tests {
         let expiry = start + Duration::from_millis(200);
         let deadline = Deadline::heartbeat(expiry, reserve).unwrap();
         assert!(deadline.check_at(expiry - Duration::from_nanos(1)).is_ok());
-        assert!(matches!(deadline.check_at(expiry), Err(WorkerError::Timeout)));
+        assert!(matches!(
+            deadline.check_at(expiry),
+            Err(WorkerError::Timeout)
+        ));
         assert_eq!(deadline.end, expiry + reserve);
-        let capped = Deadline::new(Duration::from_secs(10), reserve).unwrap().cap_io(expiry).unwrap();
+        let capped = Deadline::new(Duration::from_secs(10), reserve)
+            .unwrap()
+            .cap_io(expiry)
+            .unwrap();
         assert_eq!(capped.io, expiry);
         assert_eq!(capped.end, expiry + reserve);
         // An operation's earlier total deadline remains the limiting one.
