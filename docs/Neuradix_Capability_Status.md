@@ -191,7 +191,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
 | MCAP subset | PR #14 integrates bounded maintained import; PR #15 integrates bounded uncompressed output and independent export checks | A06 | Partial: bounded import/writer integrated; broader interchange/scale qualification remains |
 | Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner integrated; graph execution and ACC-07 closed-loop evidence remain open |
-| Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |
+| Deployment resolution/feedback | PR #17 implements resolved schema/layout/configuration identity; cycle/role validation is not runtime enforcement | A08 | Partial: identity integration pending; delayed feedback and runtime enforcement remain open |
 
 WP-A01 has an integrated source baseline and compiler evidence. The broader evidence
 inventory and optional-tool audit remain. WP-A02 and WP-A03 are partial; their
