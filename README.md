@@ -49,7 +49,7 @@ Current limits:
 - `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
-- PR #11 integrates bounded Linux Python-worker stdio and cleanup. This A05 branch adds [heartbeat health and bounded recovery](docs/implementation/WP-A05-Worker-Heartbeat.md), requiring periodic supervision outside local control. Comprehensive resource enforcement, other OS backends and deployment supervision remain open; process separation is not a security sandbox.
+- PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. This A05 branch adds [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
 - MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
@@ -140,7 +140,8 @@ cargo run -p neuradix-example-minimal-depth-stream
 
 # An isolated Python worker: detection, a Python crash that is isolated and
 # drives FDIR to a safe mode, then a supervised restart (requires python3):
-cargo run -p neuradix-example-python-worker
+cargo build --locked -p neuradix-python --bin neuradix-python-launcher
+cargo run --locked -p neuradix-example-python-worker -- target/debug/neuradix-python-launcher
 
 # Deterministic one-dimensional closed-loop AUV fixture:
 cargo run -p neuradix-example-auv-depth-sim

@@ -1,6 +1,6 @@
 # RFC-0018 — Python Worker SDK and Process Isolation
 
-- Status: Partially implemented (foundation increment 7, integrated WP-A05 bounded I/O and heartbeat branch)
+- Status: Partially implemented (integrated WP-A05 I/O/heartbeat; per-process Linux resource branch)
 - Current plan: [Implementation Plan v0.4, WP-A05](../Neuradix_Implementation_Plan_v0.4.md#wp-a05); original scope: Functional Specification v0.5 §19, §41.6; complements RFC-0017
 - Crate: `neuradix-python`; Python library: `python/neuradix_worker.py`
 
@@ -21,23 +21,32 @@ attempt budgets; and a Python `run(handler)` library. Linux GNU/musl is the only
 implemented bounded backend; other OSes reject launch explicitly.
 Out of scope for this increment:
 in-process PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2),
-content-addressed/locked dependency environments, GPU/memory supervisor limits,
-and wheel packaging, comprehensive resources and additional OS backends.
+content-addressed/locked dependency environments, aggregate CPU/RSS and GPU limits,
+wheel packaging, escaped-session containment and additional OS backends.
 See [WP-A05 design and evidence](../implementation/WP-A05-Bounded-Worker-IO.md).
 The [heartbeat policy and evidence](../implementation/WP-A05-Worker-Heartbeat.md)
 defines the subsequent bounded increment and its required scheduling.
+The [resource policy and evidence](../implementation/WP-A05-Worker-Resource-Limits.md)
+adds Linux RLIMIT_CPU/RLIMIT_AS enforcement before Python executes.
 
 ## Proposed decision
 
 ### Isolation model
 
-A Python component runs as a separate process (`python3 <script>`). It never
+A Python component runs as a separate process (trusted native launcher, then
+`exec python3 <script>` in the same PID/process group). It never
 shares the runtime's address space, so a Python exception or process crash does
 not directly corrupt the runtime's memory. This is not a security sandbox:
 same-user privileges, comprehensive resource containment and escaped-session
 cleanup are not qualified by process separation.
 
 ### Protocol (newline-delimited JSON)
+
+Before the worker protocol, a trusted launcher confirms `limits-v1` with the
+effective CPU/AS values, then consumes a fixed `start` acknowledgement. The parent
+checks the values before acknowledging. Bootstrap and ready share the original
+handshake deadline and 64-byte/one-message minimum limits. Later worker-provided
+setup claims never become trusted resource evidence.
 
 - startup handshake: worker → `{"kind":"ready","name","skipPolicy"}`;
 - request: supervisor → `{"kind":"request","seq","payload"}`;
@@ -143,6 +152,24 @@ config is delivered via `NEURADIX_WORKER_CONFIG`.
 
 ## Safety and security implications
 
+`ResourceLimits` privately validates integral CPU seconds (1..=86,400, default
+300) and virtual-address bytes (16 MiB..=1 TiB, default 256 MiB). AS rounds down
+to system pages; native overflow/unlimited values reject explicitly. A required
+absolute, operator-protected native helper installs equal soft/hard values and
+reads them back. Supervisor limits never change. Linux procfs credential checks
+reject root/capability-bearing execution; no_new_privs prevents exec privilege
+gains. The child environment retains only PATH, LANG and explicit SDK settings.
+Missing helper, unsupported platform or failed setup never launches unrestricted.
+Setup failures carry a stage/errno. Observed exits carry a code or signal/core
+flag without inferring CPU/memory exhaustion from generic crashes.
+
+CPU time is lifetime process/thread CPU time, not elapsed time; ordinary forked
+children inherit limits with separate CPU accounting. AS is virtual address
+space, not RSS, process-tree or GPU memory. Workers cannot raise hard limits but
+can lower them. The same policy is reinstalled on every budgeted replacement.
+Only Linux GNU x86_64 is exercised in CI; other Linux configurations need separate
+qualification. Aggregate/escaped-session containment is still incomplete.
+
 Separate processes isolate Python exceptions/process exits from control and
 safety; complete host resource isolation remains unimplemented. Python is kept
 out of the deterministic executor (its
@@ -151,7 +178,8 @@ The Linux bounded I/O path prevents worker-controlled pipe traffic from causing
 an unbounded application wait or queue. It belongs outside the deterministic
 control executor. Restart budgets include failed launch attempts. A05 tests
 exercise continued local command gating and fallback while a worker hangs;
-this is host software evidence, not physical rig or resource-isolation evidence.
+this is host software evidence, not physical rig validation. The resource suite
+adds actual Linux per-process enforcement evidence within the scope above.
 
 ## Compatibility implications
 
@@ -167,6 +195,11 @@ schedule periodic polling. The minimum 64-byte line limit supports a pong even
 at the maximum u64 sequence. Health no longer treats process existence as proof;
 ordinary requests may time out earlier at responsiveness expiry. Newly detected
 failures return before a later recovery call; explicit shutdown prevents restart.
+Resource users must build/install `neuradix-python-launcher` from the same package
+and call `with_resource_launcher(absolute_path)?`. `with_resources` accepts only
+validated `ResourceLimits`; getters expose requested and confirmed policy.
+Ambient environment inheritance is restricted. The Python SDK is unchanged:
+bootstrap is consumed before it executes. See the evidence document for commands.
 
 ## Testing strategy
 
@@ -182,11 +215,15 @@ Heartbeat tests add externally timed idle, stopped/hung, scheduling-gap,
 duplicate/stale/late traffic, replacement, failed-launch, shutdown and independent
 local-control scenarios. Deterministic boundary tests exercise the same private
 monotonic state and deadline code at exact due/expiry and arithmetic limits.
+Externally timed resource scenarios verify actual kernel limits, CPU termination,
+AS allocation/mmap denial, inheritance, denied hard-limit raises, setup-before-code,
+restart accounting and continued independent local control. A required privileged
+negative test verifies helper rejection without ever acknowledging target exec.
 
 ## Unresolved questions
 
 - PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2); wheel packaging.
 - Content-addressed, locked Python dependency environments (§19.4).
-- Supervisor-enforced CPU/memory/GPU limits (§19.4).
+- Aggregate process-tree CPU/RSS, GPU limits and escaped-session containment (§19.4).
 - Additional OS/architecture qualification and deployed heartbeat scheduling.
 - Graph-compiler detection of Python in a declared deterministic control path.

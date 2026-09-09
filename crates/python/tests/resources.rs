@@ -384,7 +384,8 @@ fn resource_child() {
         }
         "cpu_failure_restart_budget" => {
             let limits = ResourceLimits::new(1, 268_435_456).unwrap();
-            let mut supervisor = WorkerSupervisor::start(config().with_resources(limits), 1).unwrap();
+            let mut supervisor =
+                WorkerSupervisor::start(config().with_resources(limits), 1).unwrap();
             for used in 0..=1 {
                 assert_eq!(supervisor.restarts_used(), used);
                 let worker = supervisor.worker().unwrap();
