@@ -178,15 +178,33 @@ fn temp_dir_is_writable() {
 
 #[test]
 fn failed_export_preserves_destination_and_removes_partial_file() {
-    let dir=std::env::temp_dir().join(format!("neuradix-export-failure-{}",std::process::id()));
+    let dir = std::env::temp_dir().join(format!("neuradix-export-failure-{}", std::process::id()));
     std::fs::create_dir(&dir).unwrap();
-    let source=dir.join("source.nrec"); let dest=dir.join("existing.mcap");
-    let manifest=RecordingManifest::builder("test").build();
-    let mut writer=NativeRecordWriter::new(Vec::new(),&manifest).unwrap();
-    writer.write_record(9,0,Timestamp::new(ClockDomain::Monotonic,0),b"undeclared").unwrap();
-    std::fs::write(&source,writer.finish().unwrap()).unwrap(); std::fs::write(&dest,b"preserve me").unwrap();
-    let (stdout,code)=run(&["-o","json","record","export",source.to_str().unwrap(),"--out",dest.to_str().unwrap()]);
-    assert_ne!(code,0,"{stdout}"); assert_eq!(std::fs::read(&dest).unwrap(),b"preserve me");
-    assert_eq!(std::fs::read_dir(&dir).unwrap().count(),2);
+    let source = dir.join("source.nrec");
+    let dest = dir.join("existing.mcap");
+    let manifest = RecordingManifest::builder("test").build();
+    let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();
+    writer
+        .write_record(
+            9,
+            0,
+            Timestamp::new(ClockDomain::Monotonic, 0),
+            b"undeclared",
+        )
+        .unwrap();
+    std::fs::write(&source, writer.finish().unwrap()).unwrap();
+    std::fs::write(&dest, b"preserve me").unwrap();
+    let (stdout, code) = run(&[
+        "-o",
+        "json",
+        "record",
+        "export",
+        source.to_str().unwrap(),
+        "--out",
+        dest.to_str().unwrap(),
+    ]);
+    assert_ne!(code, 0, "{stdout}");
+    assert_eq!(std::fs::read(&dest).unwrap(), b"preserve me");
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
     std::fs::remove_dir_all(dir).unwrap();
 }

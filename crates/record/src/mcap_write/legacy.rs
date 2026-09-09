@@ -53,14 +53,13 @@ impl<W: Write> McapWriter<W> {
             limit: policy.string_bytes() as u64,
         })?;
         // Metadata body: name prefix/name, map prefix, key prefix/key, value prefix/JSON.
-        let metadata_body = limits::add(counter.bytes as u64, 36)?;
+        let metadata_body = limits::add(counter.bytes as u64, 37)?;
         limits::check(metadata_body, policy.record_bytes() as u64, "record bytes")?;
         limits::check(
             limits::charge(metadata_body, 1)?,
             policy.state_bytes() as u64,
             "state bytes",
         )?;
-        let json = serde_json::to_string(manifest).map_err(RecordError::Manifest)?;
         let mut writer = McapStreamWriter::new(
             inner,
             &McapHeader {
@@ -69,6 +68,8 @@ impl<W: Write> McapWriter<W> {
             },
             policy,
         )?;
+        writer.reserve(metadata_body, limits::charge(metadata_body, 1)?, 0)?;
+        let json = serde_json::to_string(manifest).map_err(RecordError::Manifest)?;
         writer.metadata(&McapMetadata {
             name: "neuradix.manifest".into(),
             entries: BTreeMap::from([("json".into(), json)]),

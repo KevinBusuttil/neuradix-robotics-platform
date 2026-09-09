@@ -232,7 +232,7 @@ pub(super) fn metadata(value: &McapMetadata, limits: McapWriteLimits) -> Result<
 mod tests {
     #[test]
     fn arithmetic_overflow_is_rejected() {
-        assert!(super::add(u64::MAX,1).is_err());
-        assert!(super::charge(u64::MAX,0).is_err());
+        assert!(super::add(u64::MAX, 1).is_err());
+        assert!(super::charge(u64::MAX, 0).is_err());
     }
 }
