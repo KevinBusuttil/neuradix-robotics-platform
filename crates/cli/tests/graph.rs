@@ -169,3 +169,14 @@ fn missing_file_reports_an_error() {
     assert_eq!(code, 1);
     ParsedEnvelope::parse(&stdout).unwrap().assert_failure();
 }
+
+#[test]
+fn delayed_feedback_reports_offline_v3_identity() {
+    let (stdout, code) = run(&["-o", "json", "graph", "validate", concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/delayed-feedback/deployment.yaml"), "--contracts", STANDARD_CONTRACTS]);
+    assert_eq!(code, 0);
+    let env = ParsedEnvelope::parse(&stdout).unwrap();
+    assert_eq!(env.data_field("identityKind").unwrap(), "declared-v3");
+    assert_eq!(env.data_field("topologyPolicy").unwrap(), "instantaneous-dag-v1");
+    assert_eq!(env.data_field("executionValidated").unwrap(), false);
+    assert!(env.data_field("resolvedIdentity").unwrap().as_str().unwrap().starts_with("neuradix.deployment.resolved.v3:"));
+}

@@ -43,6 +43,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-graph
           timeout --signal=TERM --kill-after=5s 30s cargo test --locked -p neuradix-cli --test graph
           timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-graph --example resolved_identity
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-graph --example delayed_feedback
 
       - name: Program replay regressions and example
         run: |
@@ -96,6 +97,7 @@ jobs:
         if: failure()
         run: |
           cargo fmt --all
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-graph || true
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
           git diff -- Cargo.lock crates examples
 

@@ -4,7 +4,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
-use crate::ComponentConfiguration;
+use crate::{ComponentConfiguration, ConnectionDelay};
 use crate::error::GraphError;
 use crate::identity::{declared_identity, resolved_identity};
 use crate::model::{
@@ -455,7 +455,7 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
     }
 
     let mut connections = Vec::new();
-    let mut seen_connections = HashSet::new();
+    let mut seen_connections = HashMap::new();
     for (i, c) in spec
         .map(|s| s.connections.as_slice())
         .unwrap_or(&[])
@@ -470,15 +470,15 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
         ) else {
             continue;
         };
-        if !seen_connections.insert((from.clone(), to.clone(), contract.clone())) {
-            error(
-                issues,
-                "duplicate-connection",
-                &base,
-                "duplicate connection".to_owned(),
-            );
+        let delay = ConnectionDelay::from_value(&c.delay).unwrap_or_else(|reason| {
+            error(issues, "invalid-connection-delay", &format!("{base}.delay"), reason.to_owned());
+            ConnectionDelay::default()
+        });
+        if let Some(previous) = seen_connections.insert((from.clone(), to.clone(), contract.clone()), delay) {
+            let code = if previous == delay { "duplicate-connection" } else { "conflicting-connection-delay" };
+            error(issues, code, &base, "duplicate connection or conflicting delay declaration".to_owned());
         }
-        connections.push(Connection { from, to, contract });
+        connections.push(Connection { from, to, contract, delay });
     }
 
     Deployment {
@@ -616,86 +616,74 @@ fn check(d: &Deployment, issues: &mut Vec<GraphIssue>) {
         );
     }
 
-    // Prohibited cycles in the topology.
+    let total_ticks: u64 = d.connections.iter().map(|c| u64::from(c.delay.ticks())).sum();
+    // Connection count and per-edge bounds make the u64 sum representable.
+    if total_ticks > ConnectionDelay::MAX_TOTAL_TICKS {
+        error(issues, "delay-history-limit", "spec.connections", "sum of delay ticks exceeds 65536 history slots".to_owned());
+    }
+    // Only instantaneous edges participate in same-tick dependencies.
     if let Some(cycle) = find_cycle(d, &comp_by_name) {
         error(
             issues,
             "prohibited-cycle",
             "spec.connections",
-            format!(
-                "prohibited cycle in the component graph: {}",
-                cycle.join(" -> ")
-            ),
+            cycle_summary(&cycle),
         );
     }
 }
 
-/// Find a directed cycle in the connection graph, returning the cycle path.
-fn find_cycle(d: &Deployment, comp_by_name: &HashMap<&str, &Component>) -> Option<Vec<String>> {
+/// Iterative deterministic DFS of the instantaneous subgraph. All edges still
+/// undergo endpoint/contract/policy checks before this analysis.
+fn find_cycle<'a>(d: &'a Deployment, comp_by_name: &HashMap<&str, &Component>) -> Option<Vec<&'a str>> {
+    let mut names: Vec<&str> = d.components.iter().map(|c| c.name.as_str()).collect();
+    names.sort_unstable();
+    names.dedup();
     let mut adjacency: HashMap<&str, Vec<&str>> = HashMap::new();
     for conn in &d.connections {
-        if comp_by_name.contains_key(conn.from.as_str())
-            && comp_by_name.contains_key(conn.to.as_str())
-        {
-            adjacency
-                .entry(conn.from.as_str())
-                .or_default()
-                .push(conn.to.as_str());
+        if conn.delay.is_instantaneous() && comp_by_name.contains_key(conn.from.as_str()) && comp_by_name.contains_key(conn.to.as_str()) {
+            adjacency.entry(conn.from.as_str()).or_default().push(conn.to.as_str());
         }
     }
-
-    #[derive(Clone, Copy, PartialEq)]
-    enum Color {
-        White,
-        Grey,
-        Black,
-    }
-    let mut color: HashMap<&str, Color> = comp_by_name.keys().map(|&k| (k, Color::White)).collect();
-    let mut stack: Vec<&str> = Vec::new();
-
-    fn dfs<'a>(
-        node: &'a str,
-        adjacency: &HashMap<&'a str, Vec<&'a str>>,
-        color: &mut HashMap<&'a str, Color>,
-        stack: &mut Vec<&'a str>,
-    ) -> Option<Vec<String>> {
-        color.insert(node, Color::Grey);
-        stack.push(node);
-        if let Some(neighbours) = adjacency.get(node) {
-            for &next in neighbours {
-                match color.get(next).copied().unwrap_or(Color::White) {
-                    Color::White => {
-                        if let Some(cycle) = dfs(next, adjacency, color, stack) {
-                            return Some(cycle);
-                        }
-                    }
-                    Color::Grey => {
-                        // Back edge: reconstruct the cycle from the stack.
-                        let start = stack.iter().position(|&n| n == next).unwrap_or(0);
-                        let mut cycle: Vec<String> =
-                            stack[start..].iter().map(|s| s.to_string()).collect();
-                        cycle.push(next.to_string());
-                        return Some(cycle);
-                    }
-                    Color::Black => {}
-                }
+    for neighbours in adjacency.values_mut() { neighbours.sort_unstable(); neighbours.dedup(); }
+    // 0=unvisited, 1=active, 2=finished. Stack bounded by admitted component count.
+    let mut color: HashMap<&str, u8> = names.iter().map(|&n| (n, 0)).collect();
+    for root in names {
+        if color[root] != 0 { continue; }
+        let mut stack = vec![(root, 0usize)];
+        color.insert(root, 1);
+        while let Some((node, next)) = stack.last_mut() {
+            let neighbours = adjacency.get(node).map_or(&[][..], Vec::as_slice);
+            if *next == neighbours.len() {
+                color.insert(*node, 2);
+                stack.pop();
+                continue;
             }
-        }
-        stack.pop();
-        color.insert(node, Color::Black);
-        None
-    }
-
-    let mut names: Vec<&str> = comp_by_name.keys().copied().collect();
-    names.sort_unstable(); // deterministic traversal order
-    for name in names {
-        if color.get(name).copied().unwrap_or(Color::White) == Color::White
-            && let Some(cycle) = dfs(name, &adjacency, &mut color, &mut stack)
-        {
-            return Some(cycle);
+            let target = neighbours[*next];
+            *next += 1;
+            match color[target] {
+                0 => { color.insert(target, 1); stack.push((target, 0)); }
+                1 => {
+                    let start = stack.iter().position(|(n,_)| *n == target).expect("active node");
+                    let mut cycle: Vec<_> = stack[start..].iter().map(|(n,_)| *n).collect();
+                    cycle.push(target);
+                    return Some(cycle);
+                }
+                _ => {}
+            }
         }
     }
     None
+}
+
+/// At most 16 names of at most 32 UTF-8 bytes each, plus fixed framing. The full
+/// witness is transient and bounded by the admitted 1024 components.
+fn cycle_summary(cycle: &[&str]) -> String {
+    let names: Vec<_> = cycle.iter().take(16).map(|name| {
+        let mut end = name.len().min(32);
+        while !name.is_char_boundary(end) { end -= 1; }
+        format!("{}{}", &name[..end], if end < name.len() { "…" } else { "" })
+    }).collect();
+    format!("instantaneous cycle ({} vertices including closure): {}{}", cycle.len(), names.join(" -> "), if cycle.len() > 16 { " -> …" } else { "" })
 }
 
 // ---------------------------------------------------------------------------
