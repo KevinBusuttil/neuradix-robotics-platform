@@ -58,6 +58,7 @@ scenario!(schema_layout_and_unsupported);
 scenario!(configuration_boundaries);
 scenario!(invalid_and_unresolved);
 scenario!(source_and_duplicate_boundaries);
+scenario!(aggregate_configuration_and_version_pin);
 
 #[test]
 fn identity_child() {
@@ -262,6 +263,27 @@ fn identity_child() {
             let r = validate(&a);
             assert!(r.identity().is_none());
             assert_eq!(r.issues()[0].code, "graph-count-limit");
+        }
+        "aggregate_configuration_and_version_pin" => {
+            let empty = from_yaml_str("apiVersion: deploy.neuradix.io/v1alpha1\nkind: RobotDeployment\nmetadata: {name: empty}\nspec: {}", Path::new("empty")).unwrap();
+            // Independent Python 3.11 json.dumps(sort_keys=True,separators=(',',':'))
+            // + hashlib.sha256 over the documented empty resolved-v2 descriptor.
+            assert_eq!(validate_with_registry(&empty, &ContractRegistry::new()).resolved_identity(), Some("neuradix.deployment.resolved.v2:sha256:8dfecbb59620f7ce755aab5afee5247feda95a6c238e778855af9b621067602e"));
+            let mut a = raw();
+            let spec = a.spec.as_mut().unwrap();
+            let mut component = spec.components[0].clone();
+            component.configuration = serde_yaml::from_str(&format!("{{x: '{}' }}", "a".repeat(Config::MAX_BYTES - 8))).unwrap();
+            spec.connections.clear();
+            spec.components = (0..16).map(|i| { let mut c = component.clone(); c.name = format!("sensor{i}"); c }).collect();
+            assert!(validate_with_registry(&a, &registry()).is_valid());
+            component.name = "extra".to_owned();
+            component.configuration = serde_yaml::from_str("{}").unwrap();
+            a.spec.as_mut().unwrap().components.push(component);
+            let report = validate_with_registry(&a, &registry());
+            assert!(report.resolved_identity().is_none());
+            assert!(report.issues().iter().any(|i| i.code == "configuration-total-limit"));
+            let unknown = "apiVersion: deploy.neuradix.io/v1alpha1\nkind: RobotDeployment\nmetadata: {name: empty}\nspec: {unknown: ignored}";
+            assert!(from_yaml_str(unknown, Path::new("unknown")).is_err());
         }
         _ => panic!("unknown case"),
     }

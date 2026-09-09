@@ -141,7 +141,7 @@ unsupported layouts and invalid graphs cannot produce a resolved identity. Immut
 reports prevent caller edits from forging successful validation. Identity labels do
 not attest execution or grant authority. API/CLI pin migration is deliberate; see
 [A08 evidence](implementation/WP-A08-Resolved-Deployment-Identity.md).
-Verification and PR integration are pending. WP-A08 stays partial for delayed
+[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) is open and unmerged; final verification is pending. WP-A08 stays partial for delayed
 feedback and runtime authority enforcement. Existing package/acceptance gaps remain.
 
 ## Capability inventory

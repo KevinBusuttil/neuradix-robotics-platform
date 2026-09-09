@@ -203,7 +203,7 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 
 **Primary risk:** Declarative adjacency checks being treated as actuator-path enforcement.
 
-**Resolved identity increment implemented, integration pending:** Versioned declared/resolved identities, canonical bounded immutable configuration, complete port-reference resolution and shared scalar v2 layout calculation are implemented on the A08 branch. Invalid or unsupported graphs receive no usable identity. See [A08 identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md) for migration and checks. WP-A08 remains partial: delayed feedback and runtime authority/driver enforcement remain open. Gate A is not complete.
+**Resolved identity increment implemented, integration pending ([PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17)):** Versioned declared/resolved identities, canonical bounded immutable configuration, complete port-reference resolution and shared scalar v2 layout calculation are implemented on the A08 branch. Invalid or unsupported graphs receive no usable identity. See [A08 identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md) for migration and checks. WP-A08 remains partial: delayed feedback and runtime authority/driver enforcement remain open. Gate A is not complete.
 
 <a name="wp-b01"></a>
 

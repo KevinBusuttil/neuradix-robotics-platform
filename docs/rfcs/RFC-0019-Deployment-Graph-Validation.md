@@ -144,7 +144,7 @@ wires the authored `contracts/standard/` contracts by their pinned references.
 
 ## Unresolved questions
 
-- Broader codec/layout selection beyond A08 scalar-v2 resolution; schema change flips the deployment identity.
+- Broader codec/layout selection beyond A08 scalar-v2 resolution.
 - Structural/semantic *compatibility* between a producer's and consumer's schema
   beyond reference equality (e.g. field superset/subset rules).
 - Cross-node transport selection and resource/scheduling budget validation (§28).

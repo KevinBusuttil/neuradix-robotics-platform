@@ -1,7 +1,7 @@
 # WP-A08 — Resolved contract and configuration deployment identity
 
 Status: implemented on `codex/a08-resolved-deployment-identity`; verification and
-review PR pending. WP-A08 remains partial; Gate A remains open.
+[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) open and unmerged. WP-A08 remains partial; Gate A remains open.
 
 ## Baseline and prerequisite review
 
@@ -137,7 +137,10 @@ child deadlines; CI wraps graph tests (60s), CLI graph tests/example (30s each),
 plus existing externally timed workspace and A04/A05/A06/A07 suites. Tests cover
 schema/layout/configuration changes, canonical ordering, exact byte/value/depth
 bounds, invalid numeric/tagged values, source cap, duplicates and unresolved states.
-Independent MCAP, SDK, no_std, AVR and architecture checks are preserved.
+Independent MCAP, SDK, no_std, AVR and architecture checks are preserved. The AVR
+job refreshes signed Ubuntu package sources only: unrelated preinstalled Chrome
+repository index hash mismatches blocked installation. Package signature/hash
+verification and required AVR compilation remain enabled.
 
 Local Rust/Cargo/rustup and AVR tools are unavailable; GitHub CI provides pinned
 Rust/Cargo 1.94.1 with locked dependencies. Physical rigs are unavailable and no
