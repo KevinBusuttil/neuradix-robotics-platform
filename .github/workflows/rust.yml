@@ -32,6 +32,8 @@ jobs:
         run: |
           g++ --version
           python3 --version
+          # Required negative test: the launcher must reject privileged execution.
+          sudo -n true
 
       - name: Clippy (deny warnings)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings

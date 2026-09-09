@@ -29,6 +29,21 @@
 //! including idle periods. A ready process starts Unknown; only a matching timely
 //! reply establishes Healthy. Keep all supervision calls outside local control.
 //!
+//! [`ResourceLimits`] defaults to 300 lifetime CPU seconds and 256 MiB of virtual
+//! address space per process. Linux launch requires a trusted, absolute
+//! `neuradix-python-launcher` path via [`WorkerConfig::with_resource_launcher`].
+//! Build/install that binary from this same package. It checks unprivileged
+//! credentials through procfs, sets no_new_privs and verifies equal soft/hard
+//! RLIMIT_CPU/RLIMIT_AS before exec; supervisor limits are never changed.
+//! Setup and worker handshake share the original total deadline. Missing setup
+//! or failed enforcement never falls back to unrestricted execution.
+//! The child inherits only PATH, LANG and explicit SDK configuration/import paths;
+//! ambient loader hooks and other environment variables are removed.
+//! [`PythonWorker::applied_resources`] reports confirmed page-rounded upper bounds;
+//! [`PythonWorker::observed_exit`] reports an observed exit without guessing cause.
+//! CPU time is not elapsed time, and address space is not RSS or an aggregate/GPU
+//! quota. Normal descendants inherit limits but have separate CPU accounting.
+//!
 //! ## Not yet implemented
 //!
 //! In-process PyO3/Maturin bindings with NumPy zero-copy views (§19.1–§19.2) are
