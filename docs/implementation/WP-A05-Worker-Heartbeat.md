@@ -18,6 +18,8 @@ passed every host and AVR check. The duplicate push host job also passed; its
 AVR job was queued at integration review. Repository rulesets were empty, main
 was unprotected and no external approval was required. PR #11 merged as
 `e12420aed4886c35f41c3034646282e4b1dba49a`; its tree equals the reviewed fix tree.
+Its [merge CI 34318755055](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34318755055)
+also passed.
 
 The isolated `codex/a05-worker-heartbeat` branch starts from that updated main.
 Existing branches/checkouts were preserved; no applicable AGENTS.md was found.
@@ -55,6 +57,8 @@ the state **Unknown**, not Healthy. Only a matching timely response establishes
 positive health. Confirmation uses the host observation time after complete
 bounded parsing and deadline validation. Equality at E rejects, including a
 reply already in a kernel or user-space buffer but not processed in time.
+Final deadline and confirmation checks share one captured observation so a
+boundary crossing between two clock reads cannot change the failure category.
 
 ### Scheduling and one absolute deadline
 
@@ -182,9 +186,47 @@ choose startup handling and scheduling explicitly, without suppressing faults.
 
 ## Verification evidence
 
-Pending final pinned CI results on [PR #12](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/12).
-Local independently timed SDK tests: **6 passed**. Final exact CI counts, failed
-iterations and unavailable checks will be recorded before review readiness.
+Implementation `58e2b224` (including the preplayed-frame correction) passed
+[PR CI 34320430371](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320430371)
+and [push CI 34320426971](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320426971).
+[PR #12](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/12) records
+current-revision checks after the final shared-observation/API documentation
+correction. It remains unmerged for review. CI used pinned Rust/Cargo **1.94.1**,
+locked dependencies, warnings denied, G++ 13.3.0, Python 3.12.3 and AVR GCC 7.3.0.
+
+| Check | Result |
+|---|---|
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` | Passed |
+| Command-core/safety/embedded-core/embedded-transport focused regressions (`cargo test --locked -p ...`) | **88 passed**; A04.1/A04.2/A04.3 regressions preserved |
+| `timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python` | **55 top-level tests/doctests passed**, including 16 heartbeat and 20 bounded-I/O subprocess scenarios |
+| `timeout --signal=TERM --kill-after=5s 30s python3 -B -m unittest discover -s python/tests -v` | **6 SDK tests passed**, also passed independently locally |
+| `timeout --signal=TERM --kill-after=5s 180s cargo test --locked --workspace` | **287 top-level tests/doctests passed**; two AVR tests ignored here and executed separately |
+| Four `cargo run --locked -p ...` examples: minimal-depth-stream, auv-depth-sim, embedded-propulsion, python-worker | All passed; Python example externally bounded to 30 seconds |
+| Independent `cargo check --locked -p ... --no-default-features`: time, command-core, embedded-transport, embedded-core | All four passed |
+| `cargo doc --locked --workspace --no-deps` | Passed |
+| `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture` | **2 passed**, ATmega328P scalar compile/link and intended binary64 rejection |
+| Changed Markdown paths/anchors and `git diff --check` | Passed: seven files, 319 local paths/anchors, no missing targets |
+
+Focused suites overlap workspace. The 36 nested scenario-child reports execute
+their parent tests and are not counted twice; SDK and separate AVR passes are
+additional. No dependency versions or embedded execution paths changed.
+
+Earlier [CI 34319531631](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34319531631)
+and [CI 34320302532](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320302532)
+failed formatting; pinned formatter output was applied. The initial heartbeat
+implementation passed both runs before final review added the concrete
+preplayed-reply correction and additional regressions; the named later runs
+include that correction. No failed checks are represented as passes.
+
+The full archive Markdown scan still fails: **46 files, 627 local references,
+32 pre-existing missing targets** (31 figure links in specifications v0.4/v0.5
+and one v0.2 specification link in plan v0.1). These unrelated files were left
+unchanged. Rust/rustup/Cargo and AVR tools were unavailable locally; repository
+CI supplied compilation/test evidence. Physical rigs, other OS/architecture
+execution and musl qualification were unavailable. Host tests and AVR compilation
+are not physical hardware validation, measured worst-case response, or complete
+resource containment evidence.
 
 New real-worker scenarios have a 10-second external subprocess timeout and a
 200ms CI scheduling allowance. Configured interval/response/reserve are usually

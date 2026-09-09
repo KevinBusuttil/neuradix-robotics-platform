@@ -264,6 +264,8 @@ impl PythonWorker {
     /// Send a borrowed payload without cloning its tree. Encoding is bounded
     /// before any write. Sequences start at 1, never wrap and are consumed only
     /// when a write is attempted. Unrelated lines never extend the deadline.
+    /// The request's total budget is capped by current responsiveness expiry.
+    /// A matching timely response or Remote error confirms responsiveness.
     pub fn send(&mut self, payload: &Value) -> Result<Value, WorkerError> {
         self.check_session()?;
         let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?
@@ -343,10 +345,11 @@ impl PythonWorker {
         // Both application responses and matching Remote errors demonstrate
         // loop/handler responsiveness, not application correctness. Pongs are
         // accepted only for a ping using this session's next sequence.
+        let completed_at = Instant::now();
         if (result.is_ok() || matches!(&result, Err(WorkerError::Remote(_))))
             && let Err(error) = deadline
-                .check()
-                .and_then(|()| self.heartbeat.confirm(Instant::now()))
+                .check_at(completed_at)
+                .and_then(|()| self.heartbeat.confirm(completed_at))
         {
             let error = if payload.is_none() && matches!(error, WorkerError::Timeout) {
                 WorkerError::HeartbeatTimeout

@@ -143,8 +143,9 @@ config is delivered via `NEURADIX_WORKER_CONFIG`.
 
 ## Safety and security implications
 
-Process isolation is the core safety property: Python cannot crash control or
-safety. Python is deliberately kept out of the deterministic executor (its
+Separate processes isolate Python exceptions/process exits from control and
+safety; complete host resource isolation remains unimplemented. Python is kept
+out of the deterministic executor (its
 supervision uses wall-clock time and real processes, so it is non-deterministic).
 The Linux bounded I/O path prevents worker-controlled pipe traffic from causing
 an unbounded application wait or queue. It belongs outside the deterministic

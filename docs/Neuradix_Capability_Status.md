@@ -71,6 +71,11 @@ Nested subprocess reports are not double-counted; focused tests overlap workspac
 and remains unmerged. Private validated monotonic due/expiry windows, idle probes,
 matching replies, latched failure reasons and restart accounting are implemented
 in that branch; final verification is tracked in its evidence document.
+Implementation `58e2b224` passed [CI 34320430371](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320430371)
+and its push run: 55 Python-crate tests/doctests, six SDK tests, 88 command
+regressions, 287 workspace tests/doctests, two separate AVR checks, four examples,
+four independent no_std checks, formatting, Clippy and docs. The PR records
+current-revision checks after final documentation/shared-observation changes.
 Comprehensive resource limits, escaped-session containment, other OS backends and
 deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open.
 

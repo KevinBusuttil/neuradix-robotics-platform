@@ -107,7 +107,9 @@ Call the worker API outside the conventional local-control executor.
 Sequences begin at 1 and are consumed when a write is attempted. A terminal
 failure prevents reuse of a partly written session. Sequence checks identify
 responses; they are not authentication and confer no command authority.
-`Healthy` still means an available running process, not heartbeat/handler health.
+At this I/O baseline, `Healthy` meant an available running process. The
+[subsequent heartbeat policy](WP-A05-Worker-Heartbeat.md) replaces that meaning
+with matching-reply responsiveness and requires periodic supervision.
 
 ### Cleanup and OS scope
 

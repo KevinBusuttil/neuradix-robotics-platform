@@ -155,6 +155,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Heartbeat increment (PR #12, unmerged):** Validated monotonic due/expiry windows, idle ping/pong operations, matching-reply health, latched failures and bounded replacement polling are implemented in this branch. Requests and probes share one outstanding sequence; scheduling gaps and unrelated replies cannot refresh health. See [heartbeat policy, migration and verification](implementation/WP-A05-Worker-Heartbeat.md). WP-A05/ACC-09 remain **partial**: comprehensive resource enforcement, escaped-session containment, other OS qualification and deployment supervision remain open. Gate A remains open.
 
+Heartbeat implementation `58e2b224` passed 55 Python-crate tests/doctests, six SDK tests, 88 command regressions, 287 workspace tests/doctests and two separate AVR checks, plus formatting, Clippy, examples, independent no_std and docs. Current PR checks cover the final revision; opening the PR does not complete integration.
+
 <a name="wp-a06"></a>
 
 ## WP-A06: MCAP interchange and bounded recording
