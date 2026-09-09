@@ -103,11 +103,16 @@ merged as `79286d1e16280fc3ecadb7fa94dc3e8f98af9fa3` with successful
 Bounded maintained import and independent uncompressed/chunked/LZ4 producer
 fixtures are integrated; see [import evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
 
-The current writer branch adds validated uncompressed streaming, direct borrowed
+[PR #15](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/15),
+open and unmerged, adds validated uncompressed streaming, direct borrowed
 payload writes, bounded definition/finalization state, CRCs and a correctly grouped
 Statistics-only summary. Errors latch and only explicit successful finish permits
 publication. CLI output uses a provisional File. Independent export decoding and
 measured memory are tracked in [writer evidence](implementation/WP-A06-Bounded-MCAP-Writer.md).
+Implementation `8674da3` passed [CI 34337776482](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34337776482):
+44 recording and 336 workspace tests/doctests, independent export/CRC agreement,
+all preserved conformance suites and writer RSS 3,024/3,128 KiB for 8/128 MiB payloads
+against 64 MiB ceilings. Final-revision checks are tracked by the PR.
 PR #14 review follow-ups bound channel lookup work and reject incomplete statistics;
 the maintained parser's existing duplicate-key rejection has regression coverage.
 WP-A06/ACC-08 remain partial pending writer integration and broader interchange/scale

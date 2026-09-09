@@ -76,6 +76,8 @@ pub struct McapStreamWriter<W: Write> {
 }
 impl<W: Write> McapStreamWriter<W> {
     /// Validate policy/header and reserve finalization before writing initial bytes.
+    /// Supply a fresh byte stream at offset zero; Write cannot inspect existing
+    /// content. The caller must not append this session to an existing MCAP file.
     pub fn new(inner: W, header: &McapHeader, limits: McapWriteLimits) -> Result<Self> {
         let body = limits::header(header, limits)?;
         check(body, limits.record_bytes as u64, "record bytes")?;
