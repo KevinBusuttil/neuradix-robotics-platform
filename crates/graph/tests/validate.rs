@@ -89,7 +89,12 @@ fn valid_deployment_is_valid() {
         report.issues()
     );
     assert_eq!(report.error_count(), 0);
-    assert!(report.identity().unwrap().starts_with("neuradix.deployment.declared.v2:sha256:"));
+    assert!(
+        report
+            .identity()
+            .unwrap()
+            .starts_with("neuradix.deployment.declared.v2:sha256:")
+    );
 }
 
 #[test]

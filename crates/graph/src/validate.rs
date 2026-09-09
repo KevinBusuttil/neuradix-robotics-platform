@@ -4,9 +4,9 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+use crate::ComponentConfiguration;
 use crate::error::GraphError;
 use crate::identity::{declared_identity, resolved_identity};
-use crate::ComponentConfiguration;
 use crate::model::{
     Component, Connection, Deployment, ExecutionClass, Node, RawDeployment, Role, Runtime,
     SUPPORTED_API_VERSION, from_file, from_yaml_str,
@@ -77,13 +77,21 @@ pub struct GraphReport {
 
 impl GraphReport {
     /// Versioned declared-content identity; absent for invalid graphs.
-    pub fn identity(&self) -> Option<&str> { self.identity.as_deref() }
+    pub fn identity(&self) -> Option<&str> {
+        self.identity.as_deref()
+    }
     /// Resolved identity only after complete registry and topology validation.
-    pub fn resolved_identity(&self) -> Option<&str> { self.resolved_identity.as_deref() }
+    pub fn resolved_identity(&self) -> Option<&str> {
+        self.resolved_identity.as_deref()
+    }
     /// Immutable validation evidence; callers cannot clear issues to forge validity.
-    pub fn issues(&self) -> &[GraphIssue] { &self.issues }
+    pub fn issues(&self) -> &[GraphIssue] {
+        &self.issues
+    }
     /// Immutable computed bindings; no caller-supplied digest insertion.
-    pub fn resolved(&self) -> &[ResolvedContract] { &self.resolved }
+    pub fn resolved(&self) -> &[ResolvedContract] {
+        &self.resolved
+    }
 
     /// Whether the deployment is valid (no error-severity issues).
     pub fn is_valid(&self) -> bool {
@@ -142,21 +150,47 @@ pub fn validate_with_registry(raw: &RawDeployment, registry: &ContractRegistry) 
 
 fn validate_inner(raw: &RawDeployment, registry: Option<&ContractRegistry>) -> GraphReport {
     let mut issues = Vec::new();
-    if raw.spec.as_ref().is_some_and(|s| s.nodes.len() > 256 || s.components.len() > 1024 || s.connections.len() > 4096
-        || s.components.iter().any(|c| c.provides.len() > 256 || c.requires.len() > 256)) {
-        error(&mut issues, "graph-count-limit", "spec", "exceeds bounded identity graph counts".to_owned());
-        return GraphReport { identity: None, resolved_identity: None, issues, resolved: Vec::new() };
+    if raw.spec.as_ref().is_some_and(|s| {
+        s.nodes.len() > 256
+            || s.components.len() > 1024
+            || s.connections.len() > 4096
+            || s.components
+                .iter()
+                .any(|c| c.provides.len() > 256 || c.requires.len() > 256)
+    }) {
+        error(
+            &mut issues,
+            "graph-count-limit",
+            "spec",
+            "exceeds bounded identity graph counts".to_owned(),
+        );
+        return GraphReport {
+            identity: None,
+            resolved_identity: None,
+            issues,
+            resolved: Vec::new(),
+        };
     }
     let deployment = build(raw, &mut issues);
-    let total_configuration: usize = deployment.components.iter().map(|c| c.configuration.canonical_json().len()).sum();
+    let total_configuration: usize = deployment
+        .components
+        .iter()
+        .map(|c| c.configuration.canonical_json().len())
+        .sum();
     if total_configuration > 1 << 20 {
-        error(&mut issues, "configuration-total-limit", "spec.components", "total canonical configuration exceeds 1 MiB".to_owned());
+        error(
+            &mut issues,
+            "configuration-total-limit",
+            "spec.components",
+            "total canonical configuration exceeds 1 MiB".to_owned(),
+        );
     }
     check(&deployment, &mut issues);
     let resolved = resolve_contracts(&deployment, registry, &mut issues);
     let valid = !issues.iter().any(|i| i.severity == Severity::Error);
     let identity = valid.then(|| declared_identity(&deployment));
-    let resolved_identity = (valid && registry.is_some()).then(|| resolved_identity(&deployment, &resolved));
+    let resolved_identity =
+        (valid && registry.is_some()).then(|| resolved_identity(&deployment, &resolved));
     GraphReport {
         identity,
         resolved_identity,
@@ -177,8 +211,16 @@ fn resolve_contracts(
     };
 
     // Distinct references, in deterministic order.
-    let references: BTreeSet<&str> = d.connections.iter().map(|c| c.contract.as_str())
-        .chain(d.components.iter().flat_map(|c| c.provides.iter().chain(&c.requires).map(String::as_str))).collect();
+    let references: BTreeSet<&str> = d
+        .connections
+        .iter()
+        .map(|c| c.contract.as_str())
+        .chain(
+            d.components
+                .iter()
+                .flat_map(|c| c.provides.iter().chain(&c.requires).map(String::as_str)),
+        )
+        .collect();
 
     let mut resolved = Vec::new();
     for reference in references {
@@ -379,14 +421,25 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
                 format!("duplicate component name `{cname}`"),
             );
         }
-        let configuration = ComponentConfiguration::from_value(&c.configuration).unwrap_or_else(|reason| {
-            error(issues, "invalid-configuration", &format!("{base}.configuration"), reason.to_owned());
-            ComponentConfiguration::default()
-        });
+        let configuration =
+            ComponentConfiguration::from_value(&c.configuration).unwrap_or_else(|reason| {
+                error(
+                    issues,
+                    "invalid-configuration",
+                    &format!("{base}.configuration"),
+                    reason.to_owned(),
+                );
+                ComponentConfiguration::default()
+            });
         for references in [&c.provides, &c.requires] {
             let mut seen = HashSet::new();
             if references.iter().any(|r| !seen.insert(r)) {
-                error(issues, "duplicate-contract-reference", &base, "duplicate provides/requires reference".to_owned());
+                error(
+                    issues,
+                    "duplicate-contract-reference",
+                    &base,
+                    "duplicate provides/requires reference".to_owned(),
+                );
             }
         }
         components.push(Component {
@@ -418,7 +471,12 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
             continue;
         };
         if !seen_connections.insert((from.clone(), to.clone(), contract.clone())) {
-            error(issues, "duplicate-connection", &base, "duplicate connection".to_owned());
+            error(
+                issues,
+                "duplicate-connection",
+                &base,
+                "duplicate connection".to_owned(),
+            );
         }
         connections.push(Connection { from, to, contract });
     }

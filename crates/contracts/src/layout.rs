@@ -4,8 +4,6 @@ use crate::{Contract, Field, PrimitiveType, schema_identity};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-
-
 /// Version two replaces the legacy, unversioned declaration-order codec.
 /// The version covers scalar representations and decoder rejection rules.
 pub const CODEC_ID: &str = "neuradix.scalar-le.v2";
@@ -119,6 +117,11 @@ pub fn field_size(ty: PrimitiveType, field: &str) -> Result<usize, LayoutError> 
         PrimitiveType::Float64 | PrimitiveType::Int64 | PrimitiveType::Uint64 => 8,
         PrimitiveType::Float32 | PrimitiveType::Int32 | PrimitiveType::Uint32 => 4,
         PrimitiveType::Bool => 1,
-        PrimitiveType::Str => return Err(LayoutError::UnsupportedType { field: field.to_owned(), ty: "string" }),
+        PrimitiveType::Str => {
+            return Err(LayoutError::UnsupportedType {
+                field: field.to_owned(),
+                ty: "string",
+            });
+        }
     })
 }

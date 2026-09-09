@@ -198,3 +198,9 @@ cargo run --locked -p neuradix-runtime --example program_replay
 
 See [A07 implementation evidence](docs/implementation/WP-A07-Program-Replay-Runner.md)
 for identity, clock, comparison and supervision limits.
+
+The bounded resolved-deployment identity increment is available on the A08 branch.
+Run `cargo run --locked -p neuradix-graph --example resolved_identity` to demonstrate
+configuration drift. Graph CLI output distinguishes declared identity from resolved
+schema/layout/configuration identity; old pins require explicit migration. See
+[A08 policy and evidence](docs/implementation/WP-A08-Resolved-Deployment-Identity.md).

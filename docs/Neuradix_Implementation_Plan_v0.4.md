@@ -189,7 +189,7 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 
 **Primary risk:** A record hash passing while the changed program was never run.
 
-**Single-processor runner implemented, integration pending:** [PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16) adds admitted immutable replay cases, a fresh-instance factory, a private evaluation clock, ordered exact per-tick output comparison and bounded reports. Configuration, seed, source data and evaluation schedule remain explicit. Invocation counters and changed-code/configuration regressions distinguish actual execution from a matching recording digest; declared labels and Rust type names are not binary attestation. `replay run` retains its existing integrity-only behavior. See [runner evidence](implementation/WP-A07-Program-Replay-Runner.md). Pinned implementation CI 34380370682 passed: 346 workspace tests/doctests, 20 runtime tests/doctests, preserved A04/A05/A06 and independent MCAP checks, SDK, no_std and separate AVR conformance. WP-A07 remains partial for broader program replay; ACC-07 remains partial while closed-loop criteria lack evidence. Gate A remains open.
+**Single-processor runner integrated:** [PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16) merged as `88c8eb1015a96d5314b1314b623758c7d43100f1` after review of unchanged head `410da4c` and passing current PR CI 34380936422/push CI 34380929961. It adds admitted immutable replay cases, a fresh-instance factory, a private evaluation clock, ordered exact per-tick output comparison and bounded reports. Configuration, seed, source data and evaluation schedule remain explicit. Invocation counters and changed-code/configuration regressions distinguish actual execution from a matching recording digest; declared labels and Rust type names are not binary attestation. `replay run` retains its existing integrity-only behavior. See [runner evidence](implementation/WP-A07-Program-Replay-Runner.md). Pinned implementation CI 34380370682 passed: 346 workspace tests/doctests, 20 runtime tests/doctests, preserved A04/A05/A06 and independent MCAP checks, SDK, no_std and separate AVR conformance. WP-A07 remains partial for broader program replay; ACC-07 remains partial while closed-loop criteria lack evidence. Gate A remains open.
 
 <a name="wp-a08"></a>
 
@@ -202,6 +202,8 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 **Acceptance:** Changing a resolved schema changes deployment identity. A legal delayed control loop validates; an unqualified instantaneous cycle fails. A component labelled Safety cannot acquire actuator access from its label alone.
 
 **Primary risk:** Declarative adjacency checks being treated as actuator-path enforcement.
+
+**Resolved identity increment implemented, integration pending:** Versioned declared/resolved identities, canonical bounded immutable configuration, complete port-reference resolution and shared scalar v2 layout calculation are implemented on the A08 branch. Invalid or unsupported graphs receive no usable identity. See [A08 identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md) for migration and checks. WP-A08 remains partial: delayed feedback and runtime authority/driver enforcement remain open. Gate A is not complete.
 
 <a name="wp-b01"></a>
 

@@ -55,7 +55,13 @@ fn reference_deployment_resolves_against_the_contract_registry() {
     assert_eq!(code, 0, "reference deployment must resolve");
     let env = ParsedEnvelope::parse(&stdout).unwrap();
     env.assert_command("graph.validate").assert_success();
-    assert!(env.data_field("resolvedIdentity").unwrap().as_str().unwrap().starts_with("neuradix.deployment.resolved.v2:sha256:"));
+    assert!(
+        env.data_field("resolvedIdentity")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .starts_with("neuradix.deployment.resolved.v2:sha256:")
+    );
     // Every wired contract reference resolved to a real schema identity.
     let resolved = env
         .data_field("resolved")

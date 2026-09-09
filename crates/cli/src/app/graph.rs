@@ -18,7 +18,8 @@ use crate::exit::ExitCode;
 /// resolved to a registered schema and the resolved identities are reported. A
 /// manifest with any error-severity issue fails with
 /// [`ExitCode::DeploymentValidation`] (10); warnings alone succeed. The
-/// content-addressed deployment identity is always reported.
+/// declared identity is present only for valid graphs; resolvedIdentity additionally
+/// requires complete registry resolution. Old unversioned pins must be regenerated.
 pub fn validate(file: &Path, contracts: Option<&Path>) -> Result<Outcome, AppError> {
     let raw = from_file(file).map_err(map_graph_error)?;
 

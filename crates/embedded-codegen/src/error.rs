@@ -36,7 +36,9 @@ pub enum CodegenError {
 impl From<neuradix_contracts::layout::LayoutError> for CodegenError {
     fn from(error: neuradix_contracts::layout::LayoutError) -> Self {
         match error {
-            neuradix_contracts::layout::LayoutError::UnsupportedType { field, ty } => Self::UnsupportedType { field, ty },
+            neuradix_contracts::layout::LayoutError::UnsupportedType { field, ty } => {
+                Self::UnsupportedType { field, ty }
+            }
             neuradix_contracts::layout::LayoutError::Overflow => Self::LayoutOverflow,
         }
     }

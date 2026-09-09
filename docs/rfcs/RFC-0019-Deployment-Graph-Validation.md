@@ -82,12 +82,11 @@ cycle path.
 
 ### Deployment identity
 
-`deployment_identity` canonicalises the normative content (name, profile, and
-the nodes/components/connections with provides/requires and collections sorted)
-to key-sorted JSON and returns `sha256:<hex>`. It is authoring-order independent,
-so a validated deployment can be pinned for production immutability (§28.4). The
-identity is always reported, even for an invalid deployment, so a diff tool can
-compare two rejected drafts.
+WP-A08 replaces the structural-only hash with versioned declared and resolved
+identities. Valid topology checks expose declared-v2; complete registry-aware
+checks additionally expose resolved-v2, binding canonical configuration and computed
+schema/scalar-layout identities. Invalid graphs expose neither. Raw model labels
+are not validation evidence. See [A08 policy and migration](../implementation/WP-A08-Resolved-Deployment-Identity.md).
 
 ### CLI
 
@@ -120,11 +119,9 @@ so the layering stays acyclic.
 
 ## Safety and security implications
 
-This is a safety *gate*, not merely a linter: `actuator-authority-bypass` and
-`missing-safety` refuse to bless a deployment where an actuator could be driven
-around the Safety authority (§16.1), and the Python-path checks enforce
-EXEC-007. Because validation is pure and offline (no transport, no process spawn,
-no wall clock), it is deterministic and safe to run in CI and at deploy time.
+These are offline declarative checks. Safety role labels and adjacency do not
+grant actuator capabilities, validate physical driver permissions or prove a runtime
+path is enforced. Runtime authorization and physical acceptance remain separate.
 
 ## Compatibility implications
 
@@ -147,12 +144,24 @@ wires the authored `contracts/standard/` contracts by their pinned references.
 
 ## Unresolved questions
 
-- Folding resolved schema identities into the *deployment identity* itself (today
-  they are reported alongside it, but the identity stays structural), so a
-  schema change flips the deployment identity.
+- Broader codec/layout selection beyond A08 scalar-v2 resolution; schema change flips the deployment identity.
 - Structural/semantic *compatibility* between a producer's and consumer's schema
   beyond reference equality (e.g. field superset/subset rules).
 - Cross-node transport selection and resource/scheduling budget validation (§28).
 - Warning-severity advisories (e.g. an unconnected `provides`, an unreachable
   component) beyond the current error set.
 - Actually compiling a validated graph into a runnable deployment.
+
+## A08 resolved identity API amendment
+
+GraphReport now has immutable accessors: identity()/resolved_identity() return
+optional versioned strings; issues()/resolved() return borrowed evidence. The
+unchecked public deployment_identity helper is removed. CLI identity remains
+explicitly declared-v2 and adds resolvedIdentity; invalid reports use null. Old
+unversioned pins require revalidation, not reinterpretation. Configuration is a
+bounded object with exact integers, strings, bool/null, arrays and string keys;
+floats/tags/unknown manifest fields reject explicitly. All declared port references
+resolve, and variable-length scalar layouts reject. Duplicate declarations fail.
+The shared contracts::layout primitive preserves scalar v2 wire bytes and leaves
+graph dependent only on contracts. See the A08 evidence document for exact limits,
+canonical preimage and remaining delayed-feedback/runtime enforcement work.

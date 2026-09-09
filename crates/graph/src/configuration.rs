@@ -15,7 +15,9 @@ pub struct ComponentConfiguration {
 }
 impl Default for ComponentConfiguration {
     fn default() -> Self {
-        Self { canonical: "{}".to_owned() }
+        Self {
+            canonical: "{}".to_owned(),
+        }
     }
 }
 impl ComponentConfiguration {
@@ -40,47 +42,69 @@ impl ComponentConfiguration {
         Ok(Self { canonical })
     }
     /// Compact key-sorted JSON, arrays ordered; immutable and fully validated.
-    pub fn canonical_json(&self) -> &str { &self.canonical }
+    pub fn canonical_json(&self) -> &str {
+        &self.canonical
+    }
 }
 fn charge(bytes: &mut usize, n: usize) -> Result<(), &'static str> {
     *bytes = bytes.checked_add(n).ok_or("configuration size overflow")?;
-    if *bytes > ComponentConfiguration::MAX_BYTES { return Err("configuration byte limit"); }
+    if *bytes > ComponentConfiguration::MAX_BYTES {
+        return Err("configuration byte limit");
+    }
     Ok(())
 }
 fn string_size(s: &str, bytes: &mut usize) -> Result<(), &'static str> {
     charge(bytes, 2)?;
     for c in s.chars() {
-        charge(bytes, match c {
-            '"' | '\\' | '\n' | '\r' | '\t' | '\u{8}' | '\u{c}' => 2,
-            c if c <= '\u{1f}' => 6,
-            c => c.len_utf8(),
-        })?;
+        charge(
+            bytes,
+            match c {
+                '"' | '\\' | '\n' | '\r' | '\t' | '\u{8}' | '\u{c}' => 2,
+                c if c <= '\u{1f}' => 6,
+                c => c.len_utf8(),
+            },
+        )?;
     }
     Ok(())
 }
-fn inspect(v: &Value, depth: usize, count: &mut usize, bytes: &mut usize) -> Result<(), &'static str> {
-    if depth > ComponentConfiguration::MAX_DEPTH { return Err("configuration depth limit"); }
+fn inspect(
+    v: &Value,
+    depth: usize,
+    count: &mut usize,
+    bytes: &mut usize,
+) -> Result<(), &'static str> {
+    if depth > ComponentConfiguration::MAX_DEPTH {
+        return Err("configuration depth limit");
+    }
     *count += 1;
-    if *count > ComponentConfiguration::MAX_VALUES { return Err("configuration value limit"); }
+    if *count > ComponentConfiguration::MAX_VALUES {
+        return Err("configuration value limit");
+    }
     match v {
         Value::Null => charge(bytes, 4),
-        Value::Bool(b) => charge(bytes, if *b {4} else {5}),
+        Value::Bool(b) => charge(bytes, if *b { 4 } else { 5 }),
         Value::Number(n) => {
-            if n.as_i64().is_none() && n.as_u64().is_none() { return Err("configuration requires exact integers; floats unsupported"); }
+            if n.as_i64().is_none() && n.as_u64().is_none() {
+                return Err("configuration requires exact integers; floats unsupported");
+            }
             charge(bytes, n.to_string().len())
         }
         Value::String(s) => string_size(s, bytes),
         Value::Sequence(a) => {
             charge(bytes, 2)?;
             charge(bytes, a.len().saturating_sub(1))?;
-            for x in a { inspect(x, depth + 1, count, bytes)?; }
+            for x in a {
+                inspect(x, depth + 1, count, bytes)?;
+            }
             Ok(())
         }
         Value::Mapping(m) => {
             charge(bytes, 2)?;
             charge(bytes, m.len().saturating_sub(1))?;
-            for (k,v) in m {
-                let Value::String(k) = k else { return Err("configuration keys must be strings"); };
+            for (k, v) in m {
+                let Value::String(k) = k else {
+                    return Err("configuration keys must be strings");
+                };
                 string_size(k, bytes)?;
                 charge(bytes, 1)?;
                 inspect(v, depth + 1, count, bytes)?;
@@ -94,10 +118,16 @@ fn convert(v: &Value) -> Json {
     match v {
         Value::Null => Json::Null,
         Value::Bool(b) => Json::Bool(*b),
-        Value::Number(n) => n.as_i64().map_or_else(|| Json::from(n.as_u64().expect("integer")), Json::from),
+        Value::Number(n) => n
+            .as_i64()
+            .map_or_else(|| Json::from(n.as_u64().expect("integer")), Json::from),
         Value::String(s) => Json::String(s.clone()),
         Value::Sequence(a) => Json::Array(a.iter().map(convert).collect()),
-        Value::Mapping(m) => Json::Object(m.iter().map(|(k,v)| (k.as_str().expect("string key").to_owned(), convert(v))).collect()),
+        Value::Mapping(m) => Json::Object(
+            m.iter()
+                .map(|(k, v)| (k.as_str().expect("string key").to_owned(), convert(v)))
+                .collect(),
+        ),
         Value::Tagged(_) => unreachable!("validated"),
     }
 }

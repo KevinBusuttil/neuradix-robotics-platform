@@ -13,8 +13,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use neuradix_contracts::{ContractError, load_file, schema_identity};
 use neuradix_contracts::layout::WireLayout;
+use neuradix_contracts::{ContractError, load_file, schema_identity};
 
 /// A contract known to the registry: its identifier, version and the
 /// content-addressed schema identity a reference to it resolves to.

@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A07 single-processor replay branch.** This register is the current
+**Updated for the WP-A08 resolved deployment identity branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -119,9 +119,9 @@ the maintained parser's existing duplicate-key rejection has regression coverage
 WP-A06/ACC-08 remain partial pending broader interchange/scale
 qualification. A04/A05 and Gate A retain their remaining acceptance criteria.
 
-## WP-A07 single-processor replay branch
+## WP-A07 single-processor replay integrated
 
-[PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16), open and unmerged,
+[PR #16](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/16), merged as `88c8eb1015a96d5314b1314b623758c7d43100f1` after current-head review and passing PR CI 34380936422/push CI 34380929961,
 adds `neuradix-runtime::replay` with bounded owned cases, immutable configuration/seed,
 a separate evaluation schedule and original source timestamps. Each run calls a
 selected factory and fresh processor; fixed-size error evidence and capped mismatch
@@ -133,6 +133,17 @@ Pinned implementation CI 34380370682 passed: 346 workspace tests/doctests, 20 ru
 WP-A01's integrated baseline supplies the prerequisite, while its broader inventory
 remains partial. A04/A05/A06 and Gate A retain their open criteria.
 
+## WP-A08 resolved deployment identity branch
+
+The current branch adds versioned declared and resolved identities, bounded canonical
+configuration and shared scalar layout computation. All declared ports resolve;
+unsupported layouts and invalid graphs cannot produce a resolved identity. Immutable
+reports prevent caller edits from forging successful validation. Identity labels do
+not attest execution or grant authority. API/CLI pin migration is deliberate; see
+[A08 evidence](implementation/WP-A08-Resolved-Deployment-Identity.md).
+Verification and PR integration are pending. WP-A08 stays partial for delayed
+feedback and runtime authority enforcement. Existing package/acceptance gaps remain.
+
 ## Capability inventory
 
 | Capability | Integrated scope on main | Remaining work |
@@ -142,7 +153,7 @@ remains partial. A04/A05/A06 and Gate A retain their open criteria.
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
-| Recording/replay | Native recording/digest and integrated bounded MCAP import; processor re-execution exists in a runtime test | A06 writer integrated; A07 single-processor runner on the current branch; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
+| Recording/replay | Native recording/digest and integrated bounded MCAP import; processor re-execution exists in a runtime test | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
 | Embedded runtime/link | Host-tested no_std core and serial CRC/sequence framing; actual AVR compiler checks for generated scalars | Complete firmware, flash/monitor, physical board execution, timing and stack: B04/B05/B06 |
@@ -179,7 +190,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
 | MCAP subset | PR #14 integrates bounded maintained import; PR #15 integrates bounded uncompressed output and independent export checks | A06 | Partial: bounded import/writer integrated; broader interchange/scale qualification remains |
-| Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner branch pending integration; graph execution and ACC-07 closed-loop evidence remain open |
+| Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner integrated; graph execution and ACC-07 closed-loop evidence remain open |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |
 
 WP-A01 has an integrated source baseline and compiler evidence. The broader evidence
