@@ -1,7 +1,8 @@
 # WP-A06 — Bounded MCAP import
 
-Status: implemented on the A06 branch; integration and current-revision
-verification are pending. WP-A06/ACC-08 remain partial. Gate A remains open.
+Status: implemented on the A06 branch, [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14)
+open and unmerged. Implementation verification passed as recorded below; the PR
+tracks checks on its final revision. WP-A06/ACC-08 remain partial. Gate A remains open.
 
 ## Baseline and defect
 
@@ -160,11 +161,44 @@ archives. The minimal-depth-stream example demonstrates the new boundary.
 
 ## Verification
 
-Current revision results and measured RSS are pending CI; do not infer a passing
-release gate from source presence. Independent fixture generation/check passed
-locally with the exact pinned Python packages. The local environment lacks
-Rust/rustup/Cargo and AVR tools; pinned compilation, lint and conformance run in
-GitHub CI. Failed intermediate checks are retained in branch history.
+Implementation `b5ef38654f4a74ab301382ccefc831f10a940082` passed
+[PR CI 34333001346](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34333001346)
+and [push CI 34332997231](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34332997231).
+Host: Ubuntu 24.04 x86_64, Rust/Cargo 1.94.1, Python 3.12.3, locked dependencies,
+warnings denied. The PR records final-revision checks after evidence and expanded
+field/projection assertions; the counts below describe this exact tested commit.
+
+Passed on that revision:
+
+- `cargo fmt --all --check`; workspace/all-target Clippy with `-D warnings`.
+- Independent fixture regeneration with pinned Python producer/decompressors.
+- `cargo test --locked -p neuradix-record` under 120-second outer timeout:
+  29 top-level tests/doctests, including ten timed adversarial scenarios.
+- 88 focused A04 command regressions; 75 Python-crate tests/doctests under a
+  120-second timeout, plus six SDK tests under a 30-second timeout.
+- 319 workspace top-level tests/doctests under a 180-second timeout; includes
+  architecture, CLI generic inspection/rejection and historical compatibility.
+- Four affected/integrated examples: minimal-depth-stream, auv-depth-sim,
+  embedded-propulsion and bounded Python worker/launcher.
+- Four independent `--no-default-features` checks: time, command-core,
+  embedded-transport and embedded-core; `cargo doc --locked --workspace --no-deps`.
+- Two separately invoked ignored AVR compiler/conformance tests. These are
+  compiler evidence, not physical board validation.
+- Linux memory experiment below, each importer externally timed.
+
+Counts exclude duplicate child-process test reports. Focused suites overlap the
+workspace total and must not be added to it. Local pinned fixture regeneration,
+six SDK tests, staged whitespace and changed-document link/anchor checks also
+passed: seven Markdown files, 304 local links/anchors, zero errors.
+
+Failed/unavailable evidence is separate: intermediate CI exposed a missing import,
+formatting differences, an incorrect independent library-label assertion and the
+historical summary-layout compatibility issue; these were corrected before the
+passing run. A complete documentation scan reports 32 pre-existing missing
+references across 49 Markdown files/641 links; unrelated archive repairs remain
+out of scope. The local environment lacks Rust/rustup/Cargo and AVR tools; those
+checks ran in pinned GitHub CI. No physical rig or hardware timing check was
+available or claimed.
 
 The required suites include externally timed adversarial children, exact limits,
 unsupported records/compression, malformed lengths/maps, CRC/truncation, missing
@@ -179,6 +213,24 @@ importer/parser/decoder/allocator storage, excluding fixture generation. Declare
 budgets are 64 MiB for streaming/budget rejection and 192 MiB for materialization;
 streaming RSS growth is limited to 12 MiB across workloads. Each child has a
 20-second external timeout, with an outer 90-second wrapper.
+
+Measured peak RSS in the referenced PR run:
+
+| Import mode | Message payload workload | Peak RSS | Budget |
+|---|---:|---:|---:|
+| Streaming | 8 MiB / 128 messages | 4,276 KiB | 64 MiB |
+| Streaming | 128 MiB / 2,048 messages | 4,352 KiB | 64 MiB |
+| Archive | 128 MiB / 2,048 messages | 135,156 KiB | 192 MiB |
+| Archive rejecting at 8 MiB retained budget | 128 MiB available | 11,924 KiB | 64 MiB |
+
+Streaming growth was 76 KiB, below the declared 12 MiB tolerance. The large file
+was 766,901 bytes and decoded 134,281,253 chunk bytes; maximum chunk 1,049,109
+bytes, persistent accounted state 1,089 bytes, archive charge 135,313,145 bytes.
+This intentionally compressible expansion workload demonstrates bounded streaming
+and early retained-budget rejection. It is not a universal performance promise or
+qualification of all encodings, platforms, allocators, default/maximum limits or
+production recording rates. Full-file materialization necessarily grows with
+accepted payload until its explicit cap.
 
 ## Remaining acceptance
 

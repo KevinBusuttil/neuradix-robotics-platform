@@ -99,8 +99,11 @@ deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open
 
 Bounded uncompressed/LZ4 import, full semantic data preservation, checked legacy
 projection, independent Python fixtures and timed adversarial/memory workloads
-are implemented on `codex/a06-bounded-mcap-import`. Current revision verification
-and integration are pending; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
+are implemented in unmerged [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14).
+Implementation `b5ef386` passed PR CI `34333001346`/push CI `34332997231`, including
+29 recording and 319 workspace tests/doctests, retained A04/A05 suites, SDK, examples,
+no_std and AVR checks. Streaming RSS was 4,352 KiB for 128 MiB of payload; archive
+RSS was 135,156 KiB, within 64/192 MiB budgets. The PR tracks final-revision checks; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
 This establishes neither decoded ROS interoperability nor writer/replay completion.
 WP-A06/ACC-08 remain partial; WP-A04, WP-A05 and Gate A retain their open criteria.
 
@@ -149,7 +152,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
 | Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
-| MCAP subset | A06 branch replaces silent chunk skipping with bounded maintained parsing and explicit unsupported outcomes; full opaque schemas/encodings and both timestamps retained | A06 | Partial, unmerged: current verification, bounded writing and independent export/scale evidence remain |
+| MCAP subset | A06 branch replaces silent chunk skipping with bounded maintained parsing and explicit unsupported outcomes; full opaque schemas/encodings and both timestamps retained | A06 | Partial, unmerged: implementation CI/memory evidence passed; bounded writing and independent export/scale evidence remain |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |
 

@@ -95,6 +95,7 @@ case!(attacker_lengths);
 case!(expansion_limits);
 case!(streaming_backpressure);
 case!(summary_integrity);
+case!(legacy_projection);
 
 #[test]
 fn import_child() {
@@ -121,11 +122,21 @@ fn import_child() {
                 assert_eq!(s.channels()[&1].metadata["clock.source"], "device-boot");
                 assert_eq!(s.channels()[&1].metadata["clock.log"], "host-boot");
                 assert_eq!(s.channels()[&1].message_encoding, "opaque/custom");
+                assert_eq!(s.channels()[&1].schema_id, 1);
+                assert_eq!(s.channels()[&1].topic, "sensor/bytes");
+                assert_eq!(s.channels()[&1].metadata.len(), 2);
                 assert_eq!(s.channels()[&2].schema_id, 0);
+                assert_eq!(s.channels()[&2].topic, "raw");
+                assert_eq!(s.channels()[&2].message_encoding, "");
+                assert_eq!(s.channels()[&2].metadata.len(), 1);
+                assert_eq!(s.channels()[&2].metadata["note"], "no inferred epoch");
+                assert_eq!(s.metadata().len(), 1);
+                assert_eq!(s.metadata()["provenance"].entries.len(), 2);
                 assert_eq!(s.metadata()["provenance"].entries["fixture"], "python-mcap");
                 assert_eq!(s.metadata()["provenance"].entries["time"], "raw ns");
                 let m = value.messages();
                 assert_eq!(m.len(), 3);
+                assert_eq!(m[2].channel_id, 1);
                 assert_eq!(
                     (
                         m[0].channel_id,
@@ -156,6 +167,16 @@ fn import_child() {
                     expected = Some(m.to_vec());
                 }
                 assert_eq!(s.stats().input_bytes, bytes.len() as u64);
+                let auxiliary: Vec<_> = parts(&bytes)
+                    .into_iter()
+                    .filter(|(op, _)| matches!(op, 7 | 8 | 0x0b | 0x0d | 0x0e))
+                    .collect();
+                let preserved: Vec<_> = value
+                    .auxiliary()
+                    .iter()
+                    .map(|r| (r.opcode, r.data.clone()))
+                    .collect();
+                assert_eq!(preserved, auxiliary);
                 assert!(matches!(
                     value.try_into_recording(),
                     Err(RecordError::UnsupportedMcap(_))
@@ -322,6 +343,47 @@ fn import_child() {
             let c = records.iter_mut().find(|(op, _)| *op == 4).unwrap();
             c.1[pos..pos + 4].copy_from_slice(&u32::MAX.to_le_bytes());
             reject(&file(&records), limits);
+        }
+        "legacy_projection" => {
+            use neuradix_record::{Channel, McapWriter, RecordingManifest};
+            use neuradix_time::{ClockDomain, Timestamp};
+            let manifest = RecordingManifest::builder("compat")
+                .channel(Channel {
+                    id: 0,
+                    name: "channel".to_owned(),
+                    schema_id: "identity".to_owned(),
+                    clock_domain: "monotonic".to_owned(),
+                })
+                .build();
+            let mut writer = McapWriter::new(Vec::new(), &manifest).unwrap();
+            writer
+                .write_record(0, 1, Timestamp::new(ClockDomain::Monotonic, 10), b"data")
+                .unwrap();
+            let original: Vec<_> = parts(&writer.finish().unwrap())
+                .into_iter()
+                .take_while(|(op, _)| *op != 0x0f)
+                .collect();
+            archive(&file(&original), limits)
+                .unwrap()
+                .try_into_recording()
+                .unwrap();
+            for opcode in [3, 4, 5] {
+                let mut records = original.clone();
+                let body = &mut records.iter_mut().find(|(op, _)| *op == opcode).unwrap().1;
+                match opcode {
+                    3 => *body.last_mut().unwrap() ^= 1,
+                    4 => {
+                        let pos = body.windows(9).position(|s| s == b"monotonic").unwrap();
+                        body[pos..pos + 9].copy_from_slice(b"boot-test");
+                    }
+                    5 => body[14] ^= 1,
+                    _ => unreachable!(),
+                }
+                assert!(matches!(
+                    archive(&file(&records), limits).unwrap().try_into_recording(),
+                    Err(RecordError::UnsupportedMcap(_))
+                ));
+            }
         }
         "expansion_limits" => expansion(limits),
         "streaming_backpressure" => {
