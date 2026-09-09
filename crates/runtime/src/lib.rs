@@ -5,9 +5,8 @@
 //! classification, a structured health model and typed errors.
 //!
 //! This increment provides only enough runtime structure to build and validate
-//! components and run the minimal depth-stream example cleanly. There is no
-//! distributed supervisor, scheduler or executor yet; those are later
-//! increments. The public API is transport- and executor-neutral.
+//! components and run the minimal depth-stream example cleanly. Input-driven execution and bounded single-processor replay are available.
+//! Distributed supervision and general graph scheduling remain later work.
 //!
 //! ```
 //! use neuradix_runtime::{Lifecycle, LifecycleState};
@@ -30,6 +29,7 @@ pub mod executor;
 pub mod health;
 pub mod id;
 pub mod lifecycle;
+pub mod replay;
 
 pub use component::{Component, ComponentManifest, ExecutionClass};
 pub use error::{ComponentError, LifecycleError};

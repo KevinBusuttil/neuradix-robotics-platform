@@ -1,7 +1,9 @@
 # WP-A06 — Bounded uncompressed MCAP streaming writer
 
 Status: implemented on `codex/a06-bounded-mcap-writer`, [PR #15](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/15)
-open and unmerged; integration pending.
+integrated as `3e47e7f973445d381473b3d35c1c9ee14452187a`, with passing
+[post-merge CI 34350022456](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34350022456).
+The remaining evidence below is historical to this writer increment.
 Implementation verification passed as recorded below. WP-A06/ACC-08 remain
 partial and Gate A stays open.
 

@@ -46,7 +46,7 @@ See [the implementation evidence](docs/implementation/Gate-A-Embedded-Wire-and-A
 
 Current limits:
 
-- `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
+- `replay run` verifies recorded-data integrity. The separate `neuradix-runtime::replay` API executes one selected processor over a pinned case and compares exact outputs; arbitrary graph and closed-loop replay remain deferred.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
 - PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. This A05 branch adds [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
@@ -188,3 +188,13 @@ docs/decisions/     # architecture decision records (ADRs)
 Follow [Gates A–E](docs/Neuradix_Implementation_Plan_v0.4.md#3-gates-dependencies-and-effort): trustworthy foundations; one compiled project across actual Uno/MCU and Edge; integrated simulation/Studio/HIL; distributed workers; then a qualified supported workflow. Preserve the AUV fixture as a fast regression. Domain, enterprise HA, broader fleet, AI, Swarm, XR and Flight packs have separate Gate F milestones.
 
 Current commands above run against main. New project/build/flash/simulation/job operations described in the CLI specification are proposed until the capability register and release evidence say otherwise.
+
+The bounded single-processor replay example deliberately compares unchanged and
+changed compiled controller implementations against the same admitted case:
+
+```sh
+cargo run --locked -p neuradix-runtime --example program_replay
+```
+
+See [A07 implementation evidence](docs/implementation/WP-A07-Program-Replay-Runner.md)
+for identity, clock, comparison and supervision limits.
