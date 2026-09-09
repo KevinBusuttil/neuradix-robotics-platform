@@ -30,6 +30,7 @@ pub mod executor;
 pub mod health;
 pub mod id;
 pub mod lifecycle;
+pub mod replay;
 
 pub use component::{Component, ComponentManifest, ExecutionClass};
 pub use error::{ComponentError, LifecycleError};

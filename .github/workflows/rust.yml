@@ -38,6 +38,11 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      - name: Program replay regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-runtime
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-runtime --example program_replay
+
       - name: Trusted command regressions
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
@@ -85,6 +90,7 @@ jobs:
         if: failure()
         run: |
           cargo fmt --all
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-runtime || true
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
           git diff -- Cargo.lock crates examples
 
