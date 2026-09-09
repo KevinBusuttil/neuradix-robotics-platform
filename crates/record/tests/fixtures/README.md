@@ -35,3 +35,29 @@ for actual measurements and their limitations.
 Primary producer documentation:
 [Python writer API](https://mcap.dev/docs/python/mcap-apidoc/mcap.writer.html),
 [Python package release](https://pypi.org/project/mcap/1.3.1/).
+
+## Independent export verification
+
+`mcap_export` produces uncompressed files through the real Neuradix writer and a
+File sink. `verify_export.py` uses the separately maintained official Python
+`mcap.stream_reader.StreamReader` 1.3.1 to assert every schema, channel, encoding,
+metadata entry, payload, sequence and both raw timestamps. It independently checks
+record order, footer offsets and data/summary CRC ranges with Python struct/zlib.
+It does not use Neuradix import or a Rust writer/reader round-trip for agreement.
+The reader is the exact version in the existing requirements; dependencies and
+lockfile need no additions. The Rust writer is mcap 0.25.0 (default features off).
+
+```sh
+cargo build --locked -p neuradix-record --example mcap_export
+timeout --signal=TERM --kill-after=5s 90s /tmp/a06-fixtures/bin/python crates/record/tests/fixtures/verify_export.py target/debug/examples/mcap_export
+```
+
+Before measurement, writer qualification declares Linux child RSS <=64 MiB for
+8/128 MiB payload workloads, <=12 MiB growth, 64 KiB borrowed payloads, fixed
+schema/channel definitions, no growing sink buffer and 20-second child deadlines.
+The wrapper adds a 90-second deadline. See [writer evidence](../../../../docs/implementation/WP-A06-Bounded-MCAP-Writer.md)
+for results and limitations. Historical-layout Rust tests are compatibility
+reconstructions, not independent producer evidence.
+
+Primary independent reader documentation:
+[Python StreamReader API](https://mcap.dev/docs/python/mcap-apidoc/mcap.stream_reader.html).

@@ -2,7 +2,7 @@
 use super::{McapArchive, malformed};
 use crate::{McapRecording, RawRecord, RecordError, RecordingManifest, Result};
 use neuradix_time::{ClockDomain, Timestamp};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 impl McapArchive {
     /// Convert only the fully representable historical Neuradix MCAP profile.
@@ -44,10 +44,11 @@ impl McapArchive {
         {
             return Err(malformed("manifest/channel set mismatch"));
         }
-        let mut seen = BTreeSet::new();
+        let mut domains = BTreeMap::new();
         let mut schemas = BTreeSet::new();
         for c in &manifest.channels {
-            if !seen.insert(c.id) {
+            let domain = ClockDomain::parse(&c.clock_domain).ok_or_else(unsupported)?;
+            if domains.insert(c.id, domain).is_some() {
                 return Err(malformed("duplicate manifest channel"));
             }
             let channel = summary
@@ -66,7 +67,6 @@ impl McapArchive {
                 || schema.name != c.name
                 || schema.encoding != "neuradix/schema-id"
                 || schema.data != c.schema_id.as_bytes()
-                || ClockDomain::parse(&c.clock_domain).is_none()
             {
                 return Err(unsupported());
             }
@@ -80,10 +80,9 @@ impl McapArchive {
             if message.log_time != message.publish_time {
                 return Err(unsupported());
             }
-            let channel = manifest
-                .channel(message.channel_id)
+            let domain = *domains
+                .get(&message.channel_id)
                 .ok_or_else(|| malformed("missing manifest channel"))?;
-            let domain = ClockDomain::parse(&channel.clock_domain).ok_or_else(unsupported)?;
             records.push(RawRecord {
                 channel_id: message.channel_id,
                 sequence: u64::from(message.sequence),

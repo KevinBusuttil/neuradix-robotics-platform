@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A06 bounded MCAP import branch.** This register is the current
+**Updated for the WP-A06 bounded MCAP writer branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -95,17 +95,28 @@ and docs. Counts exclude repeated subprocess reports. Aggregate process-tree
 CPU/RSS, GPU limits, escaped-session containment, other OS qualification and
 deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open.
 
-## WP-A06 bounded import branch
+## WP-A06 import integrated; writer branch pending
 
-Bounded uncompressed/LZ4 import, full semantic data preservation, checked legacy
-projection, independent Python fixtures and timed adversarial/memory workloads
-are implemented in unmerged [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14).
-Implementation `cb84c2b` passed PR CI `34333640806`/push CI `34333635985`, including
-30 recording and 321 workspace tests/doctests, retained A04/A05 suites, SDK, examples,
-no_std and AVR checks. Streaming RSS was 4,208 KiB for 128 MiB of payload; archive
-RSS was 135,088 KiB, within 64/192 MiB budgets. The PR tracks final-revision checks; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
-This establishes neither decoded ROS interoperability nor writer/replay completion.
-WP-A06/ACC-08 remain partial; WP-A04, WP-A05 and Gate A retain their open criteria.
+[PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14)
+merged as `79286d1e16280fc3ecadb7fa94dc3e8f98af9fa3` with successful
+[post-merge CI 34334529747](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34334529747).
+Bounded maintained import and independent uncompressed/chunked/LZ4 producer
+fixtures are integrated; see [import evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
+
+[PR #15](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/15),
+open and unmerged, adds validated uncompressed streaming, direct borrowed
+payload writes, bounded definition/finalization state, CRCs and a correctly grouped
+Statistics-only summary. Errors latch and only explicit successful finish permits
+publication. CLI output uses a provisional File. Independent export decoding and
+measured memory are tracked in [writer evidence](implementation/WP-A06-Bounded-MCAP-Writer.md).
+Implementation `8674da3` passed [CI 34337776482](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34337776482):
+44 recording and 336 workspace tests/doctests, independent export/CRC agreement,
+all preserved conformance suites and writer RSS 3,024/3,128 KiB for 8/128 MiB payloads
+against 64 MiB ceilings. Final-revision checks are tracked by the PR.
+PR #14 review follow-ups bound channel lookup work and reject incomplete statistics;
+the maintained parser's existing duplicate-key rejection has regression coverage.
+WP-A06/ACC-08 remain partial pending writer integration and broader interchange/scale
+qualification. A04/A05 and Gate A retain their remaining acceptance criteria.
 
 ## Capability inventory
 
@@ -116,7 +127,7 @@ WP-A06/ACC-08 remain partial; WP-A04, WP-A05 and Gate A retain their open criter
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
-| Recording/replay | Native recording/digest and historical buffered MCAP writer; processor re-execution exists in a runtime test | A06 bounded import is implemented on its unmerged branch; independent export decoding, bounded writing and arbitrary replay remain: A06/A07/C06 |
+| Recording/replay | Native recording/digest and integrated bounded MCAP import; processor re-execution exists in a runtime test | A06 bounded writer and independent export evidence are on the current branch; broader interchange/scale and reusable program replay remain: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
 | Embedded runtime/link | Host-tested no_std core and serial CRC/sequence framing; actual AVR compiler checks for generated scalars | Complete firmware, flash/monitor, physical board execution, timing and stack: B04/B05/B06 |
@@ -152,7 +163,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
 | Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
-| MCAP subset | A06 branch replaces silent chunk skipping with bounded maintained parsing and explicit unsupported outcomes; full opaque schemas/encodings and both timestamps retained | A06 | Partial, unmerged: implementation CI/memory evidence passed; bounded writing and independent export/scale evidence remain |
+| MCAP subset | PR #14 integrates bounded maintained import; writer branch adds bounded uncompressed output and independent export checks | A06 | Partial: import integrated; writer increment awaits integration; broader interchange/scale qualification remains |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |
 

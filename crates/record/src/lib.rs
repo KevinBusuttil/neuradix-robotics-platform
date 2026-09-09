@@ -32,6 +32,7 @@ pub mod digest;
 pub mod error;
 pub mod mcap;
 pub mod mcap_import;
+pub mod mcap_write;
 pub mod model;
 pub mod native;
 pub mod recording;
@@ -45,6 +46,7 @@ pub use mcap_import::{
     McapImportLimits, McapImportStats, McapImportSummary, McapMessage, McapMessageRef,
     McapMetadata, McapSchema, import_mcap,
 };
+pub use mcap_write::{McapStreamWriter, McapWriteLimits, McapWriteStats};
 pub use model::{
     Channel, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };

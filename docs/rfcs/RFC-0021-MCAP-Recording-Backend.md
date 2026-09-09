@@ -1,10 +1,10 @@
 # RFC-0021 — MCAP Recording Backend
 
-- Status: Partially implemented; bounded import increment under WP-A06
+- Status: Partially implemented; bounded import and uncompressed writer increments under WP-A06
 - Authoritative plan: [Implementation Plan v0.4](../Neuradix_Implementation_Plan_v0.4.md)
 - Crate: `neuradix-record`; CLI: `record inspect`, `record export`
 - Related: [RFC-0015](RFC-0015-Recording-and-Deterministic-Replay.md)
-- Evidence: [WP-A06 bounded MCAP import](../implementation/WP-A06-Bounded-MCAP-Import.md)
+- Evidence: [bounded import](../implementation/WP-A06-Bounded-MCAP-Import.md), [bounded writer](../implementation/WP-A06-Bounded-MCAP-Writer.md)
 
 ## Problem and decision
 
@@ -56,15 +56,43 @@ digests. MCAP inspect uses bounded File input and exposes generic metadata;
 unsupported legacy digest conversion is reported as null. Replay/explain/export
 reject unrepresentable conversion. Native loading is unchanged.
 
-`McapWriter` still buffers all records until finish and writes uncompressed
-Neuradix encodings with a manifest metadata record. Its zero CRC fields mean
-checksums are absent. Writer redesign, live streaming and bounded write behavior
-are deferred. Per-channel domains originate in manifest/sample validation; import
-requires manifest/channel agreement instead of assuming a domain from log time.
-Historical 0.0.1 summary repetitions interleave schemas/channels. Import admits
-this documented compatibility exception only for that declared profile/library,
-with matching definitions and no summary-offset section. It does not certify the
-old writer as strictly conforming to MCAP summary grouping.
+`McapStreamWriter<Write>` wraps the same pinned maintained implementation, with
+chunks, seeking and indexes disabled. `McapWriteLimits` privately validates output
+bytes, record/payload/string sizes, record/message/definition/map counts and
+accounted state. Admission sizes data without allocation and reserves DataEnd,
+Statistics, Footer and magic before writing. Borrowed payloads go directly to the
+sink with synchronous backpressure; definitions and bounded counts are retained.
+The upstream finish path makes bounded definition copies, included in the storage
+analysis. Streaming alone is not an allocation or latency guarantee.
+
+The summary contains one Statistics group. Schema/channel definitions remain in
+the data section, so readers must support sequential unindexed input. Footer
+summary_start points to Statistics; summary_offset_start is zero. Data and summary
+CRCs are computed using the specification's ranges. There are no compression or
+seeking/index claims. All supplied supported fields and clock labels are preserved;
+unknown encodings remain opaque. No clock relationship or authority is inferred.
+
+Every operation error latches failure. Finish consumes the session and reports
+I/O/flush errors; it cannot be retried into success. Drop/abort explicitly suppress
+the upstream writer's automatic finish. Prefixes and even complete-looking files
+after a flush error remain provisional; only successful finish authorizes publish.
+An arbitrary blocking Write/flush requires external supervision. Flush does not
+promise power-loss durability. Caller Vec sinks retain their own output.
+
+`McapWriter` retains legacy signatures, gains `with_limits`, and streams instead of
+buffering. It emits validated manifest definitions at initialization in manifest
+order. Unknown channels, invalid domains, domain disagreement, sequence overflow,
+negative/out-of-range timestamps and oversized manifests reject. The legacy single
+timestamp fills both raw times; use the generic API for distinct times/full schemas.
+Existing valid manifests and record digests survive, while new file bytes change.
+CLI export writes a temporary sibling, renaming only after finish succeeds. Existing
+destinations survive failures; filesystem replacement semantics remain platform
+specific. Input materialization is unchanged by this writer increment.
+
+Historical 0.0.1 summary repetitions interleave schemas/channels. Import keeps its
+narrow profile/library exception, matching definitions and no summary-offset section.
+New output does not use that exception. The import follow-up checks every nonzero
+per-channel statistic, and projection/inspection use indexed counts/domains.
 
 ## Alternatives and evidence
 
@@ -81,8 +109,9 @@ The evidence document records exact verification and unsupported platforms.
 
 ## Remaining acceptance and safety
 
-Bounded streaming writing, independently decoded supported exports, wider scale
-qualification and general replay execution remain separate work. MCAP container
+Uncompressed streaming writing and independently decoded supported exports have
+bounded-increment evidence. Wider interchange/scale qualification, compressed
+writing and general replay execution remain separate work. MCAP container
 support does not establish decoded ROS/viewer interoperability. Recording import
 runs outside conventional local control and grants no command authority. A04/A05
 regressions and independent no_std/AVR checks remain required. WP-A06/ACC-08 are

@@ -228,10 +228,7 @@ fn too_many_channels_is_rejected() {
             clock_domain: "monotonic".to_owned(),
         });
     }
-    let err = McapWriter::new(Vec::new(), &builder.build())
-        .unwrap()
-        .finish()
-        .unwrap_err();
+    let err = McapWriter::new(Vec::new(), &builder.build()).err().unwrap();
     assert!(
         matches!(err, RecordError::TooManyChannels(_)),
         "got {err:?}"

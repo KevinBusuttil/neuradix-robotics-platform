@@ -1,8 +1,12 @@
 # WP-A06 — Bounded MCAP import
 
-Status: implemented on the A06 branch, [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14)
-open and unmerged. Implementation verification passed as recorded below; the PR
-tracks checks on its final revision. WP-A06/ACC-08 remain partial. Gate A remains open.
+Status: [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14)
+integrated as `79286d1e16280fc3ecadb7fa94dc3e8f98af9fa3`; post-merge main
+[CI 34334529747 passed](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34334529747).
+The implementation evidence below remains historical to this import increment.
+Review follow-ups and the writer replacement are recorded separately in
+[writer evidence](WP-A06-Bounded-MCAP-Writer.md). WP-A06/ACC-08 remain partial;
+Gate A remains open.
 
 ## Baseline and defect
 

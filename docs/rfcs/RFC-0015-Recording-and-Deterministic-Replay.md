@@ -16,7 +16,7 @@ be verifiable — two replays of the same recording must be provably identical.
 Implemented in this increment: a native, self-describing recording container; a
 payload-agnostic codec; a deterministic replay digest; and `neuradix record
 inspect` / `neuradix replay run` (with `--expect-digest` wiring exit code 9).
-MCAP now has a buffered writer and bounded semantic import; see
+MCAP now has bounded uncompressed streaming writing and bounded semantic import; see
 [RFC-0021](RFC-0021-MCAP-Recording-Backend.md). Out of scope: live
 `record start/stop` against a running graph, branch and
 counterfactual replay, and a recording-driven replay clock feeding a live graph.
@@ -107,7 +107,7 @@ example records its run and verifies replay fidelity at runtime.
 
 ## Unresolved questions
 
-- Bounded MCAP writing and independent export decoding; attachments remain unsupported.
+- Broader MCAP interchange/scale qualification and compressed writing; attachments remain unsupported.
 - Live `record start/stop` against a running graph and a recording-driven replay
   clock that re-drives components in lockstep.
 - Branch and counterfactual replay (§24.4) and partial-graph replay.

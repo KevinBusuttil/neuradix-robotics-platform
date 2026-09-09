@@ -50,7 +50,7 @@ Current limits:
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
 - PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. This A05 branch adds [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
-- MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
+- MCAP has bounded uncompressed/LZ4 import and bounded uncompressed streaming output with independent Python container checks. Broader interoperability remains unqualified; no ROS payload decoding is claimed. Serial wire negotiation and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
 
@@ -110,7 +110,7 @@ cargo run -p neuradix-example-minimal-depth-stream   # prints the .nrec paths + 
 cargo run -p neuradix-cli -- record inspect /tmp/neuradix-depth-mission.nrec
 cargo run -p neuradix-cli -- replay run /tmp/neuradix-depth-mission.nrec --expect-digest <sha256:...>
 
-# Experimental MCAP export; broad external interchange remains unqualified:
+# Bounded uncompressed MCAP export; broad external interchange remains unqualified:
 cargo run -p neuradix-cli -- record export /tmp/neuradix-depth-mission.nrec --out /tmp/mission.mcap
 
 # Headless Studio inspection:
