@@ -29,25 +29,48 @@ impl ConnectionDelay {
         if initialization != "require-seed" {
             return Err("delay initialization must be require-seed");
         }
-        Ok(Self { ticks: ticks as u16 })
+        Ok(Self {
+            ticks: ticks as u16,
+        })
     }
     /// Zero denotes an instantaneous edge. Positive values select earlier ticks.
-    pub fn ticks(self) -> u16 { self.ticks }
+    pub fn ticks(self) -> u16 {
+        self.ticks
+    }
     /// Whether same-tick dependency analysis must include this edge.
-    pub fn is_instantaneous(self) -> bool { self.ticks == 0 }
+    pub fn is_instantaneous(self) -> bool {
+        self.ticks == 0
+    }
     /// Decode a raw declaration; explicit null, tags, floats and unknown keys fail.
     pub fn from_value(value: &Value) -> Result<Self, &'static str> {
         if matches!(value, Value::String(s) if s == "instantaneous") {
             return Ok(Self::default());
         }
-        let Value::Mapping(map) = value else { return Err("delay must be instantaneous or an explicit mapping"); };
-        if map.values().any(|v| matches!(v, Value::Tagged(_))) { return Err("tagged delay values are unsupported"); }
-        if map.len() != 3 { return Err("delay requires exactly ticks, unit and initialization"); }
-        let ticks = map.get(Value::String("ticks".to_owned())).and_then(Value::as_u64).ok_or("delay ticks must be an unsigned integer")?;
-        let unit = map.get(Value::String("unit".to_owned())).and_then(Value::as_str).ok_or("delay unit is required")?;
-        let initialization = map.get(Value::String("initialization".to_owned())).and_then(Value::as_str).ok_or("delay initialization is required")?;
+        let Value::Mapping(map) = value else {
+            return Err("delay must be instantaneous or an explicit mapping");
+        };
+        if map.values().any(|v| matches!(v, Value::Tagged(_))) {
+            return Err("tagged delay values are unsupported");
+        }
+        if map.len() != 3 {
+            return Err("delay requires exactly ticks, unit and initialization");
+        }
+        let ticks = map
+            .get(Value::String("ticks".to_owned()))
+            .and_then(Value::as_u64)
+            .ok_or("delay ticks must be an unsigned integer")?;
+        let unit = map
+            .get(Value::String("unit".to_owned()))
+            .and_then(Value::as_str)
+            .ok_or("delay unit is required")?;
+        let initialization = map
+            .get(Value::String("initialization".to_owned()))
+            .and_then(Value::as_str)
+            .ok_or("delay initialization is required")?;
         Self::new(ticks, unit, initialization)
     }
 }
 
-pub(crate) fn instantaneous() -> Value { Value::String("instantaneous".to_owned()) }
+pub(crate) fn instantaneous() -> Value {
+    Value::String("instantaneous".to_owned())
+}

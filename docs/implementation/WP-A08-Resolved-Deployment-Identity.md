@@ -1,7 +1,7 @@
 # WP-A08 — Resolved contract and configuration deployment identity
 
 Status: implemented on `codex/a08-resolved-deployment-identity`;
-[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) open and unmerged. WP-A08 remains partial; Gate A remains open.
+[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) merged as `11847e60010d67df636be067ece30ba19fff7da8`; [post-merge CI 34390070855](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34390070855) passed. WP-A08 remains partial; Gate A remains open.
 
 ## Baseline and prerequisite review
 
@@ -184,7 +184,7 @@ link failures are reported separately and not repaired in this increment.
 
 ## Remaining acceptance
 
-WP-A08 remains partial: legal delayed feedback, instantaneous-loop distinctions and
+At this increment, legal delayed feedback and instantaneous-loop distinctions were still missing; the [delayed-feedback follow-up](WP-A08-Delayed-Feedback-Validation.md) implements their offline validation. WP-A08 remains partial for
 runtime role/capability/physical-driver enforcement remain open. Existing graph
 role checks are declarative only. A07/ACC-07 remain partial for broader execution
 and closed-loop evidence; A04/ACC-05, A05/ACC-09, A06/ACC-08 and Gate A retain their

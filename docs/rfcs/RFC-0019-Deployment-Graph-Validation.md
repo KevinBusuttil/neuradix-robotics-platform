@@ -17,7 +17,7 @@ crate become checkable only at the whole-deployment level:
 - An actuator may only be commanded through the Safety authority (§16.1).
 - Every consumed contract must actually be produced by its declared producer,
   and every requirement must be satisfied by a connection (§6.3).
-- The component graph must be acyclic and every component must be placed on a
+- The instantaneous dependency subgraph must be acyclic and every component must be placed on a
   declared node.
 
 ## Scope
@@ -165,3 +165,23 @@ resolve, and variable-length scalar layouts reject. Duplicate declarations fail.
 The shared contracts::layout primitive preserves scalar v2 wire bytes and leaves
 graph dependent only on contracts. See the A08 evidence document for exact limits,
 canonical preimage and remaining delayed-feedback/runtime enforcement work.
+
+
+## A08 explicit delayed-feedback amendment
+
+Connections may omit `delay` (instantaneous), spell `delay: instantaneous`, or use
+`delay: {ticks: 1, unit: evaluation-ticks, initialization: require-seed}`.
+Positive ticks are 1..=1024; aggregate history slots are at most 65536. Unsupported
+units, missing initialization, null/fractional/tagged values and conflicting edge
+declarations fail. The validator proves the instantaneous subgraph is a DAG,
+including subcycles in otherwise delayed graphs; it does not execute delays.
+Future execution must supply trusted history and enforce the common logical tick
+schedule. All edges retain endpoint, contract and declarative policy checks.
+
+All-instantaneous v2 canonical bytes/pins are unchanged. Any positive delay selects
+v3 declared/resolved identities, adding normalized delay semantics to every edge.
+CLI reports the identity version and explicitly marks execution unvalidated.
+Normative canonicalization, API migration, limits, bounded diagnostics, initialization
+and verification: [A08 delayed-feedback evidence](../implementation/WP-A08-Delayed-Feedback-Validation.md).
+Runtime capabilities and physical driver permissions remain separate acceptance;
+labels and delay declarations confer no authority.

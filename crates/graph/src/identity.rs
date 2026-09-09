@@ -16,10 +16,7 @@ pub(crate) fn declared_identity(deployment: &Deployment) -> String {
     let bytes = serde_json::to_vec(&sort_keys(value)).expect("canonical JSON cannot fail");
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
-    format!(
-        "{version}:sha256:{}",
-        to_hex(&hasher.finalize())
-    )
+    format!("{version}:sha256:{}", to_hex(&hasher.finalize()))
 }
 
 fn canonical_value(deployment: &Deployment) -> Value {
@@ -129,15 +126,18 @@ pub(crate) fn resolved_identity(
         "deployment": canonical_value(deployment), "contracts": bindings,
     })))
     .expect("canonical JSON");
-    format!(
-        "{version}:sha256:{}",
-        to_hex(&Sha256::digest(bytes))
-    )
+    format!("{version}:sha256:{}", to_hex(&Sha256::digest(bytes)))
 }
 
 fn has_delay(deployment: &Deployment) -> bool {
-    deployment.connections.iter().any(|c| !c.delay.is_instantaneous())
+    deployment
+        .connections
+        .iter()
+        .any(|c| !c.delay.is_instantaneous())
 }
 fn identity_version(deployment: &Deployment, kind: &str) -> String {
-    format!("neuradix.deployment.{kind}.v{}", if has_delay(deployment) {3} else {2})
+    format!(
+        "neuradix.deployment.{kind}.v{}",
+        if has_delay(deployment) { 3 } else { 2 }
+    )
 }

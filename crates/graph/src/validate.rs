@@ -4,7 +4,6 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
-use crate::{ComponentConfiguration, ConnectionDelay};
 use crate::error::GraphError;
 use crate::identity::{declared_identity, resolved_identity};
 use crate::model::{
@@ -12,6 +11,7 @@ use crate::model::{
     SUPPORTED_API_VERSION, from_file, from_yaml_str,
 };
 use crate::registry::{ContractRegistry, Resolution};
+use crate::{ComponentConfiguration, ConnectionDelay};
 
 /// The severity of a validation issue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -471,14 +471,35 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
             continue;
         };
         let delay = ConnectionDelay::from_value(&c.delay).unwrap_or_else(|reason| {
-            error(issues, "invalid-connection-delay", &format!("{base}.delay"), reason.to_owned());
+            error(
+                issues,
+                "invalid-connection-delay",
+                &format!("{base}.delay"),
+                reason.to_owned(),
+            );
             ConnectionDelay::default()
         });
-        if let Some(previous) = seen_connections.insert((from.clone(), to.clone(), contract.clone()), delay) {
-            let code = if previous == delay { "duplicate-connection" } else { "conflicting-connection-delay" };
-            error(issues, code, &base, "duplicate connection or conflicting delay declaration".to_owned());
+        if let Some(previous) =
+            seen_connections.insert((from.clone(), to.clone(), contract.clone()), delay)
+        {
+            let code = if previous == delay {
+                "duplicate-connection"
+            } else {
+                "conflicting-connection-delay"
+            };
+            error(
+                issues,
+                code,
+                &base,
+                "duplicate connection or conflicting delay declaration".to_owned(),
+            );
         }
-        connections.push(Connection { from, to, contract, delay });
+        connections.push(Connection {
+            from,
+            to,
+            contract,
+            delay,
+        });
     }
 
     Deployment {
@@ -616,10 +637,19 @@ fn check(d: &Deployment, issues: &mut Vec<GraphIssue>) {
         );
     }
 
-    let total_ticks: u64 = d.connections.iter().map(|c| u64::from(c.delay.ticks())).sum();
+    let total_ticks: u64 = d
+        .connections
+        .iter()
+        .map(|c| u64::from(c.delay.ticks()))
+        .sum();
     // Connection count and per-edge bounds make the u64 sum representable.
     if total_ticks > ConnectionDelay::MAX_TOTAL_TICKS {
-        error(issues, "delay-history-limit", "spec.connections", "sum of delay ticks exceeds 65536 history slots".to_owned());
+        error(
+            issues,
+            "delay-history-limit",
+            "spec.connections",
+            "sum of delay ticks exceeds 65536 history slots".to_owned(),
+        );
     }
     // Only instantaneous edges participate in same-tick dependencies.
     if let Some(cycle) = find_cycle(d, &comp_by_name) {
@@ -634,21 +664,35 @@ fn check(d: &Deployment, issues: &mut Vec<GraphIssue>) {
 
 /// Iterative deterministic DFS of the instantaneous subgraph. All edges still
 /// undergo endpoint/contract/policy checks before this analysis.
-fn find_cycle<'a>(d: &'a Deployment, comp_by_name: &HashMap<&str, &Component>) -> Option<Vec<&'a str>> {
+fn find_cycle<'a>(
+    d: &'a Deployment,
+    comp_by_name: &HashMap<&str, &Component>,
+) -> Option<Vec<&'a str>> {
     let mut names: Vec<&str> = d.components.iter().map(|c| c.name.as_str()).collect();
     names.sort_unstable();
     names.dedup();
     let mut adjacency: HashMap<&str, Vec<&str>> = HashMap::new();
     for conn in &d.connections {
-        if conn.delay.is_instantaneous() && comp_by_name.contains_key(conn.from.as_str()) && comp_by_name.contains_key(conn.to.as_str()) {
-            adjacency.entry(conn.from.as_str()).or_default().push(conn.to.as_str());
+        if conn.delay.is_instantaneous()
+            && comp_by_name.contains_key(conn.from.as_str())
+            && comp_by_name.contains_key(conn.to.as_str())
+        {
+            adjacency
+                .entry(conn.from.as_str())
+                .or_default()
+                .push(conn.to.as_str());
         }
     }
-    for neighbours in adjacency.values_mut() { neighbours.sort_unstable(); neighbours.dedup(); }
+    for neighbours in adjacency.values_mut() {
+        neighbours.sort_unstable();
+        neighbours.dedup();
+    }
     // 0=unvisited, 1=active, 2=finished. Stack bounded by admitted component count.
     let mut color: HashMap<&str, u8> = names.iter().map(|&n| (n, 0)).collect();
     for root in names {
-        if color[root] != 0 { continue; }
+        if color[root] != 0 {
+            continue;
+        }
         let mut stack = vec![(root, 0usize)];
         color.insert(root, 1);
         while let Some((node, next)) = stack.last_mut() {
@@ -661,10 +705,16 @@ fn find_cycle<'a>(d: &'a Deployment, comp_by_name: &HashMap<&str, &Component>) -
             let target = neighbours[*next];
             *next += 1;
             match color[target] {
-                0 => { color.insert(target, 1); stack.push((target, 0)); }
+                0 => {
+                    color.insert(target, 1);
+                    stack.push((target, 0));
+                }
                 1 => {
-                    let start = stack.iter().position(|(n,_)| *n == target).expect("active node");
-                    let mut cycle: Vec<_> = stack[start..].iter().map(|(n,_)| *n).collect();
+                    let start = stack
+                        .iter()
+                        .position(|(n, _)| *n == target)
+                        .expect("active node");
+                    let mut cycle: Vec<_> = stack[start..].iter().map(|(n, _)| *n).collect();
                     cycle.push(target);
                     return Some(cycle);
                 }
@@ -678,12 +728,27 @@ fn find_cycle<'a>(d: &'a Deployment, comp_by_name: &HashMap<&str, &Component>) -
 /// At most 16 names of at most 32 UTF-8 bytes each, plus fixed framing. The full
 /// witness is transient and bounded by the admitted 1024 components.
 fn cycle_summary(cycle: &[&str]) -> String {
-    let names: Vec<_> = cycle.iter().take(16).map(|name| {
-        let mut end = name.len().min(32);
-        while !name.is_char_boundary(end) { end -= 1; }
-        format!("{}{}", &name[..end], if end < name.len() { "…" } else { "" })
-    }).collect();
-    format!("instantaneous cycle ({} vertices including closure): {}{}", cycle.len(), names.join(" -> "), if cycle.len() > 16 { " -> …" } else { "" })
+    let names: Vec<_> = cycle
+        .iter()
+        .take(16)
+        .map(|name| {
+            let mut end = name.len().min(32);
+            while !name.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!(
+                "{}{}",
+                &name[..end],
+                if end < name.len() { "…" } else { "" }
+            )
+        })
+        .collect();
+    format!(
+        "instantaneous cycle ({} vertices including closure): {}{}",
+        cycle.len(),
+        names.join(" -> "),
+        if cycle.len() > 16 { " -> …" } else { "" }
+    )
 }
 
 // ---------------------------------------------------------------------------
