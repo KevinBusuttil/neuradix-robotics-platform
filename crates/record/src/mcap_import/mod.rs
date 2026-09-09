@@ -146,6 +146,7 @@ struct State {
     offset_start: u64,
     summary_groups: BTreeMap<u8, (u64, u64)>,
     offset_groups: std::collections::BTreeSet<u8>,
+    legacy_interleaved_summary: bool,
 }
 impl State {
     fn charge(&mut self, n: u64) -> Result<()> {
@@ -210,7 +211,15 @@ impl State {
                     }
                     let group = self.summary_groups.entry(op).or_insert((start, start));
                     if group.1 != start {
-                        return Err(malformed("noncontiguous summary group"));
+                        // Historical 0.0.1 output interleaves schema/channel
+                        // repetitions and has no summary-offset section.
+                        if !matches!(op, 3 | 4)
+                            || self.summary.header.profile != "neuradix"
+                            || self.summary.header.library != "neuradix-record/0.0.1"
+                        {
+                            return Err(malformed("noncontiguous summary group"));
+                        }
+                        self.legacy_interleaved_summary = true;
                     }
                     group.1 = self.outer_offset;
                 }
@@ -463,6 +472,11 @@ impl State {
                 })?;
             }
             Record::SummaryOffset(offset) => {
+                if self.legacy_interleaved_summary {
+                    return Err(RecordError::UnsupportedMcap(
+                        "legacy interleaved summary cannot have offsets",
+                    ));
+                }
                 let end = offset
                     .group_start
                     .checked_add(offset.group_length)
@@ -540,6 +554,7 @@ pub fn import_mcap(
         offset_start: 0,
         summary_groups: BTreeMap::new(),
         offset_groups: std::collections::BTreeSet::new(),
+        legacy_interleaved_summary: false,
     };
     while let Some(event) = parser.next_event() {
         match event.map_err(vendor)? {

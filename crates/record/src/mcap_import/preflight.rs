@@ -31,11 +31,11 @@ impl<'a> Cursor<'a> {
     pub fn u64(&mut self) -> Result<u64> {
         Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
     }
-    fn string(&mut self, limits: McapImportLimits) -> Result<()> {
+    fn string(&mut self, limits: McapImportLimits) -> Result<usize> {
         let len = self.u32()?;
         check(len as u64, limits.string_bytes as u64, "string bytes")?;
         std::str::from_utf8(self.take(len)?).map_err(|_| malformed("invalid UTF-8"))?;
-        Ok(())
+        Ok(len)
     }
     fn map(&mut self, limits: McapImportLimits, width: Option<usize>) -> Result<usize> {
         let len = self.u32()?;
@@ -63,6 +63,7 @@ pub(super) fn validate(op: u8, data: &[u8], limits: McapImportLimits) -> Result<
     )?;
     let mut c = Cursor::new(data);
     let mut entries = 0;
+    let mut extra = 0;
     match op {
         0x01 => {
             c.string(limits)?;
@@ -116,7 +117,8 @@ pub(super) fn validate(op: u8, data: &[u8], limits: McapImportLimits) -> Result<
             entries = c.map(limits, Some(10))?;
         }
         0x0c => {
-            c.string(limits)?;
+            // The persistent metadata table also owns a copy of its name key.
+            extra = c.string(limits)?;
             entries = c.map(limits, None)?;
         }
         0x0d => {
@@ -136,5 +138,5 @@ pub(super) fn validate(op: u8, data: &[u8], limits: McapImportLimits) -> Result<
             "record extension fields are not supported",
         ));
     }
-    Ok(data.len() as u64 + 512 + entries as u64 * 128)
+    Ok(data.len() as u64 + extra as u64 + 512 + entries as u64 * 128)
 }

@@ -68,6 +68,10 @@ conflicting IDs or named metadata reject. Duplicate map keys, malformed UTF-8,
 truncation, overflow and dangling schema/channel references reject. The profile
 requires a Header, DataEnd and Footer, valid section order, contiguous summary
 groups, matching footer/group offsets, matching statistics and available CRCs.
+One explicit compatibility exception admits the historical `neuradix-record/0.0.1`
+writer's interleaved schema/channel summary repetitions, provided their definitions
+match and no summary-offset records follow. That old writer layout is not claimed
+as strict summary-group conformance; correcting writing remains a later increment.
 Zero CRC means absent, not verified integrity. Known message/chunk/metadata indexes
 and statistics retain their original bodies and ordinals. Index target offsets
 are opaque audit data, never followed or certified; every data message is read
@@ -104,7 +108,7 @@ the record cap. LZ4 has native bounded block/context scratch in addition to the
 decoded chunk. The adapter does not advertise its logical counters as exact RSS.
 
 Retained charges are wire body bytes + 512 bytes per semantic object + 128 bytes
-per map/array entry, before copying into the archive. Definitions have a separate
+per map/array entry, plus the copied metadata-name key, before copying into the archive. Definitions have a separate
 persistent budget; named metadata consumes it too. The allowances cover object,
 tree-node and vector-growth storage for the qualified host workload; allocator,
 parser, temporary definition copies and native decoder overhead remain separate.

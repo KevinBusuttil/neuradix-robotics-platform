@@ -61,6 +61,10 @@ Neuradix encodings with a manifest metadata record. Its zero CRC fields mean
 checksums are absent. Writer redesign, live streaming and bounded write behavior
 are deferred. Per-channel domains originate in manifest/sample validation; import
 requires manifest/channel agreement instead of assuming a domain from log time.
+Historical 0.0.1 summary repetitions interleave schemas/channels. Import admits
+this documented compatibility exception only for that declared profile/library,
+with matching definitions and no summary-offset section. It does not certify the
+old writer as strictly conforming to MCAP summary grouping.
 
 ## Alternatives and evidence
 
