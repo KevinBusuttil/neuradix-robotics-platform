@@ -122,3 +122,12 @@ duration re-spelling; description-independence and field-type-dependence).
 - Exact rule set for unit/frame *conversion* generation (deferred).
 - Whether `string` and other non-`Copy` fields need a distinct large-buffer path.
 - Import/reference resolution between contracts.
+
+## A08 shared scalar layout identity
+
+Canonical scalar-v2 layout calculation now lives in neuradix-contracts::layout and
+is re-exported by embedded-codegen. Descriptor and wire bytes remain unchanged;
+checked length arithmetic returns LayoutError, converted by generator entry points
+to CodegenError. This lets offline graph validation compute schema/wire bindings
+without a reverse dependency on codegen. Strings remain unsupported by this codec;
+target ABI admission is still separate. See [A08 evidence](../implementation/WP-A08-Resolved-Deployment-Identity.md).

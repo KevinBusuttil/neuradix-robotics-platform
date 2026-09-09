@@ -73,7 +73,7 @@ spec:
 fn report_codes(manifest: &str) -> Vec<String> {
     let report = from_yaml(manifest, path()).expect("well-formed YAML");
     report
-        .issues
+        .issues()
         .iter()
         .filter(|i| i.severity == Severity::Error)
         .map(|i| i.code.clone())
@@ -86,10 +86,15 @@ fn valid_deployment_is_valid() {
     assert!(
         report.is_valid(),
         "expected valid, got issues: {:?}",
-        report.issues
+        report.issues()
     );
     assert_eq!(report.error_count(), 0);
-    assert!(report.identity.starts_with("sha256:"));
+    assert!(
+        report
+            .identity()
+            .unwrap()
+            .starts_with("neuradix.deployment.declared.v2:sha256:")
+    );
 }
 
 #[test]
@@ -100,7 +105,7 @@ fn identity_is_stable_across_reordering() {
         .replace("range.v1\n    - from: perception", "PLACEHOLDER")
         .replace("PLACEHOLDER", "range.v1\n    - from: perception");
     let b = from_yaml(&reordered, path()).unwrap();
-    assert_eq!(a.identity, b.identity);
+    assert_eq!(a.identity(), b.identity());
 }
 
 #[test]

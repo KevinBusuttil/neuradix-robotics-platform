@@ -3,7 +3,8 @@
 # A minimal but valid Neuradix deployment that exercises every layer the graph
 # compiler cares about: node placement, contract provides/requires wiring, a
 # Python perception stage kept off the deterministic control path, and an
-# actuator that can only be commanded through the Safety authority (§16.1).
+# declared actuator path through a Safety-labelled component (§16.1).
+# Offline labels do not grant runtime actuator permissions.
 #
 # Contract references are the `namespace/name@version` identifiers of the
 # authored contracts under contracts/standard/, so the graph compiler can
@@ -11,7 +12,7 @@
 #
 # Validate topology + policy only:
 #   neuradix graph validate examples/reference-auv/deployment.yaml
-# Validate and resolve every contract reference to a registered schema:
+# Validate and compute resolved schema/scalar-layout/configuration identity:
 #   neuradix graph validate examples/reference-auv/deployment.yaml \
 #       --contracts contracts/standard
 apiVersion: deploy.neuradix.io/v1alpha1
@@ -48,7 +49,7 @@ spec:
       requires: [io.neuradix.perception/obstacle-map@1.0.0]
       provides: [io.neuradix.control/depth-setpoint@1.0.0]
 
-    # Safety authority: the only component permitted to command the actuator.
+    # Declared Safety role; runtime authorization is a separate requirement.
     - name: safety
       node: main
       executionClass: deterministic

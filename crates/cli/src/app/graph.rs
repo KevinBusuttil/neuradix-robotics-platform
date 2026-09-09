@@ -18,7 +18,8 @@ use crate::exit::ExitCode;
 /// resolved to a registered schema and the resolved identities are reported. A
 /// manifest with any error-severity issue fails with
 /// [`ExitCode::DeploymentValidation`] (10); warnings alone succeed. The
-/// content-addressed deployment identity is always reported.
+/// declared identity is present only for valid graphs; resolvedIdentity additionally
+/// requires complete registry resolution. Old unversioned pins must be regenerated.
 pub fn validate(file: &Path, contracts: Option<&Path>) -> Result<Outcome, AppError> {
     let raw = from_file(file).map_err(map_graph_error)?;
 
@@ -34,7 +35,7 @@ pub fn validate(file: &Path, contracts: Option<&Path>) -> Result<Outcome, AppErr
 
     if report.is_valid() {
         let warnings = report
-            .issues
+            .issues()
             .iter()
             .filter(|i| i.severity == Severity::Warning)
             .map(|i| format!("{} [{}]: {}", i.path, i.code, i.message))
@@ -55,7 +56,7 @@ pub fn validate(file: &Path, contracts: Option<&Path>) -> Result<Outcome, AppErr
 
 fn report_to_json(report: &GraphReport) -> Value {
     let issues: Vec<Value> = report
-        .issues
+        .issues()
         .iter()
         .map(|i| {
             json!({
@@ -68,7 +69,7 @@ fn report_to_json(report: &GraphReport) -> Value {
         .collect();
 
     let resolved: Vec<Value> = report
-        .resolved
+        .resolved()
         .iter()
         .map(|r| {
             json!({
@@ -76,12 +77,16 @@ fn report_to_json(report: &GraphReport) -> Value {
                 "identifier": r.identifier,
                 "version": r.version,
                 "schemaId": r.schema_id,
+                "codecId": r.codec_id,
+                "wireId": r.wire_id,
             })
         })
         .collect();
 
     json!({
-        "identity": report.identity,
+        "identity": report.identity(),
+        "identityKind": "declared-v2",
+        "resolvedIdentity": report.resolved_identity(),
         "valid": report.is_valid(),
         "errors": report.error_count(),
         "warnings": report.warning_count(),
@@ -93,7 +98,7 @@ fn report_to_json(report: &GraphReport) -> Value {
 /// Map a [`GraphError`] (I/O or parse failure) to an [`AppError`].
 fn map_graph_error(err: GraphError) -> AppError {
     match &err {
-        GraphError::Parse { .. } => {
+        GraphError::Parse { .. } | GraphError::Limit => {
             AppError::message(ExitCode::DeploymentValidation, err.to_string())
         }
         GraphError::Io { .. } => AppError::message(ExitCode::GeneralFailure, err.to_string()),

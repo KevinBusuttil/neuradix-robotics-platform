@@ -5,17 +5,20 @@ use sha2::{Digest, Sha256};
 
 use crate::model::Deployment;
 
-/// Compute the `sha256:<hex>` identity of a deployment's normative content.
+/// Compute the versioned declared-content identity after graph validation.
 ///
 /// The identity covers `name`, `profile`, and the nodes, components and
-/// connections (with provides/requires and connections sorted), so it is stable
-/// regardless of authoring order. A production deployment can be pinned to this.
-pub fn deployment_identity(deployment: &Deployment) -> String {
-    let value = canonical_value(deployment);
+/// connections and configuration, with unordered declarations sorted. This alone
+/// does not resolve contracts or attest execution; only validated reports expose it.
+pub(crate) fn declared_identity(deployment: &Deployment) -> String {
+    let value = json!({"identityVersion": "neuradix.deployment.declared.v2", "deployment": canonical_value(deployment)});
     let bytes = serde_json::to_vec(&sort_keys(value)).expect("canonical JSON cannot fail");
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
-    format!("sha256:{}", to_hex(&hasher.finalize()))
+    format!(
+        "neuradix.deployment.declared.v2:sha256:{}",
+        to_hex(&hasher.finalize())
+    )
 }
 
 fn canonical_value(deployment: &Deployment) -> Value {
@@ -35,6 +38,7 @@ fn canonical_value(deployment: &Deployment) -> Value {
             let mut requires: Vec<String> = c.requires.clone();
             requires.sort();
             json!({
+                "configuration": serde_json::from_str::<Value>(c.configuration.canonical_json()).expect("validated configuration"),
                 "name": c.name,
                 "node": c.node,
                 "executionClass": c.execution_class.as_str(),
@@ -93,4 +97,29 @@ fn to_hex(bytes: &[u8]) -> String {
         out.push(HEX[(b & 0x0f) as usize] as char);
     }
     out
+}
+
+/// Only validated reports can call this; paths and unused registry entries excluded.
+pub(crate) fn resolved_identity(
+    deployment: &Deployment,
+    resolved: &[crate::ResolvedContract],
+) -> String {
+    let bindings: Vec<_> = resolved
+        .iter()
+        .map(|r| {
+            json!({
+                "reference": r.reference, "identifier": r.identifier, "version": r.version,
+                "schemaId": r.schema_id, "codecId": r.codec_id, "wireId": r.wire_id,
+            })
+        })
+        .collect();
+    let bytes = serde_json::to_vec(&sort_keys(json!({
+        "identityVersion": "neuradix.deployment.resolved.v2",
+        "deployment": canonical_value(deployment), "contracts": bindings,
+    })))
+    .expect("canonical JSON");
+    format!(
+        "neuradix.deployment.resolved.v2:sha256:{}",
+        to_hex(&Sha256::digest(bytes))
+    )
 }

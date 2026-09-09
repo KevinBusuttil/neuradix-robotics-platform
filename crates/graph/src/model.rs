@@ -4,6 +4,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::configuration::ComponentConfiguration;
 use crate::error::GraphError;
 
 /// The `apiVersion` accepted for deployment manifests.
@@ -143,6 +144,8 @@ pub struct Node {
 /// A validated component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Component {
+    /// Validated immutable configuration.
+    pub configuration: ComponentConfiguration,
     /// Component name.
     pub name: String,
     /// The node it is placed on.
@@ -159,7 +162,7 @@ pub struct Component {
     pub requires: Vec<String>,
 }
 
-/// A validated connection between two components carrying a contract.
+/// A typed connection between two components carrying a contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connection {
     /// Producer component name.
@@ -170,7 +173,7 @@ pub struct Connection {
     pub contract: String,
 }
 
-/// A validated deployment.
+/// Typed deployment content. Construction alone does not prove validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Deployment {
     /// Deployment name.
@@ -191,7 +194,7 @@ pub struct Deployment {
 
 /// A raw, unvalidated deployment document.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawDeployment {
     /// `apiVersion`
     pub api_version: Option<String>,
@@ -205,7 +208,7 @@ pub struct RawDeployment {
 
 /// Raw metadata.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawMetadata {
     /// `metadata.name`
     pub name: Option<String>,
@@ -213,7 +216,7 @@ pub struct RawMetadata {
 
 /// Raw spec.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawSpec {
     /// `spec.profile`
     pub profile: Option<String>,
@@ -230,7 +233,7 @@ pub struct RawSpec {
 
 /// Raw node.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawNode {
     /// `name`
     pub name: Option<String>,
@@ -240,8 +243,11 @@ pub struct RawNode {
 
 /// Raw component.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawComponent {
+    /// Configuration object; omitted means empty. Explicit null is invalid.
+    #[serde(default = "empty_configuration")]
+    pub configuration: serde_yaml::Value,
     /// `name`
     pub name: Option<String>,
     /// `node`
@@ -262,7 +268,7 @@ pub struct RawComponent {
 
 /// Raw connection.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawConnection {
     /// `from`
     pub from: Option<String>,
@@ -274,6 +280,9 @@ pub struct RawConnection {
 
 /// Parse a raw deployment from a YAML string.
 pub fn from_yaml_str(source: &str, path: &Path) -> Result<RawDeployment, GraphError> {
+    if source.len() > MAX_MANIFEST_BYTES {
+        return Err(GraphError::Limit);
+    }
     serde_yaml::from_str(source).map_err(|source| GraphError::Parse {
         path: path.to_path_buf(),
         source,
@@ -282,9 +291,31 @@ pub fn from_yaml_str(source: &str, path: &Path) -> Result<RawDeployment, GraphEr
 
 /// Read and parse a raw deployment from a file.
 pub fn from_file(path: &Path) -> Result<RawDeployment, GraphError> {
-    let source = std::fs::read_to_string(path).map_err(|source| GraphError::Io {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|source| GraphError::Io {
         path: path.to_path_buf(),
         source,
     })?;
+    let mut bytes = Vec::new();
+    file.take((MAX_MANIFEST_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|source| GraphError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if bytes.len() > MAX_MANIFEST_BYTES {
+        return Err(GraphError::Limit);
+    }
+    let source = String::from_utf8(bytes).map_err(|error| GraphError::Io {
+        path: path.to_path_buf(),
+        source: std::io::Error::new(std::io::ErrorKind::InvalidData, error),
+    })?;
     from_yaml_str(&source, path)
 }
+
+fn empty_configuration() -> serde_yaml::Value {
+    serde_yaml::Value::Mapping(Default::default())
+}
+
+/// Maximum UTF-8 manifest input bytes, checked before parsing.
+pub const MAX_MANIFEST_BYTES: usize = 1 << 20;

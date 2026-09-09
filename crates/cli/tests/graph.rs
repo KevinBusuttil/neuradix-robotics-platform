@@ -31,11 +31,13 @@ fn reference_deployment_validates_successfully() {
         .assert_command("graph.validate")
         .assert_success();
     assert_eq!(env.data_field("valid").unwrap(), true);
+    assert!(env.data_field("resolvedIdentity").unwrap().is_null());
+    assert_eq!(env.data_field("identityKind").unwrap(), "declared-v2");
     assert!(
         env.data_field("identity")
             .and_then(|v| v.as_str())
             .unwrap()
-            .starts_with("sha256:")
+            .starts_with("neuradix.deployment.declared.v2:sha256:")
     );
 }
 
@@ -53,6 +55,13 @@ fn reference_deployment_resolves_against_the_contract_registry() {
     assert_eq!(code, 0, "reference deployment must resolve");
     let env = ParsedEnvelope::parse(&stdout).unwrap();
     env.assert_command("graph.validate").assert_success();
+    assert!(
+        env.data_field("resolvedIdentity")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .starts_with("neuradix.deployment.resolved.v2:sha256:")
+    );
     // Every wired contract reference resolved to a real schema identity.
     let resolved = env
         .data_field("resolved")
@@ -103,7 +112,10 @@ fn unresolved_contract_reference_exits_with_code_10() {
         code, 10,
         "an unresolved contract reference must fail deployment validation"
     );
-    ParsedEnvelope::parse(&stdout).unwrap().assert_failure();
+    let envelope = ParsedEnvelope::parse(&stdout).unwrap();
+    envelope.assert_failure();
+    assert!(envelope.data_field("identity").unwrap().is_null());
+    assert!(envelope.data_field("resolvedIdentity").unwrap().is_null());
 
     let _ = std::fs::remove_file(&path);
 }
@@ -136,7 +148,10 @@ fn invalid_deployment_exits_with_code_10() {
         code, 10,
         "invalid deployment must exit with the deployment-validation code"
     );
-    ParsedEnvelope::parse(&stdout).unwrap().assert_failure();
+    let envelope = ParsedEnvelope::parse(&stdout).unwrap();
+    envelope.assert_failure();
+    assert!(envelope.data_field("identity").unwrap().is_null());
+    assert!(envelope.data_field("resolvedIdentity").unwrap().is_null());
 
     let _ = std::fs::remove_file(&path);
 }

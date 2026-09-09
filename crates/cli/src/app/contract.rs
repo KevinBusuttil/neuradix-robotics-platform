@@ -148,7 +148,7 @@ pub fn generate(
     } else {
         Some(
             neuradix_embedded_codegen::WireLayout::for_contract(&contract)
-                .map_err(map_codegen_error)?,
+                .map_err(|e| map_codegen_error(e.into()))?,
         )
     };
 

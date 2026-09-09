@@ -13,12 +13,15 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use neuradix_contracts::layout::WireLayout;
 use neuradix_contracts::{ContractError, load_file, schema_identity};
 
 /// A contract known to the registry: its identifier, version and the
 /// content-addressed schema identity a reference to it resolves to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContractEntry {
+    /// Computed scalar layout, or an explicit unsupported-layout reason.
+    pub layout: Result<WireLayout, String>,
     /// The `namespace/name` identifier.
     pub identifier: String,
     /// The semantic version.
@@ -121,6 +124,7 @@ impl ContractRegistry {
             })?;
             registry.insert(
                 ContractEntry {
+                    layout: WireLayout::for_contract(&contract).map_err(|e| e.to_string()),
                     identifier: contract.identifier(),
                     version: contract.metadata.version.to_string(),
                     schema_id: schema_identity(&contract).as_str().to_owned(),

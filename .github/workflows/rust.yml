@@ -38,6 +38,12 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      - name: Resolved deployment identity regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-graph
+          timeout --signal=TERM --kill-after=5s 30s cargo test --locked -p neuradix-cli --test graph
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-graph --example resolved_identity
+
       - name: Program replay regressions and example
         run: |
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-runtime
@@ -100,7 +106,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install AVR conformance toolchain
         run: |
-          sudo apt-get update
+          # Only signed Ubuntu sources are needed for AVR; unrelated runner
+          # Chrome repositories have produced persistent index hash mismatches.
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/ubuntu.sources" -o Dir::Etc::sourceparts="-"
           sudo apt-get install --no-install-recommends -y gcc-avr avr-libc binutils-avr
           avr-g++ --version
           avr-size --version

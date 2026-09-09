@@ -15,17 +15,17 @@
 //!   and the consumer *requires*, and every requirement has a provider.
 //! - **Runtime policy** — Python components (and Python producers feeding them)
 //!   may not sit on the deterministic control path (§12.4 EXEC-007, §19.4).
-//! - **Safety authority** — an actuator may only be commanded through a Safety
+//! - **Declared safety topology** — an actuator must be adjacent to a Safety
 //!   component, and a deployment with actuators must declare a Safety authority
-//!   (§16.1).
+//!   (§16.1). Labels do not grant runtime actuator permission.
 //! - **Topology** — the component graph must be acyclic.
 //!
 //! Structural and policy problems are surfaced as [`GraphIssue`]s in a
 //! [`GraphReport`] rather than as hard errors, so a single pass reports every
 //! problem at once. Only I/O and parse failures produce a [`GraphError`].
 //!
-//! Every report also carries a content-addressed [`deployment_identity`], so a
-//! validated deployment can be pinned for production immutability (§28.4).
+//! Valid reports expose a versioned declared identity. Registry validation also
+//! exposes a resolved schema/layout/configuration identity; invalid graphs have neither.
 //!
 //! # Example
 //!
@@ -69,12 +69,14 @@
 //!
 //! let report = from_yaml(manifest, Path::new("demo.yaml")).unwrap();
 //! assert!(report.is_valid());
-//! assert!(report.identity.starts_with("sha256:"));
+//! assert!(report.identity().unwrap().starts_with("neuradix.deployment.declared.v2:sha256:"));
 //! ```
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod configuration;
+pub use configuration::ComponentConfiguration;
 pub mod error;
 pub mod identity;
 pub mod model;
@@ -82,7 +84,7 @@ pub mod registry;
 pub mod validate;
 
 pub use error::GraphError;
-pub use identity::deployment_identity;
+
 pub use model::{
     Component, Connection, Deployment, ExecutionClass, Node, RawDeployment, Role, Runtime,
     SUPPORTED_API_VERSION, from_file, from_yaml_str,

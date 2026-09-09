@@ -4,8 +4,9 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+use crate::ComponentConfiguration;
 use crate::error::GraphError;
-use crate::identity::deployment_identity;
+use crate::identity::{declared_identity, resolved_identity};
 use crate::model::{
     Component, Connection, Deployment, ExecutionClass, Node, RawDeployment, Role, Runtime,
     SUPPORTED_API_VERSION, from_file, from_yaml_str,
@@ -47,6 +48,10 @@ pub struct GraphIssue {
 /// A contract reference that resolved to a real registered schema.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedContract {
+    /// Versioned codec computed from the validated schema.
+    pub codec_id: String,
+    /// Full scalar wire identity.
+    pub wire_id: String,
     /// The reference as written in the deployment (`namespace/name[@version]`).
     pub reference: String,
     /// The resolved contract's `namespace/name` identifier.
@@ -61,15 +66,33 @@ pub struct ResolvedContract {
 #[derive(Debug, Clone)]
 pub struct GraphReport {
     /// Content-addressed deployment identity.
-    pub identity: String,
+    identity: Option<String>,
+    resolved_identity: Option<String>,
     /// All validation issues, in the order discovered.
-    pub issues: Vec<GraphIssue>,
+    issues: Vec<GraphIssue>,
     /// Contract references resolved against a registry, sorted by reference.
     /// Empty when validation ran without a registry.
-    pub resolved: Vec<ResolvedContract>,
+    resolved: Vec<ResolvedContract>,
 }
 
 impl GraphReport {
+    /// Versioned declared-content identity; absent for invalid graphs.
+    pub fn identity(&self) -> Option<&str> {
+        self.identity.as_deref()
+    }
+    /// Resolved identity only after complete registry and topology validation.
+    pub fn resolved_identity(&self) -> Option<&str> {
+        self.resolved_identity.as_deref()
+    }
+    /// Immutable validation evidence; callers cannot clear issues to forge validity.
+    pub fn issues(&self) -> &[GraphIssue] {
+        &self.issues
+    }
+    /// Immutable computed bindings; no caller-supplied digest insertion.
+    pub fn resolved(&self) -> &[ResolvedContract] {
+        &self.resolved
+    }
+
     /// Whether the deployment is valid (no error-severity issues).
     pub fn is_valid(&self) -> bool {
         !self.issues.iter().any(|i| i.severity == Severity::Error)
@@ -127,12 +150,50 @@ pub fn validate_with_registry(raw: &RawDeployment, registry: &ContractRegistry) 
 
 fn validate_inner(raw: &RawDeployment, registry: Option<&ContractRegistry>) -> GraphReport {
     let mut issues = Vec::new();
+    if raw.spec.as_ref().is_some_and(|s| {
+        s.nodes.len() > 256
+            || s.components.len() > 1024
+            || s.connections.len() > 4096
+            || s.components
+                .iter()
+                .any(|c| c.provides.len() > 256 || c.requires.len() > 256)
+    }) {
+        error(
+            &mut issues,
+            "graph-count-limit",
+            "spec",
+            "exceeds bounded identity graph counts".to_owned(),
+        );
+        return GraphReport {
+            identity: None,
+            resolved_identity: None,
+            issues,
+            resolved: Vec::new(),
+        };
+    }
     let deployment = build(raw, &mut issues);
+    let total_configuration: usize = deployment
+        .components
+        .iter()
+        .map(|c| c.configuration.canonical_json().len())
+        .sum();
+    if total_configuration > 1 << 20 {
+        error(
+            &mut issues,
+            "configuration-total-limit",
+            "spec.components",
+            "total canonical configuration exceeds 1 MiB".to_owned(),
+        );
+    }
     check(&deployment, &mut issues);
     let resolved = resolve_contracts(&deployment, registry, &mut issues);
-    let identity = deployment_identity(&deployment);
+    let valid = !issues.iter().any(|i| i.severity == Severity::Error);
+    let identity = valid.then(|| declared_identity(&deployment));
+    let resolved_identity =
+        (valid && registry.is_some()).then(|| resolved_identity(&deployment, &resolved));
     GraphReport {
         identity,
+        resolved_identity,
         issues,
         resolved,
     }
@@ -150,18 +211,32 @@ fn resolve_contracts(
     };
 
     // Distinct references, in deterministic order.
-    let references: BTreeSet<&str> = d.connections.iter().map(|c| c.contract.as_str()).collect();
+    let references: BTreeSet<&str> = d
+        .connections
+        .iter()
+        .map(|c| c.contract.as_str())
+        .chain(
+            d.components
+                .iter()
+                .flat_map(|c| c.provides.iter().chain(&c.requires).map(String::as_str)),
+        )
+        .collect();
 
     let mut resolved = Vec::new();
     for reference in references {
         let path = format!("contract `{reference}`");
         match registry.resolve(reference) {
-            Resolution::Resolved(entry) => resolved.push(ResolvedContract {
-                reference: reference.to_owned(),
-                identifier: entry.identifier.clone(),
-                version: entry.version.clone(),
-                schema_id: entry.schema_id.clone(),
-            }),
+            Resolution::Resolved(entry) => match &entry.layout {
+                Ok(layout) => resolved.push(ResolvedContract {
+                    reference: reference.to_owned(),
+                    identifier: entry.identifier.clone(),
+                    version: entry.version.clone(),
+                    schema_id: entry.schema_id.clone(),
+                    codec_id: layout.codec_id.clone(),
+                    wire_id: layout.wire_id.clone(),
+                }),
+                Err(reason) => error(issues, "unsupported-contract-layout", &path, reason.clone()),
+            },
             Resolution::UnknownContract => error(
                 issues,
                 "unknown-contract",
@@ -346,7 +421,29 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
                 format!("duplicate component name `{cname}`"),
             );
         }
+        let configuration =
+            ComponentConfiguration::from_value(&c.configuration).unwrap_or_else(|reason| {
+                error(
+                    issues,
+                    "invalid-configuration",
+                    &format!("{base}.configuration"),
+                    reason.to_owned(),
+                );
+                ComponentConfiguration::default()
+            });
+        for references in [&c.provides, &c.requires] {
+            let mut seen = HashSet::new();
+            if references.iter().any(|r| !seen.insert(r)) {
+                error(
+                    issues,
+                    "duplicate-contract-reference",
+                    &base,
+                    "duplicate provides/requires reference".to_owned(),
+                );
+            }
+        }
         components.push(Component {
+            configuration,
             name: cname,
             node,
             execution_class,
@@ -358,6 +455,7 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
     }
 
     let mut connections = Vec::new();
+    let mut seen_connections = HashSet::new();
     for (i, c) in spec
         .map(|s| s.connections.as_slice())
         .unwrap_or(&[])
@@ -372,6 +470,14 @@ fn build(raw: &RawDeployment, issues: &mut Vec<GraphIssue>) -> Deployment {
         ) else {
             continue;
         };
+        if !seen_connections.insert((from.clone(), to.clone(), contract.clone())) {
+            error(
+                issues,
+                "duplicate-connection",
+                &base,
+                "duplicate connection".to_owned(),
+            );
+        }
         connections.push(Connection { from, to, contract });
     }
 
