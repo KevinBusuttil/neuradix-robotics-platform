@@ -205,7 +205,9 @@ impl ReplayCase {
     }
     /// Borrow an admitted schedule entry, source data and exact expectations.
     pub fn step(&self, index: usize) -> Option<(Timestamp, &ReplayInput, &[Vec<u8>])> {
-        self.steps.get(index).map(|s| (s.evaluation, &s.input, s.expected.as_ref()))
+        self.steps
+            .get(index)
+            .map(|s| (s.evaluation, &s.input, s.expected.as_ref()))
     }
     /// Number of admitted evaluation ticks.
     pub fn steps(&self) -> usize {
@@ -287,19 +289,30 @@ impl ReplayFailure {
             ComponentError::Failed(s) => (s, false),
         };
         let mut length = text.len().min(256);
-        while !text.is_char_boundary(length) { length -= 1; }
+        while !text.is_char_boundary(length) {
+            length -= 1;
+        }
         let mut message = [0; 256];
         message[..length].copy_from_slice(&text.as_bytes()[..length]);
-        Self { message, length, truncated: length < text.len(), invalid_identity }
+        Self {
+            message,
+            length,
+            truncated: length < text.len(),
+            invalid_identity,
+        }
     }
     /// UTF-8 error prefix, at most 256 bytes, without a formatting allocation.
     pub fn message(&self) -> &str {
         std::str::from_utf8(&self.message[..self.length]).expect("UTF-8 boundary")
     }
     /// Whether the original message extended beyond the stored prefix.
-    pub fn truncated(&self) -> bool { self.truncated }
+    pub fn truncated(&self) -> bool {
+        self.truncated
+    }
     /// Whether the component returned InvalidId rather than Failed.
-    pub fn invalid_identity(&self) -> bool { self.invalid_identity }
+    pub fn invalid_identity(&self) -> bool {
+        self.invalid_identity
+    }
 }
 /// Bounded evidence borrowing the exact case; no output payloads retained.
 #[derive(Debug)]

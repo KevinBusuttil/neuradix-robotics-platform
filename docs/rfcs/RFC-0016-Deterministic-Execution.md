@@ -79,3 +79,15 @@ demonstrates the same for a depth controller over the real contract type.
 - Multi-component graph execution order and cross-component queues.
 - Deadline / WCET monitoring and overload policy (EXEC-005/006).
 - Async I/O boundary (Tokio) kept out of the deterministic executor (EXEC-007).
+
+## WP-A07 bounded replay adapter
+
+The additive `neuradix-runtime::replay` runner now validates and owns a bounded
+single-processor case before execution, initializes a fresh selected instance,
+and compares exact per-tick outputs with capped diagnostics. It uses a private
+ManualClock and rejects regressing, mismatched or overflowing evaluation schedules.
+The legacy `run_lockstep` API remains unchanged. Determinism requires the selected
+implementation to honor injected time/configuration/seed and avoid ambient mutable
+state. The trait is not a resource sandbox or wall-time guarantee. See
+[runner evidence](../implementation/WP-A07-Program-Replay-Runner.md) and
+[RFC-0015](RFC-0015-Recording-and-Deterministic-Replay.md).

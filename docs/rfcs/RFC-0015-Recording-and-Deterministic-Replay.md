@@ -111,3 +111,33 @@ example records its run and verifies replay fidelity at runtime.
 - Live `record start/stop` against a running graph and a recording-driven replay
   clock that re-drives components in lockstep.
 - Branch and counterfactual replay (§24.4) and partial-graph replay.
+
+## WP-A07 single-processor program replay
+
+`neuradix-runtime::replay` adds a separate reusable runner. A `ReplayCase` owns
+admitted configuration bytes, seed, evaluation schedule, source data and expected
+per-tick byte batches. A trusted `ReplayProgram` factory constructs a fresh
+`Processor<Input=ReplayInput, Output=Vec<u8>>` for every invocation of `run_replay`.
+The selected code actually executes under a private ManualClock; source timestamps
+remain metadata and never position that clock. Equal times preserve caller order;
+domain mismatch, regression and overflowing adjacent elapsed time reject admission.
+
+Comparison is exact bytes at each tick/output position: no numeric tolerance,
+sorting, resynchronization or closed-loop inference. Missing/extra/changed outputs
+produce bounded diagnostics and an explicit mismatch outcome. Initialization,
+processor and returned-batch failures cannot become matches. Reports preserve
+invocation counts, implementation type and a bounded UTF-8 error prefix. An empty
+case initializes but reports zero process calls; its match is not execution evidence.
+
+Case labels are caller-declared, checked against the selected factory label; Rust
+type names are compiler diagnostics, not binary identity or authentication. Trusted
+factories must honor configuration/seed and isolate state; arbitrary ambient I/O,
+shared state, allocation and blocking cannot be prevented by an in-process trait.
+Returned Vec batches are checked after the component allocates them. Use external
+supervision and keep this host facility outside conventional local-control execution.
+
+`run_lockstep`, recording formats and the `replay run` CLI digest semantics stay
+compatible. A recording adapter must decode the selected input format and provide
+an explicit evaluation schedule without inventing clock relationships. General
+graph re-execution and closed-loop/counterfactual outcomes remain deferred.
+See [A07 policy, limits and evidence](../implementation/WP-A07-Program-Replay-Runner.md).

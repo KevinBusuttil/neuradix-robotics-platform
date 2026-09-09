@@ -103,3 +103,51 @@ fn recorded_run_replays_to_identical_outputs() {
     );
     assert_eq!(live_out.len(), 6);
 }
+
+struct ReplaySmoother(Smoother);
+struct SmootherProgram;
+impl neuradix_runtime::replay::ReplayProgram for SmootherProgram {
+    type Instance = ReplaySmoother;
+    fn identity(&self) -> &str { "test/smoother" }
+    fn create(&self, configuration: &[u8], seed: u64) -> Result<ReplaySmoother, ComponentError> {
+        if !configuration.is_empty() { return Err(ComponentError::Failed("unexpected config".into())); }
+        let previous = i64::try_from(seed).map_err(|_| ComponentError::Failed("seed overflow".into()))?;
+        Ok(ReplaySmoother(Smoother { previous }))
+    }
+}
+fn output_bytes(value: &(i128, i64)) -> Vec<u8> {
+    let mut bytes = value.0.to_le_bytes().to_vec();
+    bytes.extend_from_slice(&value.1.to_le_bytes());
+    bytes
+}
+impl Processor for ReplaySmoother {
+    type Input = neuradix_runtime::replay::ReplayInput;
+    type Output = Vec<u8>;
+    fn process(&mut self, ctx: &TickContext, input: Self::Input) -> Result<Vec<Vec<u8>>, ComponentError> {
+        let value = I64Codec.decode(&input.data).map_err(|e| ComponentError::Failed(e.to_string()))?;
+        assert_eq!(input.source_time.unwrap().domain(), ClockDomain::Simulation);
+        assert_eq!(ctx.now.domain(), ClockDomain::Replay);
+        Ok(self.0.process(ctx, value)?.iter().map(output_bytes).collect())
+    }
+}
+#[test]
+fn reusable_runner_executes_recorded_inputs_with_an_explicit_schedule() {
+    use neuradix_runtime::replay::{ReplayCase, ReplayInput, ReplayLimits, ReplayOutcome, run_replay};
+    let clock = ManualClock::new(Timestamp::new(ClockDomain::Simulation, 0));
+    let expected = run_lockstep(&clock, &mut Smoother { previous: 0 }, inputs()).unwrap();
+    let manifest = RecordingManifest::builder("runner-test").build();
+    let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();
+    for (source, value) in inputs() { writer.write_record(0, 0, source, &I64Codec.encode(&value)).unwrap(); }
+    let recording = NativeRecording::from_bytes(&writer.finish().unwrap()).unwrap();
+    for seed in [0, 2] {
+        let mut case = ReplayCase::new("test/smoother", &[], seed, Timestamp::new(ClockDomain::Replay, 0), ReplayLimits::default()).unwrap();
+        for (index, record) in recording.records().iter().enumerate() {
+            // Fixture-defined execution schedule; no implicit domain conversion.
+            let evaluation = Timestamp::new(ClockDomain::Replay, index as i128 * 10_000);
+            case.push(evaluation, &ReplayInput { data: record.payload.clone(), source_time: Some(record.timestamp) }, &[output_bytes(&expected[index])]).unwrap();
+        }
+        let report = run_replay(&SmootherProgram, &case);
+        assert_eq!(report.invoked, 6);
+        assert_eq!(report.outcome, if seed == 0 { ReplayOutcome::Matched } else { ReplayOutcome::Mismatched });
+    }
+}
