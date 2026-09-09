@@ -6,6 +6,23 @@ pub type Result<T> = std::result::Result<T, RecordError>;
 /// Errors from writing, reading, decoding or verifying a recording.
 #[derive(Debug, thiserror::Error)]
 pub enum RecordError {
+    /// Invalid bounded-import configuration.
+    #[error("invalid MCAP import limit: {0}")]
+    InvalidImportLimit(&'static str),
+
+    /// A configured import budget was exceeded before accepting more data.
+    #[error("MCAP import {kind} limit exceeded ({limit})")]
+    ImportLimit { /// Budget name.
+        kind: &'static str, /// Configured maximum.
+        limit: u64 },
+
+    /// An unsupported record is rejected instead of silently omitted.
+    #[error("unsupported MCAP record opcode {0:#04x}")]
+    UnsupportedMcapRecord(u8),
+
+    /// The requested interpretation/conversion cannot preserve the data.
+    #[error("unsupported MCAP data: {0}")]
+    UnsupportedMcap(&'static str),
     /// An I/O error while writing or reading a recording.
     #[error("recording i/o error: {0}")]
     Io(#[from] std::io::Error),

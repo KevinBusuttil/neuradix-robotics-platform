@@ -29,6 +29,7 @@ pub mod codec;
 pub mod digest;
 pub mod error;
 pub mod mcap;
+pub mod mcap_import;
 pub mod model;
 pub mod native;
 pub mod recording;
@@ -37,6 +38,11 @@ pub use codec::RecordCodec;
 pub use digest::replay_digest;
 pub use error::{RecordError, Result};
 pub use mcap::{MCAP_MAGIC, McapRecording, McapWriter};
+pub use mcap_import::{
+    McapArchive, McapAuxiliary, McapChannel, McapEvent, McapEventKind, McapHeader,
+    McapImportLimits, McapImportStats, McapImportSummary, McapMessage, McapMessageRef,
+    McapMetadata, McapSchema, import_mcap,
+};
 pub use model::{
     Channel, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };

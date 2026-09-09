@@ -27,7 +27,7 @@ use std::io::Write;
 use neuradix_time::{ClockDomain, Timestamp};
 
 use crate::error::{RecordError, Result};
-use crate::model::{Channel, RawRecord, RecordingManifest};
+use crate::model::{RawRecord, RecordingManifest};
 
 /// The 8-byte MCAP magic at the start and end of every file: `\x89 MCAP0 \r \n`.
 pub const MCAP_MAGIC: [u8; 8] = [0x89, b'M', b'C', b'A', b'P', b'0', 0x0D, 0x0A];
@@ -332,118 +332,20 @@ pub struct McapRecording {
 }
 
 impl McapRecording {
-    /// Parse an MCAP recording from its byte representation.
-    ///
-    /// Reconstructs the Neuradix manifest from the embedded metadata record when
-    /// present, otherwise synthesizes a minimal manifest from the channels.
+    /// Import the historical Neuradix profile under default bounded limits.
+    /// Other supported MCAP data belongs in [`crate::McapArchive`]; lossy
+    /// projection to this legacy one-timestamp view rejects explicitly.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() < MCAP_MAGIC.len() * 2 {
-            return Err(RecordError::Mcap(
-                "file shorter than two magic markers".into(),
-            ));
-        }
-        let mut cursor = Cursor::new(bytes);
-        if cursor.take(MCAP_MAGIC.len())? != MCAP_MAGIC {
-            return Err(RecordError::Mcap("bad leading magic".into()));
-        }
+        Self::from_reader(bytes, crate::McapImportLimits::default())
+    }
 
-        let mut library = LIBRARY.to_owned();
-        let mut embedded_manifest: Option<RecordingManifest> = None;
-        let mut channel_domains: BTreeMap<u16, ClockDomain> = BTreeMap::new();
-        let mut channels: Vec<Channel> = Vec::new();
-        let mut seen_channels: std::collections::BTreeSet<u16> = std::collections::BTreeSet::new();
-        let mut records: Vec<RawRecord> = Vec::new();
+    /// Bounded reader with explicit policy and checked legacy projection.
+    pub fn from_reader(reader: impl std::io::Read, limits: crate::McapImportLimits) -> Result<Self> {
+        crate::McapArchive::from_reader(reader, limits)?.try_into_recording()
+    }
 
-        // Records run until the trailing magic (last 8 bytes).
-        let body_end = bytes.len() - MCAP_MAGIC.len();
-        while cursor.pos() < body_end {
-            let opcode = cursor.take(1)?[0];
-            let len = usize::try_from(cursor.u64()?)
-                .map_err(|_| RecordError::Mcap("record length exceeds usize".into()))?;
-            let content = cursor.take(len)?;
-            let mut rc = Cursor::new(content);
-
-            match opcode {
-                op::HEADER => {
-                    let _profile = rc.string()?;
-                    library = rc.string()?;
-                }
-                op::METADATA => {
-                    let name = rc.string()?;
-                    let map = rc.map()?;
-                    if name == MANIFEST_METADATA
-                        && let Some(json) = map.iter().find(|(k, _)| k == MANIFEST_KEY)
-                    {
-                        embedded_manifest =
-                            Some(serde_json::from_str(&json.1).map_err(RecordError::Manifest)?);
-                    }
-                }
-                op::CHANNEL => {
-                    let id = rc.u16()?;
-                    let _schema_id = rc.u16()?;
-                    let topic = rc.string()?;
-                    let _message_encoding = rc.string()?;
-                    let map = rc.map()?;
-                    let domain = map
-                        .iter()
-                        .find(|(k, _)| k == META_CLOCK_DOMAIN)
-                        .and_then(|(_, v)| ClockDomain::parse(v))
-                        .ok_or_else(|| {
-                            RecordError::Mcap(format!("channel {id} has no valid clockDomain"))
-                        })?;
-                    let schema_identity = map
-                        .iter()
-                        .find(|(k, _)| k == META_SCHEMA_IDENTITY)
-                        .map(|(_, v)| v.clone())
-                        .unwrap_or_default();
-                    channel_domains.insert(id, domain);
-                    if seen_channels.insert(id) {
-                        channels.push(Channel {
-                            id,
-                            name: topic,
-                            schema_id: schema_identity,
-                            clock_domain: domain.as_str().to_owned(),
-                        });
-                    }
-                }
-                op::MESSAGE => {
-                    let channel_id = rc.u16()?;
-                    let sequence = rc.u32()? as u64;
-                    let log_time = rc.u64()?;
-                    let _publish_time = rc.u64()?;
-                    let payload = rc.rest().to_vec();
-                    let domain = channel_domains.get(&channel_id).copied().ok_or_else(|| {
-                        RecordError::Mcap(format!(
-                            "message references unknown channel {channel_id}"
-                        ))
-                    })?;
-                    let nanos = i128::from(log_time);
-                    records.push(RawRecord {
-                        channel_id,
-                        sequence,
-                        timestamp: Timestamp::new(domain, nanos),
-                        payload,
-                    });
-                }
-                // Schema / Statistics / DataEnd / Footer and anything else are
-                // not needed to reconstruct the recording.
-                _ => {}
-            }
-        }
-
-        if cursor.take(MCAP_MAGIC.len())? != MCAP_MAGIC {
-            return Err(RecordError::Mcap("bad trailing magic".into()));
-        }
-
-        let manifest = embedded_manifest.unwrap_or_else(|| {
-            let mut builder = RecordingManifest::builder(library);
-            for c in &channels {
-                builder = builder.channel(c.clone());
-            }
-            builder.build()
-        });
-
-        Ok(Self { manifest, records })
+    pub(crate) fn from_import(manifest: RecordingManifest, records: Vec<RawRecord>) -> Self {
+        Self { manifest, records }
     }
 
     /// The recording manifest.
@@ -514,77 +416,3 @@ fn frame(out: &mut Vec<u8>, opcode: u8, content: &[u8]) {
     out.extend_from_slice(content);
 }
 
-// ---------------------------------------------------------------------------
-// A minimal, bounds-checked reader cursor that never panics.
-// ---------------------------------------------------------------------------
-
-struct Cursor<'a> {
-    bytes: &'a [u8],
-    pos: usize,
-}
-
-impl<'a> Cursor<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, pos: 0 }
-    }
-
-    fn pos(&self) -> usize {
-        self.pos
-    }
-
-    fn rest(&self) -> &'a [u8] {
-        &self.bytes[self.pos..]
-    }
-
-    fn take(&mut self, n: usize) -> Result<&'a [u8]> {
-        let end = self
-            .pos
-            .checked_add(n)
-            .ok_or(RecordError::Truncated(self.pos))?;
-        if end > self.bytes.len() {
-            return Err(RecordError::Truncated(self.pos));
-        }
-        let slice = &self.bytes[self.pos..end];
-        self.pos = end;
-        Ok(slice)
-    }
-
-    fn u16(&mut self) -> Result<u16> {
-        let b = self.take(2)?;
-        Ok(u16::from_le_bytes([b[0], b[1]]))
-    }
-
-    fn u32(&mut self) -> Result<u32> {
-        let b = self.take(4)?;
-        Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-    }
-
-    fn u64(&mut self) -> Result<u64> {
-        let b = self.take(8)?;
-        let mut arr = [0u8; 8];
-        arr.copy_from_slice(b);
-        Ok(u64::from_le_bytes(arr))
-    }
-
-    /// A `u32`-length-prefixed UTF-8 string.
-    fn string(&mut self) -> Result<String> {
-        let len = self.u32()? as usize;
-        let bytes = self.take(len)?;
-        String::from_utf8(bytes.to_vec())
-            .map_err(|_| RecordError::Mcap("invalid UTF-8 in string field".into()))
-    }
-
-    /// A `Map<string,string>`.
-    fn map(&mut self) -> Result<Vec<(String, String)>> {
-        let len = self.u32()? as usize;
-        let inner = self.take(len)?;
-        let mut sub = Cursor::new(inner);
-        let mut pairs = Vec::new();
-        while sub.pos() < inner.len() {
-            let k = sub.string()?;
-            let v = sub.string()?;
-            pairs.push((k, v));
-        }
-        Ok(pairs)
-    }
-}
