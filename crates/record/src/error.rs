@@ -12,9 +12,12 @@ pub enum RecordError {
 
     /// A configured import budget was exceeded before accepting more data.
     #[error("MCAP import {kind} limit exceeded ({limit})")]
-    ImportLimit { /// Budget name.
-        kind: &'static str, /// Configured maximum.
-        limit: u64 },
+    ImportLimit {
+        /// Budget name.
+        kind: &'static str,
+        /// Configured maximum.
+        limit: u64,
+    },
 
     /// An unsupported record is rejected instead of silently omitted.
     #[error("unsupported MCAP record opcode {0:#04x}")]

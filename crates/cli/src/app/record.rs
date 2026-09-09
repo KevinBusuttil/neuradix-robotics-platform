@@ -1,10 +1,11 @@
 //! Recording commands: inspect, replay and export.
 
-use std::path::Path;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 
 use neuradix_record::{
-    MAGIC, MCAP_MAGIC, McapArchive, McapImportLimits, McapRecording, McapWriter, NativeRecording, Recording, replay_digest,
+    MAGIC, MCAP_MAGIC, McapArchive, McapImportLimits, McapRecording, McapWriter, NativeRecording,
+    Recording, replay_digest,
 };
 use serde_json::{Value, json};
 
@@ -36,7 +37,8 @@ pub(crate) fn load(file: &Path) -> Result<Loaded, AppError> {
     };
 
     if magic == MCAP_MAGIC {
-        let recording = McapRecording::from_reader(input, McapImportLimits::default()).map_err(invalid)?;
+        let recording =
+            McapRecording::from_reader(input, McapImportLimits::default()).map_err(invalid)?;
         Ok(Loaded {
             recording: Box::new(recording),
             format: "mcap",
@@ -44,7 +46,9 @@ pub(crate) fn load(file: &Path) -> Result<Loaded, AppError> {
     } else if magic.starts_with(&MAGIC) {
         // Native-container resource hardening is separate from bounded MCAP import.
         let mut bytes = Vec::new();
-        input.read_to_end(&mut bytes).map_err(|e| invalid(e.into()))?;
+        input
+            .read_to_end(&mut bytes)
+            .map_err(|e| invalid(e.into()))?;
         let recording = NativeRecording::from_bytes(&bytes).map_err(invalid)?;
         Ok(Loaded {
             recording: Box::new(recording),
@@ -62,7 +66,12 @@ pub(crate) fn load(file: &Path) -> Result<Loaded, AppError> {
 }
 
 fn open(file: &Path) -> Result<(std::fs::File, [u8; 8]), AppError> {
-    let io = |e| AppError::message(ExitCode::GeneralFailure, format!("could not read recording `{}`: {e}", file.display()));
+    let io = |e| {
+        AppError::message(
+            ExitCode::GeneralFailure,
+            format!("could not read recording `{}`: {e}", file.display()),
+        )
+    };
     let mut input = std::fs::File::open(file).map_err(io)?;
     let mut magic = [0; 8];
     input.read_exact(&mut magic).map_err(io)?;
@@ -74,19 +83,36 @@ fn open(file: &Path) -> Result<(std::fs::File, [u8; 8]), AppError> {
 pub fn inspect(file: &Path) -> Result<Outcome, AppError> {
     let (input, magic) = open(file)?;
     if magic == MCAP_MAGIC {
-        let archive = McapArchive::from_reader(input, McapImportLimits::default())
-            .map_err(|e| AppError::message(ExitCode::GeneralFailure, format!("invalid MCAP: {e}")))?;
+        let archive =
+            McapArchive::from_reader(input, McapImportLimits::default()).map_err(|e| {
+                AppError::message(ExitCode::GeneralFailure, format!("invalid MCAP: {e}"))
+            })?;
         let summary = archive.summary();
-        let channels: Vec<Value> = summary.channels().values().map(|c| json!({
-            "id": c.id, "name": c.topic, "schemaId": c.schema_id,
-            "messageEncoding": c.message_encoding, "metadata": c.metadata,
-            "records": archive.messages().iter().filter(|m| m.channel_id == c.id).count(),
-        })).collect();
-        let schemas: Vec<Value> = summary.schemas().values().map(|s| json!({
-            "id": s.id, "name": s.name, "encoding": s.encoding, "bytes": s.data.len(),
-        })).collect();
-        let metadata: Vec<Value> = summary.metadata().values().map(|m|
-            json!({"name": m.name, "entries": m.entries})).collect();
+        let channels: Vec<Value> = summary
+            .channels()
+            .values()
+            .map(|c| {
+                json!({
+                    "id": c.id, "name": c.topic, "schemaId": c.schema_id,
+                    "messageEncoding": c.message_encoding, "metadata": c.metadata,
+                    "records": archive.messages().iter().filter(|m| m.channel_id == c.id).count(),
+                })
+            })
+            .collect();
+        let schemas: Vec<Value> = summary
+            .schemas()
+            .values()
+            .map(|s| {
+                json!({
+                    "id": s.id, "name": s.name, "encoding": s.encoding, "bytes": s.data.len(),
+                })
+            })
+            .collect();
+        let metadata: Vec<Value> = summary
+            .metadata()
+            .values()
+            .map(|m| json!({"name": m.name, "entries": m.entries}))
+            .collect();
         let mut output = json!({
             "format": "mcap", "profile": summary.header().profile, "writer": summary.header().library,
             "records": archive.messages().len(), "channels": channels, "schemas": schemas,
@@ -96,8 +122,11 @@ pub fn inspect(file: &Path) -> Result<Outcome, AppError> {
         });
         // Preserve the historical digest only where the checked projection is
         // lossless. A foreign archive still inspects, with no legacy digest claim.
-        output["digest"] = archive.try_into_recording().ok()
-            .map(|recording| json!(replay_digest(&recording))).unwrap_or(Value::Null);
+        output["digest"] = archive
+            .try_into_recording()
+            .ok()
+            .map(|recording| json!(replay_digest(&recording)))
+            .unwrap_or(Value::Null);
         return Ok(Outcome::new(output));
     }
     let loaded = load(file)?;

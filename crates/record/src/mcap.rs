@@ -340,7 +340,10 @@ impl McapRecording {
     }
 
     /// Bounded reader with explicit policy and checked legacy projection.
-    pub fn from_reader(reader: impl std::io::Read, limits: crate::McapImportLimits) -> Result<Self> {
+    pub fn from_reader(
+        reader: impl std::io::Read,
+        limits: crate::McapImportLimits,
+    ) -> Result<Self> {
         crate::McapArchive::from_reader(reader, limits)?.try_into_recording()
     }
 
@@ -415,4 +418,3 @@ fn frame(out: &mut Vec<u8>, opcode: u8, content: &[u8]) {
     put_u64(out, content.len() as u64);
     out.extend_from_slice(content);
 }
-

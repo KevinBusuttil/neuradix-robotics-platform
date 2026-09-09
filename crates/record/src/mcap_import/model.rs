@@ -96,9 +96,12 @@ pub enum McapEventKind<'a> {
     /// Message in file order, without sorting or sequence filtering.
     Message(McapMessageRef<'a>),
     /// Structurally parsed index/statistics bytes; offsets are not trusted.
-    Auxiliary { /// Record opcode.
-        opcode: u8, /// Original body.
-        data: &'a [u8] },
+    Auxiliary {
+        /// Record opcode.
+        opcode: u8,
+        /// Original body.
+        data: &'a [u8],
+    },
 }
 /// Visitor event, provisional until the complete import returns success.
 #[derive(Debug)]

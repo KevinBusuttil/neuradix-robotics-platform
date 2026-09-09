@@ -22,8 +22,8 @@ use std::path::Path;
 
 use neuradix_contracts::{ClockDomainRef, schema_identity, validate};
 use neuradix_record::{
-    Channel, McapArchive, McapImportLimits, McapWriter, NativeRecordWriter, NativeRecording, RecordCodec,
-    RecordError, RecordingManifest, SoftwareId, replay_digest,
+    Channel, McapArchive, McapImportLimits, McapWriter, NativeRecordWriter, NativeRecording,
+    RecordCodec, RecordError, RecordingManifest, SoftwareId, replay_digest,
 };
 use neuradix_runtime::{
     Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState, Processor,
@@ -292,7 +292,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mcap_path = std::env::temp_dir().join("neuradix-depth-mission.mcap");
     std::fs::write(&mcap_path, &mcap_bytes)?;
     let imported = McapArchive::from_reader(mcap_bytes.as_slice(), McapImportLimits::default())?;
-    println!("MCAP import: {} messages, {} accounted bytes", imported.messages().len(), imported.retained_bytes());
+    println!(
+        "MCAP import: {} messages, {} accounted bytes",
+        imported.messages().len(),
+        imported.retained_bytes()
+    );
     let mcap_digest = replay_digest(&imported.try_into_recording()?);
     let cross_container = mcap_digest == digest;
     println!(
