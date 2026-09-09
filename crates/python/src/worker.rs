@@ -1,105 +1,106 @@
-//! A managed, isolated Python worker process.
-//!
-//! The worker runs as a separate OS process and communicates over
-//! newline-delimited JSON on stdin/stdout (stderr is inherited, so Python
-//! tracebacks are visible). A background reader thread turns the blocking pipe
-//! into a channel, which lets requests time out and lets a worker crash be
-//! observed as a recoverable [`WorkerError::WorkerExited`] rather than blocking
-//! or crashing the supervisor.
+//! Synchronous bounded Python-worker stdio, outside the local control executor.
 
-use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
+pub use crate::config::WorkerConfig;
+use crate::process::{Process, pause_until};
+use crate::protocol::{Frames, encode};
+use crate::{CleanupReport, CleanupState, Timeouts, WorkerError};
+use neuradix_runtime::HealthState;
+use serde_json::Value;
+use std::io;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use neuradix_runtime::HealthState;
-use serde_json::{Value, json};
-
-use crate::error::WorkerError;
-
-/// Configuration for launching a Python worker.
-#[derive(Debug, Clone)]
-pub struct WorkerConfig {
-    /// The Python interpreter (e.g. `python3`).
-    pub interpreter: PathBuf,
-    /// The component script to run.
-    pub script: PathBuf,
-    /// Extra command-line arguments for the script.
-    pub args: Vec<String>,
-    /// Directories added to `PYTHONPATH` (e.g. where `neuradix_worker.py` lives).
-    pub python_path: Vec<PathBuf>,
-    /// Structured configuration passed to the worker as JSON.
-    pub config: Value,
-    /// Handshake timeout.
-    pub handshake_timeout: Duration,
-    /// Per-request timeout.
-    pub request_timeout: Duration,
-    /// Whether the component declares that input samples may be skipped (§19.4).
-    pub skip_inputs: bool,
+struct Deadline {
+    io: Instant,
+    end: Instant,
+    reserve: Duration,
 }
 
-impl WorkerConfig {
-    /// A configuration with sensible default timeouts.
-    pub fn new(interpreter: impl Into<PathBuf>, script: impl Into<PathBuf>) -> Self {
-        Self {
-            interpreter: interpreter.into(),
-            script: script.into(),
-            args: Vec::new(),
-            python_path: Vec::new(),
-            config: Value::Null,
-            handshake_timeout: Duration::from_secs(10),
-            request_timeout: Duration::from_secs(10),
-            skip_inputs: true,
+fn handshake_error(error: WorkerError) -> WorkerError {
+    match error {
+        WorkerError::Timeout => WorkerError::HandshakeTimeout,
+        other => other,
+    }
+}
+impl Deadline {
+    fn new(total: Duration, reserve: Duration) -> Result<Self, WorkerError> {
+        let start = Instant::now();
+        let end = start
+            .checked_add(total)
+            .ok_or(WorkerError::InvalidConfig("deadline overflow"))?;
+        let io = end
+            .checked_sub(reserve)
+            .ok_or(WorkerError::InvalidConfig("cleanup reserve overflow"))?;
+        Ok(Self { io, end, reserve })
+    }
+    fn check(&self) -> Result<(), WorkerError> {
+        if Instant::now() >= self.io {
+            Err(WorkerError::Timeout)
+        } else {
+            Ok(())
         }
     }
-
-    /// Set the structured configuration passed to the worker.
-    pub fn with_config(mut self, config: Value) -> Self {
-        self.config = config;
-        self
-    }
-
-    /// Add a `PYTHONPATH` directory.
-    pub fn with_python_path(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.python_path.push(dir.into());
-        self
-    }
-
-    /// Set the per-request timeout.
-    pub fn with_request_timeout(mut self, timeout: Duration) -> Self {
-        self.request_timeout = timeout;
-        self
+    fn cleanup_end(&self) -> Instant {
+        Instant::now()
+            .checked_add(self.reserve)
+            .unwrap_or(self.end)
+            .min(self.end)
     }
 }
 
-/// Information reported by the worker at startup.
+/// Information reported by the worker at startup, bounded by the incoming line.
 #[derive(Debug, Clone)]
 pub struct ReadyInfo {
-    /// The worker's declared name.
+    /// Worker-declared component name (not authenticated identity).
     pub name: String,
-    /// The worker's declared input-skip policy.
+    /// Worker-declared input-skip policy.
     pub skip_policy: String,
 }
-
-enum ReaderEvent {
-    Line(String),
-    Closed,
+/// Protocol storage high-water marks. Kernel buffers and the caller's existing
+/// Value are separate from these user-space budgets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IoStats {
+    /// Maximum complete/partial receive bytes stored together.
+    pub queued_bytes: usize,
+    /// Maximum complete lines queued together.
+    pub queued_messages: usize,
+    /// Maximum encoded outbound line length.
+    pub outgoing_bytes: usize,
 }
 
-/// A running, supervised Python worker.
+/// One managed worker; exactly one request may be outstanding through `&mut self`.
+/// No reader/writer thread or unbounded channel is created per worker.
+/// Total deadlines include serialization, nonblocking write, response processing
+/// and reserved cleanup. Fatal I/O/protocol failures terminate the session.
+/// Application Remote errors and local pre-write serialization rejections leave
+/// the session usable. Linux GNU/musl only; OS scheduling and syscall latency
+/// are not hard-real-time guarantees. Keep calls outside local control.
 pub struct PythonWorker {
-    child: Child,
-    stdin: Option<ChildStdin>,
-    rx: Receiver<ReaderEvent>,
-    seq: u64,
-    request_timeout: Duration,
+    process: Process,
+    frames: Frames,
+    sequence: u64,
+    outgoing_limit: usize,
+    outgoing_high: usize,
+    timeouts: Timeouts,
     ready: ReadyInfo,
+    unavailable: bool,
+    cleanup: Option<CleanupReport>,
 }
-
 impl PythonWorker {
-    /// Launch a worker and complete its startup handshake.
+    /// Launch and handshake within one total budget. This library must exclusively
+    /// own child reaping (no external waitpid(-1) or SIGCHLD auto-reaping).
     pub fn launch(config: &WorkerConfig) -> Result<Self, WorkerError> {
+        if !cfg!(all(target_os = "linux", not(target_env = "uclibc"))) {
+            return Err(WorkerError::UnsupportedPlatform);
+        }
+        let deadline = Deadline::new(config.timeouts.handshake(), config.timeouts.cleanup())?;
+        let encoded_config = encode(
+            &config.config,
+            None,
+            config.limits.outgoing_bytes(),
+            deadline.io,
+        )
+        .map_err(handshake_error)?;
         let mut command = Command::new(&config.interpreter);
         command
             .arg(&config.script)
@@ -107,219 +108,283 @@ impl PythonWorker {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
-
         if !config.python_path.is_empty() {
-            let joined = config
-                .python_path
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(path_separator());
+            let joined = std::env::join_paths(&config.python_path)
+                .map_err(|_| WorkerError::InvalidConfig("invalid Python import path"))?;
             command.env("PYTHONPATH", joined);
         }
-        command.env("NEURADIX_WORKER_CONFIG", config.config.to_string());
+        command.env(
+            "NEURADIX_WORKER_CONFIG",
+            std::str::from_utf8(&encoded_config).expect("JSON UTF-8"),
+        );
         command.env(
             "NEURADIX_WORKER_SKIP_INPUTS",
             config.skip_inputs.to_string(),
         );
-
-        let mut child = command.spawn().map_err(WorkerError::Launch)?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| WorkerError::Protocol("failed to capture worker stdin".to_owned()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| WorkerError::Protocol("failed to capture worker stdout".to_owned()))?;
-
-        let (tx, rx) = channel();
-        std::thread::spawn(move || {
-            let mut reader = BufReader::new(stdout);
-            let mut line = String::new();
-            loop {
-                line.clear();
-                match reader.read_line(&mut line) {
-                    Ok(0) => {
-                        let _ = tx.send(ReaderEvent::Closed);
-                        break;
-                    }
-                    Ok(_) => {
-                        if tx.send(ReaderEvent::Line(line.clone())).is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => {
-                        let _ = tx.send(ReaderEvent::Closed);
-                        break;
-                    }
-                }
-            }
-        });
-
+        command.env(
+            "NEURADIX_WORKER_MAX_INPUT_BYTES",
+            config.limits.outgoing_bytes().to_string(),
+        );
+        command.env(
+            "NEURADIX_WORKER_MAX_OUTPUT_BYTES",
+            config.limits.incoming_bytes().to_string(),
+        );
+        deadline.check().map_err(handshake_error)?;
+        let process = Process::spawn(&mut command, deadline.cleanup_end())?;
         let mut worker = Self {
-            child,
-            stdin: Some(stdin),
-            rx,
-            seq: 0,
-            request_timeout: config.request_timeout,
+            process,
+            frames: Frames::new(config.limits),
+            sequence: 0,
+            outgoing_limit: config.limits.outgoing_bytes(),
+            outgoing_high: 0,
+            timeouts: config.timeouts,
             ready: ReadyInfo {
                 name: String::new(),
                 skip_policy: String::new(),
             },
+            unavailable: false,
+            cleanup: None,
         };
-        worker.handshake(config.handshake_timeout)?;
+        let handshake = worker.receive(&deadline).and_then(|value| {
+            if value.get("kind").and_then(Value::as_str) != Some("ready") {
+                return Err(WorkerError::Protocol("expected ready handshake".into()));
+            }
+            let name = value
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| WorkerError::Protocol("ready.name must be a string".into()))?;
+            let skip_policy = value
+                .get("skipPolicy")
+                .and_then(Value::as_str)
+                .ok_or_else(|| WorkerError::Protocol("ready.skipPolicy must be a string".into()))?;
+            worker.ready = ReadyInfo {
+                name: name.to_owned(),
+                skip_policy: skip_policy.to_owned(),
+            };
+            deadline.check()
+        });
+        if let Err(error) = handshake {
+            return Err(worker.fail(handshake_error(error), &deadline));
+        }
         Ok(worker)
     }
-
-    fn handshake(&mut self, timeout: Duration) -> Result<(), WorkerError> {
-        match self.rx.recv_timeout(timeout) {
-            Ok(ReaderEvent::Line(line)) => {
-                let value: Value = serde_json::from_str(line.trim())
-                    .map_err(|e| WorkerError::Protocol(format!("bad handshake: {e}")))?;
-                if value.get("kind").and_then(Value::as_str) != Some("ready") {
-                    return Err(WorkerError::Protocol(format!(
-                        "expected `ready`, got: {}",
-                        line.trim()
-                    )));
-                }
-                self.ready = ReadyInfo {
-                    name: value
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_owned(),
-                    skip_policy: value
-                        .get("skipPolicy")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_owned(),
-                };
-                Ok(())
-            }
-            Ok(ReaderEvent::Closed) => Err(self.exit_error()),
-            Err(RecvTimeoutError::Timeout) => Err(WorkerError::HandshakeTimeout),
-            Err(RecvTimeoutError::Disconnected) => Err(self.exit_error()),
-        }
-    }
-
-    /// The worker's startup information.
+    /// Bounded startup metadata; worker declarations grant no authority.
     pub fn ready_info(&self) -> &ReadyInfo {
         &self.ready
     }
-
-    /// Send a request payload and await the worker's response payload.
-    pub fn send(&mut self, payload: Value) -> Result<Value, WorkerError> {
-        self.seq += 1;
-        let seq = self.seq;
-        let request = json!({ "kind": "request", "seq": seq, "payload": payload });
-        self.write_line(&request)?;
-
-        let deadline = Instant::now() + self.request_timeout;
-        loop {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            match self.rx.recv_timeout(remaining) {
-                Ok(ReaderEvent::Line(line)) => {
-                    let value: Value = serde_json::from_str(line.trim())
-                        .map_err(|e| WorkerError::Protocol(format!("bad response: {e}")))?;
-                    let matches_seq = value.get("seq").and_then(Value::as_i64) == Some(seq as i64);
-                    match value.get("kind").and_then(Value::as_str) {
-                        Some("response") if matches_seq => {
-                            return Ok(value.get("payload").cloned().unwrap_or(Value::Null));
-                        }
-                        Some("error") if matches_seq => {
-                            let message = value
-                                .get("message")
-                                .and_then(Value::as_str)
-                                .unwrap_or("unknown error");
-                            return Err(WorkerError::Remote(message.to_owned()));
-                        }
-                        // Logs or stale/mismatched lines are skipped.
-                        _ => continue,
-                    }
-                }
-                Ok(ReaderEvent::Closed) => return Err(self.exit_error()),
-                Err(RecvTimeoutError::Timeout) => return Err(WorkerError::Timeout),
-                Err(RecvTimeoutError::Disconnected) => return Err(self.exit_error()),
-            }
+    /// Direct child PID, for diagnosis (do not reap it externally).
+    pub fn process_id(&self) -> u32 {
+        self.process.id()
+    }
+    /// Most recent bounded cleanup result, including deferred reaping.
+    pub fn cleanup_report(&self) -> Option<CleanupReport> {
+        self.cleanup
+    }
+    /// Actual receive/outbound high-water marks, retained after cleanup.
+    pub fn io_stats(&self) -> IoStats {
+        IoStats {
+            queued_bytes: self.frames.high_bytes,
+            queued_messages: self.frames.high_messages,
+            outgoing_bytes: self.outgoing_high,
         }
     }
 
-    /// Whether the worker process is still running.
-    pub fn is_running(&mut self) -> bool {
-        matches!(self.child.try_wait(), Ok(None))
+    /// Send a borrowed payload without cloning its tree. Encoding is bounded
+    /// before any write. Sequences start at 1, never wrap and are consumed only
+    /// when a write is attempted. Unrelated lines never extend the deadline.
+    pub fn send(&mut self, payload: &Value) -> Result<Value, WorkerError> {
+        if self.unavailable {
+            return Err(WorkerError::Unavailable);
+        }
+        let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?;
+        let sequence = self
+            .sequence
+            .checked_add(1)
+            .ok_or(WorkerError::SequenceExhausted)?;
+        let line = match encode(payload, Some(sequence), self.outgoing_limit, deadline.io) {
+            Ok(line) => line,
+            Err(WorkerError::Timeout) => return Err(self.fail(WorkerError::Timeout, &deadline)),
+            Err(error) => return Err(error),
+        };
+        self.outgoing_high = self.outgoing_high.max(line.len());
+        self.sequence = sequence;
+        let result = (|| {
+            self.write(&line, &deadline)?;
+            loop {
+                let mut value = self.receive(&deadline)?;
+                if value.get("seq").and_then(Value::as_u64) != Some(sequence) {
+                    continue;
+                }
+                match value.get("kind").and_then(Value::as_str) {
+                    Some("response") => {
+                        deadline.check()?;
+                        return Ok(value
+                            .get_mut("payload")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null));
+                    }
+                    Some("error") => {
+                        let message = value
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("unspecified worker error")
+                            .to_owned();
+                        deadline.check()?;
+                        return Err(WorkerError::Remote(message));
+                    }
+                    _ => {}
+                }
+            }
+        })();
+        match result {
+            Err(error @ WorkerError::Remote(_)) => Err(error),
+            Err(error) => Err(self.fail(error, &deadline)),
+            ok => ok,
+        }
     }
-
-    /// The worker's current health: running is [`HealthState::Healthy`]; an
-    /// exited process is [`HealthState::Unavailable`].
+    fn write(&mut self, bytes: &[u8], deadline: &Deadline) -> Result<(), WorkerError> {
+        let mut written = 0;
+        while written < bytes.len() {
+            deadline.check()?;
+            if self.process.has_exited()? {
+                return Err(WorkerError::WorkerExited {
+                    status: "observed exit".into(),
+                });
+            }
+            let before = written;
+            match self
+                .process
+                .write(&bytes[written..bytes.len().min(written + 4096)])
+            {
+                Ok(0) => return Err(WorkerError::Io(io::ErrorKind::WriteZero.into())),
+                Ok(n) => written += n,
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) => {}
+                Err(e) => return Err(WorkerError::Io(e)),
+            }
+            let read = self.pump()?;
+            if written == before && !read {
+                pause_until(deadline.io);
+            }
+        }
+        deadline.check()
+    }
+    fn pump(&mut self) -> Result<bool, WorkerError> {
+        let mut buffer = [0u8; 1024];
+        match self.process.read(&mut buffer) {
+            Ok(0) => {
+                if self.process.has_exited()? {
+                    Err(WorkerError::WorkerExited {
+                        status: "stdout EOF after exit".into(),
+                    })
+                } else {
+                    Err(WorkerError::StdoutClosed)
+                }
+            }
+            Ok(n) => {
+                self.frames.push(&buffer[..n])?;
+                Ok(true)
+            }
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) =>
+            {
+                Ok(false)
+            }
+            Err(e) => Err(WorkerError::Io(e)),
+        }
+    }
+    fn receive(&mut self, deadline: &Deadline) -> Result<Value, WorkerError> {
+        loop {
+            deadline.check()?;
+            if let Some(line) = self.frames.pop() {
+                let value: Value = serde_json::from_slice(&line)
+                    .map_err(|e| WorkerError::Protocol(format!("invalid worker JSON: {e}")))?;
+                deadline.check()?;
+                if !value.is_object() {
+                    return Err(WorkerError::Protocol(
+                        "protocol line must be an object".into(),
+                    ));
+                }
+                return Ok(value);
+            }
+            if self.process.has_exited()? {
+                return Err(WorkerError::WorkerExited {
+                    status: "observed exit".into(),
+                });
+            }
+            if !self.pump()? {
+                pause_until(deadline.io);
+            }
+        }
+    }
+    fn finish(&mut self, end: Instant) -> CleanupReport {
+        self.unavailable = true;
+        self.frames.clear();
+        let report = self.process.finish(end);
+        self.cleanup = Some(report);
+        report
+    }
+    fn fail(&mut self, error: WorkerError, deadline: &Deadline) -> WorkerError {
+        let report = self.finish(deadline.cleanup_end());
+        if report.state == CleanupState::Reaped && report.signal_error.is_none() {
+            error
+        } else {
+            WorkerError::Cleanup {
+                cause: Box::new(error),
+                report,
+            }
+        }
+    }
+    /// Available running process status, not a heartbeat or handler liveness proof.
+    pub fn is_running(&mut self) -> bool {
+        if self.unavailable {
+            return false;
+        }
+        matches!(self.process.has_exited(), Ok(false))
+    }
+    /// Failed sessions remain Unavailable until replaced, even if reaping is deferred.
     pub fn health(&mut self) -> HealthState {
-        match self.child.try_wait() {
-            Ok(None) => HealthState::Healthy,
-            Ok(Some(_)) => HealthState::Unavailable,
+        if self.unavailable {
+            return HealthState::Unavailable;
+        }
+        match self.process.has_exited() {
+            Ok(false) => HealthState::Healthy,
+            Ok(true) => HealthState::Unavailable,
             Err(_) => HealthState::Unknown,
         }
     }
-
-    /// Shut the worker down cleanly, killing it if it does not exit promptly.
-    pub fn shutdown(&mut self) {
-        if let Some(mut stdin) = self.stdin.take() {
-            let _ = stdin.write_all(b"{\"kind\":\"shutdown\"}\n");
-            let _ = stdin.flush();
-            // Dropping stdin sends EOF so the worker's read loop ends.
+    /// Best-effort graceful shutdown, group termination and bounded reaping,
+    /// within the configured total. Repeated calls reuse the cleanup report.
+    pub fn shutdown(&mut self) -> CleanupReport {
+        if let Some(report) = self.cleanup {
+            return report;
         }
-        let deadline = Instant::now() + Duration::from_millis(500);
-        while Instant::now() < deadline {
-            if let Ok(Some(_)) = self.child.try_wait() {
-                return;
+        let deadline = Deadline::new(self.timeouts.shutdown(), self.timeouts.cleanup())
+            .expect("validated timeouts");
+        let _ = self.write(b"{\"kind\":\"shutdown\"}\n", &deadline);
+        self.process.close_stdin();
+        while deadline.check().is_ok() {
+            if !matches!(self.process.has_exited(), Ok(false)) {
+                break;
             }
-            std::thread::sleep(Duration::from_millis(10));
+            pause_until(deadline.io);
         }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-
-    fn write_line(&mut self, value: &Value) -> Result<(), WorkerError> {
-        let mut line = value.to_string();
-        line.push('\n');
-        let stdin = self
-            .stdin
-            .as_mut()
-            .ok_or_else(|| WorkerError::Protocol("worker stdin is closed".to_owned()))?;
-        match stdin
-            .write_all(line.as_bytes())
-            .and_then(|()| stdin.flush())
-        {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                // A broken pipe means the worker died; report that, not raw I/O.
-                if matches!(self.child.try_wait(), Ok(Some(_))) {
-                    Err(self.exit_error())
-                } else {
-                    Err(WorkerError::Io(e))
-                }
-            }
-        }
-    }
-
-    fn exit_error(&mut self) -> WorkerError {
-        let status = match self.child.wait() {
-            Ok(status) => status.to_string(),
-            Err(e) => format!("unknown (wait failed: {e})"),
-        };
-        WorkerError::WorkerExited { status }
+        self.finish(deadline.cleanup_end())
     }
 }
-
 impl Drop for PythonWorker {
     fn drop(&mut self) {
-        // Never leak a child process.
-        if matches!(self.child.try_wait(), Ok(None)) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
+        if self.cleanup.is_none() {
+            let end = Instant::now()
+                .checked_add(self.timeouts.cleanup())
+                .unwrap_or_else(Instant::now);
+            self.finish(end);
         }
     }
-}
-
-fn path_separator() -> &'static str {
-    if cfg!(windows) { ";" } else { ":" }
 }

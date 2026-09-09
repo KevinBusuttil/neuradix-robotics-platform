@@ -39,14 +39,20 @@ jobs:
       - name: Trusted command regressions
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
+      - name: Bounded Python worker regressions (external timeout)
+        run: |
+          timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python
+          timeout --signal=TERM --kill-after=5s 30s python3 -B -m unittest discover -s python/tests -v
+
       - name: Tests (workspace)
-        run: cargo test --locked --workspace
+        run: timeout --signal=TERM --kill-after=5s 180s cargo test --locked --workspace
 
       - name: Migrated command examples
         run: |
           cargo run --locked -p neuradix-example-minimal-depth-stream
           cargo run --locked -p neuradix-example-auv-depth-sim
           cargo run --locked -p neuradix-example-embedded-propulsion
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-example-python-worker
 
       - name: Embedded no_std configuration
         run: |

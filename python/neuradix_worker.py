@@ -20,15 +20,70 @@ import os
 import sys
 
 
+def _limit(name):
+    value = int(os.environ.get(name, "65536"))
+    if not 64 <= value <= 1048576:
+        raise ValueError(f"invalid {name}")
+    return value
+
+
+def _check_value(value, limit, depth=0, remaining=None):
+    """Bound recursion/visits before encoding; handler memory is not contained."""
+    if remaining is None:
+        remaining = [limit]
+    remaining[0] -= 1
+    if depth > 32 or remaining[0] < 0:
+        raise ValueError("JSON exceeds depth/node limit")
+    if isinstance(value, str) and len(value) > limit:
+        raise ValueError("JSON string exceeds wire limit")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str) or len(key) > limit:
+                raise ValueError("invalid JSON object key")
+            _check_value(item, limit, depth + 1, remaining)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _check_value(item, limit, depth + 1, remaining)
+
+
 def _send(obj):
-    sys.stdout.write(json.dumps(obj) + "\n")
-    sys.stdout.flush()
+    limit = _limit("NEURADIX_WORKER_MAX_OUTPUT_BYTES")
+    _check_value(obj, limit)
+    data = bytearray()
+    encoder = json.JSONEncoder(ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+    for piece in encoder.iterencode(obj):
+        encoded = piece.encode("utf-8")
+        if len(data) + len(encoded) + 1 > limit:
+            raise ValueError("worker output exceeds wire limit")
+        data.extend(encoded)
+    data.append(10)
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
 
 
 def log(message):
     """Write a diagnostic line to stderr (never stdout)."""
     sys.stderr.write(str(message) + "\n")
     sys.stderr.flush()
+
+
+def _send_error(seq, message):
+    """Fit diagnostics to the encoded envelope, including UTF-8 and newline."""
+    limit = _limit("NEURADIX_WORKER_MAX_OUTPUT_BYTES")
+    response = {"kind": "error", "seq": seq, "message": ""}
+    remaining = limit - len(json.dumps(response, separators=(",", ":")).encode()) - 1
+    prefix = []
+    # Keep diagnostics small even with a large configured wire limit. A valid
+    # u64 sequence and empty error envelope fit the minimum 64-byte limit.
+    for char in str(message)[:128]:
+        char = char.encode("utf-8", errors="replace").decode("utf-8")
+        size = len(json.dumps(char, ensure_ascii=False).encode("utf-8")) - 2
+        if size > remaining:
+            break
+        prefix.append(char)
+        remaining -= size
+    response["message"] = "".join(prefix)
+    _send(response)
 
 
 def run(handler, name="python-worker", skip_policy="may-skip"):
@@ -38,28 +93,36 @@ def run(handler, name="python-worker", skip_policy="may-skip"):
     JSON-serialisable result. The structured ``config`` is read once from the
     ``NEURADIX_WORKER_CONFIG`` environment variable.
     """
-    try:
-        config = json.loads(os.environ.get("NEURADIX_WORKER_CONFIG", "null"))
-    except json.JSONDecodeError:
-        config = None
+    input_limit = _limit("NEURADIX_WORKER_MAX_INPUT_BYTES")
+    _limit("NEURADIX_WORKER_MAX_OUTPUT_BYTES")
+    raw_config = os.environ.get("NEURADIX_WORKER_CONFIG", "null")
+    if len(raw_config.encode("utf-8")) > input_limit:
+        raise ValueError("startup config exceeds wire limit")
+    config = json.loads(raw_config)
 
     _send({"kind": "ready", "name": name, "skipPolicy": skip_policy})
 
-    for line in sys.stdin:
-        line = line.strip()
+    while True:
+        line = sys.stdin.buffer.readline(input_limit + 1)
         if not line:
-            continue
+            break
+        if len(line) > input_limit or not line.endswith(b"\n"):
+            raise ValueError("unterminated or oversized request")
         try:
             message = json.loads(line)
-        except json.JSONDecodeError as exc:
-            _send({"kind": "error", "seq": -1, "message": f"bad request json: {exc}"})
-            continue
+            _check_value(message, input_limit)
+            if not isinstance(message, dict):
+                raise ValueError("request must be an object")
+        except (ValueError, RecursionError, UnicodeError):
+            raise ValueError("invalid request JSON") from None
 
         kind = message.get("kind")
         seq = message.get("seq", -1)
 
         if kind == "shutdown":
             break
+        if type(seq) is not int or not 1 <= seq <= 18446744073709551615:
+            raise ValueError("invalid request sequence")
         if kind == "ping":
             _send({"kind": "response", "seq": seq, "payload": {"pong": True}})
             continue
@@ -68,7 +131,7 @@ def run(handler, name="python-worker", skip_policy="may-skip"):
                 result = handler(message.get("payload"), config)
                 _send({"kind": "response", "seq": seq, "payload": result})
             except Exception as exc:  # noqa: BLE001 - report any handler error
-                _send({"kind": "error", "seq": seq, "message": str(exc)})
+                _send_error(seq, exc)
             continue
 
-        _send({"kind": "error", "seq": seq, "message": f"unknown kind: {kind}"})
+        _send_error(seq, f"unknown kind: {kind}")

@@ -17,6 +17,16 @@
 //! The companion Python library `python/neuradix_worker.py` provides a native
 //! `run(handler)` loop so a component author writes ordinary Python.
 //!
+//! WP-A05 bounds Linux GNU/musl stdio, receive storage, serialization, operation
+//! deadlines and cleanup. [`IoLimits`] and [`Timeouts`] validate configuration.
+//! [`PythonWorker::send`] borrows JSON; a terminal failure retires the worker.
+//! [`CleanupReport`] distinguishes reaped and deferred cleanup. Other OSes return
+//! [`WorkerError::UnsupportedPlatform`] before launch. No per-worker I/O thread
+//! exists; at most 32 live/deferred children share one bounded reaper thread.
+//! Process-group cleanup requires exclusive child-reaping ownership. This is not
+//! a security sandbox or comprehensive CPU/memory containment, and Healthy is
+//! process status rather than heartbeat health. Keep calls outside local control.
+//!
 //! ## Not yet implemented
 //!
 //! In-process PyO3/Maturin bindings with NumPy zero-copy views (§19.1–§19.2) are
@@ -25,10 +35,15 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod config;
 pub mod error;
+mod process;
+mod protocol;
 pub mod supervisor;
 pub mod worker;
 
+pub use config::{IoLimits, Timeouts, WorkerConfig};
 pub use error::WorkerError;
+pub use process::{CleanupReport, CleanupState};
 pub use supervisor::WorkerSupervisor;
-pub use worker::{PythonWorker, ReadyInfo, WorkerConfig};
+pub use worker::{IoStats, PythonWorker, ReadyInfo};

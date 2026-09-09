@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A04.3 implementation branch.** This register is the current
+**Updated for the WP-A05 bounded worker I/O branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -15,7 +15,7 @@ and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
 | [Integration CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34250744255) | Host and AVR jobs passed on PR #7's combined code before integration into main. |
 | Historical review | Main `e39da5e` and development `c8aa467` remain the pinned pre-fix assessment in [Review and Strategy](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md); they are not the current main/development split. |
 
-## WP-A04 integration and branch increment
+## WP-A04 integration
 
 [A04.1](implementation/WP-A04.1-Trusted-Evaluation.md) is integrated through
 [PR #8](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/8), main
@@ -36,17 +36,35 @@ formatting, Clippy, docs and four independent no_std checks. The shared
 `command-core` brings the workspace to 16 library/tool crates. Trusted durable
 startup, clock relationship and periodic scheduling remain deployment obligations.
 
-[A04.3 branch evidence and API migration](implementation/WP-A04.3-Slew-Alignment.md)
+[A04.3 evidence and API migration](implementation/WP-A04.3-Slew-Alignment.md)
 record shared host/MCU elapsed-time slew, explicit rate units, inward output
 rounding and changing-period conformance. Implementation `56e8688` passed
 [CI 34290519286](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290519286):
 88 focused and 236 workspace tests/doctests, two separate AVR checks, three
 examples, formatting, Clippy, docs and four independent no_std checks.
-[PR #10](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/10) is
-unmerged; opening the PR does not complete integration. The evidence document
+[PR #10](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/10) merged
+as `9dafdb7` after review of unchanged head `a81fab7` and passing
+[current-revision CI](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290766316).
+The evidence document
 distinguishes corrected CI failures, unavailable hardware and archived link debt.
 No physical hardware, durable-storage or board timing/resource validation is
 claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
+
+## WP-A05 bounded worker I/O branch
+
+[PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11) adds
+validated protocol/storage limits, one deadline with cleanup reserve, Linux
+nonblocking stdio, process-group cleanup and bounded deferred reaping. Failed
+launch attempts consume the restart budget. [Implementation evidence](implementation/WP-A05-Bounded-Worker-IO.md)
+records API migration, exact checks, OS scope and remaining acceptance. The PR
+is unmerged; implementation does not establish integration or full containment.
+Implementation `08d0f987` passed [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
+and its push run: 32 Python-crate tests/doctests, four separate SDK tests,
+88 command regressions, 264 workspace tests/doctests, two separate AVR checks,
+four examples, four independent no_std checks, formatting, Clippy and docs.
+Nested subprocess reports are not double-counted; focused tests overlap workspace.
+Heartbeat policy, comprehensive resource limits, other OS backends and deployment
+supervision remain open. WP-A05 and ACC-09 are partial; Gate A stays open.
 
 ## Capability inventory
 
@@ -55,8 +73,8 @@ claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
-| Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants and A04.2 command validity | A04.3 branch aligns physical slew; board integration and rig evidence remain: A04/B03/C05 |
-| Python | JSON-line supervised worker process and failure tests | Bound all I/O, cleanup and resources: A05/B07 |
+| Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
+| Python | JSON-line supervised worker process and failure tests | A05 branch bounds Linux I/O/cleanup; heartbeat, comprehensive resources and deployment remain: A05/B07 |
 | Recording/replay | Native recording and digest, handwritten MCAP subset; processor re-execution exists in a runtime test | Independent MCAP interchange and arbitrary program replay: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
@@ -81,7 +99,8 @@ See [Gate A implementation evidence](implementation/Gate-A-Embedded-Wire-and-ABI
 
 The workspace's two AVR tests are explicitly ignored by the ordinary test command
 and executed in the separate AVR CI job. Host C++ and Python are CI prerequisites;
-local Python tests still allow skips. No physical board, complete simulator,
+older Python tests still allow local skips; the A05 adversarial/SDK suites require
+Python, and CI requires the interpreter before testing. No physical board, complete simulator,
 hard-real-time profile, fleet scale or enterprise HA claim follows from these tests.
 
 ## Findings and closure status
@@ -90,8 +109,8 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 |---|---|---|---|
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
-| Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 branch aligns physical slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
-| Worker bounds | Blocking write/wait and unbounded line/channel can escape the deadline | A05 | Open |
+| Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
+| Worker bounds | This branch replaces blocking write/wait and unbounded line/channel storage with bounded Linux I/O/cleanup | A05 | Partial, unmerged: heartbeat, comprehensive resources and additional OS/deployment work remain |
 | MCAP subset | Private encodings/metadata and unsupported chunks can fail or omit external data | A06 | Open |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |

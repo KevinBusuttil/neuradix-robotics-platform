@@ -13,6 +13,7 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 - [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
 - [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
 - [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
+- [A05 bounded Python worker I/O and cleanup](docs/implementation/WP-A05-Bounded-Worker-IO.md)
 - [A04.3 host/MCU slew alignment and conformance](docs/implementation/WP-A04.3-Slew-Alignment.md)
 - [A04.2 command freshness, generations and API migration](docs/implementation/WP-A04.2-Command-Freshness.md)
 - [A04.1 trusted evaluation, numeric validation and API migration](docs/implementation/WP-A04.1-Trusted-Evaluation.md)
@@ -47,7 +48,8 @@ Current limits:
 
 - `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
-- A04.1/A04.2 are integrated through PR #8/#9. This branch implements A04.3 shared units-per-second slew and changing-period conformance. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open. Python I/O, cleanup and resource bounds still require Gate A fixes.
+- A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
+- This A05 branch implements bounded Linux Python-worker stdio and cleanup. Heartbeat health, comprehensive resource enforcement, other OS backends and deployment supervision remain open; process separation is not a security sandbox.
 - MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.

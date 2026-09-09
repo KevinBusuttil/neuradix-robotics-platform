@@ -137,7 +137,7 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **A04.2 integrated:** PR #9 merged as `c127c7d` after correcting delayed-renewal and non-finite CLI audit findings. Shared host/no_std validation enforces source age/future skew, deadlines, sequences, generations and accepted-command watchdog expiry, including idle ticks. Trusted startup must durably reserve generations and establish a supported shared timeline. See [A04.2 evidence](implementation/WP-A04.2-Command-Freshness.md).
 
-**A04.3 progress (PR #10, unmerged):** Host and MCU slew use a shared units-per-second calculation from runtime evaluation time. Embedded configuration uses an explicitly renamed rate constructor; paired tests cover changing periods, idle holds, equal timestamps, safing/recovery, session changes and representation boundaries. See [A04.3 policy and evidence](implementation/WP-A04.3-Slew-Alignment.md): 88 focused and 236 workspace tests/doctests plus two AVR checks passed. The demonstrated software portion is implemented in this branch, pending review/integration; physical safe response, board integration and timing/resource evidence remain missing. WP-A04 remains **partial**, ACC-05 incomplete and **Gate A open**.
+**A04.3 integrated:** PR #10 merged as `9dafdb7` after review of unchanged head `a81fab7` and passing current CI. Host and MCU slew share units-per-second semantics from runtime evaluation time, with explicit API migration and actual-gate changing-period conformance. See [A04.3 policy and evidence](implementation/WP-A04.3-Slew-Alignment.md): 88 focused and 236 workspace tests/doctests plus two AVR checks passed. Physical safe response, board integration and timing/resource evidence remain missing. WP-A04 remains **partial**, ACC-05 incomplete and **Gate A open**.
 
 <a name="wp-a05"></a>
 
@@ -150,6 +150,8 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 **Acceptance:** Workers that never read stdin, flood stdout, close stdout while remaining alive, hang or spawn children cannot indefinitely block the supervisor or grow queues without bound. Recovery obeys the restart budget.
 
 **Primary risk:** Process separation being mistaken for complete resource or security isolation.
+
+**Bounded I/O increment (PR #11, unmerged):** Validated line/queue limits, one total operation deadline with cleanup reserve, nonblocking Linux stdio, process-group cleanup and bounded deferred reaping are implemented in this branch. Failed launches consume the restart budget. Adversarial subprocess tests have external timeouts and exercise independent local control. See [A05 design, migration and verification](implementation/WP-A05-Bounded-Worker-IO.md): 32 Python-crate tests/doctests, four SDK tests, 264 workspace tests/doctests and two separate AVR checks passed. WP-A05 and ACC-09 remain **partial**: heartbeat policy, comprehensive resource enforcement, additional OS backends and deployed supervision are deferred. Gate A remains open.
 
 <a name="wp-a06"></a>
 

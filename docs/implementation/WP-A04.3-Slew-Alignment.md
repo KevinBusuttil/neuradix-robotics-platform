@@ -1,5 +1,11 @@
 # WP-A04.3: host/MCU slew alignment and changing-period conformance
 
+**Integration update:** PR #10 merged as `9dafdb7e3fd692c229bf12db5a0f39202bcf957e`
+after review of unchanged head `a81fab7` and passing
+[CI 34290766316](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290766316).
+No prerequisite code defect or blocking review/ruleset was found. The original
+branch evidence below is retained; A05 begins from that updated main.
+
 This increment implements the remaining software slew portion of WP-A04,
 **Trusted command evaluation and finite limits**. WP-A04 remains **partial**,
 ACC-05 remains incomplete and **Gate A remains open**: measured rig response,
@@ -114,7 +120,7 @@ Standalone Watchdog API and all A04.2 trusted-startup requirements remain intact
 Implementation revision [`56e8688`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/56e8688f2ed66ef7c1f843c8cefeaf39536f217a)
 passed [CI 34290519286](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34290519286).
 [PR #10](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/10) records
-the final documentation revision's checks and remains unmerged for review.
+the final documentation revision's checks; it was subsequently integrated as noted above.
 The A04.2 merge also passed [main CI 34289072587](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34289072587).
 
 CI used pinned Rust/Cargo **1.94.1**, locked dependencies, `RUSTFLAGS=-D warnings`,

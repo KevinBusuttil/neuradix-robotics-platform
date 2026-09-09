@@ -1,7 +1,7 @@
 # RFC-0018 — Python Worker SDK and Process Isolation
 
-- Status: Partially implemented (foundation increment 7)
-- Authoritative spec: [Functional Specification v0.5](../Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) §19, §41.6; complements RFC-0017
+- Status: Partially implemented (foundation increment 7 and WP-A05 bounded I/O branch)
+- Current plan: [Implementation Plan v0.4, WP-A05](../Neuradix_Implementation_Plan_v0.4.md#wp-a05); original scope: Functional Specification v0.5 §19, §41.6; complements RFC-0017
 - Crate: `neuradix-python`; Python library: `python/neuradix_worker.py`
 
 ## Problem
@@ -16,19 +16,24 @@ processes**. Python must also stay out of the deterministic control path
 
 Implemented in this increment: a Rust-side supervisor that runs a Python
 component as an **isolated OS process** over a line-delimited JSON protocol, with
-health reporting, request timeouts, crash isolation and bounded restart; and a
-native-feeling Python `run(handler)` library. Out of scope for this increment:
+process-status reporting, bounded stdio and total deadlines, cleanup and restart
+attempt budgets; and a Python `run(handler)` library. Linux GNU/musl is the only
+implemented bounded backend; other OSes reject launch explicitly.
+Out of scope for this increment:
 in-process PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2),
 content-addressed/locked dependency environments, GPU/memory supervisor limits,
-and wheel packaging.
+and wheel packaging, general heartbeat policy and additional OS backends.
+See [WP-A05 design and evidence](../implementation/WP-A05-Bounded-Worker-IO.md).
 
 ## Proposed decision
 
 ### Isolation model
 
 A Python component runs as a separate process (`python3 <script>`). It never
-shares the runtime's address space, so a crash cannot corrupt the runtime — the
-strongest form of the §19.4 isolation requirement.
+shares the runtime's address space, so a Python exception or process crash does
+not directly corrupt the runtime's memory. This is not a security sandbox:
+same-user privileges, comprehensive resource containment and escaped-session
+cleanup are not qualified by process separation.
 
 ### Protocol (newline-delimited JSON)
 
@@ -36,17 +41,43 @@ strongest form of the §19.4 isolation requirement.
 - request: supervisor → `{"kind":"request","seq","payload"}`;
 - response: worker → `{"kind":"response","seq","payload"}` or
   `{"kind":"error","seq","message"}`; `ping`/`shutdown` are also defined.
-- stdout carries only protocol JSON; **stderr carries logs and tracebacks**, so a
-  crash is visible and the supervisor observes it as a clean stdout EOF.
+- stdout carries only protocol JSON; stderr remains inherited for diagnostics.
+  EOF does not prove process exit: live-child EOF is an explicit terminal error.
+- incoming/outgoing line limits count UTF-8 bytes including newline; bounded
+  queue bytes include complete and partial lines. Overload rejects explicitly.
+- one request is outstanding; sequence starts at 1 and never wraps. Unrelated
+  traffic cannot reset the deadline. These checks are not authentication.
 
 ### Supervision
 
-A background reader thread turns the blocking pipe into a channel, so
-`PythonWorker::send` can **time out** (`WorkerError::Timeout`) and a worker crash
-surfaces as a recoverable `WorkerError::WorkerExited` — never a panic or a hang.
-`PythonWorker::health()` maps a running process to `Healthy` and an exited one to
-`Unavailable`. `WorkerSupervisor` adds a **bounded restart budget** so a flapping
-worker cannot restart forever (mirrors the FDIR restart-storm rule, RFC-0017).
+Nonblocking Linux stdin/stdout replaces the blocking writer and background
+reader/channel. Fixed-capacity framing bounds queued bytes/messages. Validated
+`IoLimits` and `Timeouts` keep operational invariants private. A capped serializer
+borrows the input Value, bounds depth/node visits and rejects oversized encoding
+before any write. The Python SDK independently caps byte lines and output.
+
+One monotonic deadline starts before serialization/launch preparation. I/O stops
+at total minus cleanup reserve; cleanup consumes only the remaining reserved
+time. No write/read transition, unrelated response or retry resets it. Equality
+is expired. Bounded operations still depend on OS scheduling and syscall/loader
+latency; this is not hard-real-time execution.
+
+Timeout, malformed/oversized input, queue overflow, EOF and I/O errors retire the
+session. Further sends return Unavailable. Application Remote errors and local
+pre-write size/depth rejection leave the session usable. Healthy means an
+available running process; periodic heartbeat health remains unimplemented.
+`WorkerSupervisor` charges every replacement attempt before launch, including
+failed handshakes and launch failures, so the restart budget cannot be bypassed.
+
+Workers get their own process group. The library observes exit with WNOWAIT,
+retaining the leader PID until group signalling, then closes stdio, sends group
+SIGKILL and polls reaping without blocking wait. It requires exclusive ownership
+of child reaping. Descendant-held pipes cannot retain I/O tasks: there are no
+per-worker I/O threads. At most 32 live/deferred direct children share one bounded
+reaper; unreaped children retain admission slots. CleanupReport records reaped,
+deferred, ownership-lost or unavailable-reaper outcomes and signal errors.
+Ordinary group descendants are signalled; escaped sessions and complete resource
+containment remain out of scope. Repeated cleanup never signals a reused PID.
 
 ### Composition with FDIR
 
@@ -64,7 +95,8 @@ config is delivered via `NEURADIX_WORKER_CONFIG`.
 ## Public interfaces affected
 
 `neuradix-python`: `WorkerConfig`, `PythonWorker`, `ReadyInfo`,
-`WorkerSupervisor`, `WorkerError`. Python: `neuradix_worker.run`.
+`WorkerSupervisor`, `WorkerError`, `IoLimits`, `Timeouts`, `IoStats`,
+`CleanupReport`. Python: `neuradix_worker.run`.
 
 ## Alternatives considered
 
@@ -83,26 +115,37 @@ config is delivered via `NEURADIX_WORKER_CONFIG`.
 Process isolation is the core safety property: Python cannot crash control or
 safety. Python is deliberately kept out of the deterministic executor (its
 supervision uses wall-clock time and real processes, so it is non-deterministic).
-Request timeouts prevent a hung worker from stalling the caller. Restart budgets
-prevent restart storms.
+The Linux bounded I/O path prevents worker-controlled pipe traffic from causing
+an unbounded application wait or queue. It belongs outside the deterministic
+control executor. Restart budgets include failed launch attempts. A05 tests
+exercise continued local command gating and fallback while a worker hangs;
+this is host software evidence, not physical rig or resource-isolation evidence.
 
 ## Compatibility implications
 
 The JSON protocol is versionable via the `kind` field and additive fields.
 Adding PyO3 bindings is a new, separate surface, not a change to this one.
-`WorkerError`/`WorkerConfig` may gain variants/fields additively.
+WP-A05 changes `send(Value)` to `send(&Value)`; makes WorkerConfig fields private
+with builders; makes `with_request_timeout` fallible; adds validated limit/time
+types; and returns cleanup reports from shutdown. Fatal failures now require
+session replacement. Non-Linux launches return UnsupportedPlatform. The kind/
+seq/payload envelope is unchanged; the SDK gains byte-limit environment settings.
 
 ## Testing strategy
 
 `crates/python/tests/worker.rs` spawns a real `python3` and covers request
 round-trip + config passthrough, **crash isolation and recovery**, supervisor
-restart-budget exhaustion, and request timeout. The tests skip cleanly if no
-interpreter is available. The `python-worker` example demonstrates crash → FDIR
-safing → restart end to end.
+restart-budget exhaustion, and request timeout. New adversarial tests require
+Python and run in externally timed subprocesses, covering blocked stdin,
+oversized/flooded stdout, live-child EOF, descendants, total deadline accounting,
+storage/admission bounds and failed launch budgets. CI also externally times
+the Python/workspace commands and the migrated Python example. Exact evidence
+and the limits of qualification live in the A05 implementation document.
 
 ## Unresolved questions
 
 - PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2); wheel packaging.
 - Content-addressed, locked Python dependency environments (§19.4).
 - Supervisor-enforced CPU/memory/GPU limits (§19.4).
+- Heartbeat/idle responsiveness policy and additional OS backends.
 - Graph-compiler detection of Python in a declared deterministic control path.

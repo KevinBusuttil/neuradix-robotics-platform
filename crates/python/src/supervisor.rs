@@ -68,16 +68,15 @@ impl WorkerSupervisor {
             });
         }
 
-        let worker = PythonWorker::launch(&self.config)?;
+        // Charge failed launch/handshake attempts to the same restart budget.
         self.restarts_used += 1;
+        let worker = PythonWorker::launch(&self.config)?;
         self.worker = Some(worker);
         Ok(())
     }
 
     /// Shut the supervised worker down.
-    pub fn shutdown(&mut self) {
-        if let Some(mut worker) = self.worker.take() {
-            worker.shutdown();
-        }
+    pub fn shutdown(&mut self) -> Option<crate::CleanupReport> {
+        self.worker.take().map(|mut worker| worker.shutdown())
     }
 }

@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let out = supervisor
             .worker()
             .unwrap()
-            .send(json!({ "depth": depth }))?;
+            .send(&json!({ "depth": depth }))?;
         println!(
             "  depth={:.1}m -> belowThreshold={}",
             depth, out["belowThreshold"]
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Trigger a hard crash inside the Python process.
-    let crash = supervisor.worker().unwrap().send(json!({ "crash": true }));
+    let crash = supervisor.worker().unwrap().send(&json!({ "crash": true }));
     println!("  sent crash request -> {}", describe(&crash));
     let health = supervisor.health();
     println!("  worker health: {health}");
@@ -77,10 +77,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         "  restarted worker (restarts used: {})",
         supervisor.restarts_used()
     );
-    let out = supervisor.worker().unwrap().send(json!({ "depth": 9.0 }))?;
+    let out = supervisor
+        .worker()
+        .unwrap()
+        .send(&json!({ "depth": 9.0 }))?;
     println!("  depth=9.0m -> belowThreshold={}", out["belowThreshold"]);
 
-    supervisor.shutdown();
+    if let Some(cleanup) = supervisor.shutdown() {
+        println!("  cleanup  : {:?}", cleanup);
+    }
     println!("\ndone.");
     Ok(())
 }
