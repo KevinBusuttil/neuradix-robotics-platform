@@ -25,7 +25,20 @@ def send(value):
     os.write(1, json.dumps(value, separators=(",", ":")).encode() + b"\n")
 
 
-send({"kind": "ready", "name": "heartbeat", "skipPolicy": "may-skip"})
+ready = {"kind": "ready", "name": "heartbeat", "skipPolicy": "may-skip"}
+if mode.startswith("preplay"):
+    prefix = json.dumps(ready, separators=(",", ":")).encode() + b"\n"
+    forged = b'{"kind":"pong","seq":1}\n'
+    if mode == "preplay_response":
+        forged = b'{"kind":"response","seq":1,"payload":true}\n'
+    if mode == "preplay_partial":
+        os.write(1, prefix + forged[:-2])
+        time.sleep(0.15)
+        os.write(1, forged[-2:])
+    else:
+        os.write(1, prefix + forged)
+    time.sleep(6)
+send(ready)
 previous = 0
 for raw in sys.stdin.buffer:
     value = json.loads(raw)

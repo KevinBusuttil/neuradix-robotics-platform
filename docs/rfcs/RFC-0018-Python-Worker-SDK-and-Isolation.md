@@ -1,6 +1,6 @@
 # RFC-0018 — Python Worker SDK and Process Isolation
 
-- Status: Partially implemented (foundation increment 7 and WP-A05 bounded I/O branch)
+- Status: Partially implemented (foundation increment 7, integrated WP-A05 bounded I/O and heartbeat branch)
 - Current plan: [Implementation Plan v0.4, WP-A05](../Neuradix_Implementation_Plan_v0.4.md#wp-a05); original scope: Functional Specification v0.5 §19, §41.6; complements RFC-0017
 - Crate: `neuradix-python`; Python library: `python/neuradix_worker.py`
 
@@ -16,14 +16,16 @@ processes**. Python must also stay out of the deterministic control path
 
 Implemented in this increment: a Rust-side supervisor that runs a Python
 component as an **isolated OS process** over a line-delimited JSON protocol, with
-process-status reporting, bounded stdio and total deadlines, cleanup and restart
+responsiveness health, bounded stdio and total deadlines, cleanup and restart
 attempt budgets; and a Python `run(handler)` library. Linux GNU/musl is the only
 implemented bounded backend; other OSes reject launch explicitly.
 Out of scope for this increment:
 in-process PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2),
 content-addressed/locked dependency environments, GPU/memory supervisor limits,
-and wheel packaging, general heartbeat policy and additional OS backends.
+and wheel packaging, comprehensive resources and additional OS backends.
 See [WP-A05 design and evidence](../implementation/WP-A05-Bounded-Worker-IO.md).
+The [heartbeat policy and evidence](../implementation/WP-A05-Worker-Heartbeat.md)
+defines the subsequent bounded increment and its required scheduling.
 
 ## Proposed decision
 
@@ -40,7 +42,10 @@ cleanup are not qualified by process separation.
 - startup handshake: worker → `{"kind":"ready","name","skipPolicy"}`;
 - request: supervisor → `{"kind":"request","seq","payload"}`;
 - response: worker → `{"kind":"response","seq","payload"}` or
-  `{"kind":"error","seq","message"}`; `ping`/`shutdown` are also defined.
+  `{"kind":"error","seq","message"}`;
+- heartbeat: `{"kind":"ping","seq":N}` → `{"kind":"pong","seq":N}`;
+  the old response/payload/pong shape no longer satisfies a heartbeat;
+- `{"kind":"shutdown"}` ends processing.
 - stdout carries only protocol JSON; stderr remains inherited for diagnostics.
   EOF does not prove process exit: live-child EOF is an explicit terminal error.
 - incoming/outgoing line limits count UTF-8 bytes including newline; bounded
@@ -64,10 +69,35 @@ latency; this is not hard-real-time execution.
 
 Timeout, malformed/oversized input, queue overflow, EOF and I/O errors retire the
 session. Further sends return Unavailable. Application Remote errors and local
-pre-write size/depth rejection leave the session usable. Healthy means an
-available running process; periodic heartbeat health remains unimplemented.
+pre-write size/depth rejection leave the session usable. Healthy now means a
+matching timely reply was observed and its next probe is not yet due. Ready
+alone is Unknown, due confirmed sessions are Degraded, and expiry/failure is
+latched Unavailable. Application Remote errors demonstrate responsiveness but
+do not imply successful application behavior.
 `WorkerSupervisor` charges every replacement attempt before launch, including
 failed handshakes and launch failures, so the restart budget cannot be bypassed.
+
+`HeartbeatPolicy` privately validates interval and response window (each
+1ms..=60s; defaults 5s/1s). The window starts at the next due time, anchored to
+the last host-observed confirmation; startup uses handshake completion only
+as a scheduling anchor. Only trusted monotonic Instant is used. Checked time
+arithmetic/regression faults retire the session. Equality at expiry rejects.
+Periodic `WorkerSupervisor::poll` outside local control is mandatory, even when
+idle. Late polling gets the remaining window; a missed window retires before
+any new request/probe. No background timer or catch-up operation queue exists.
+Ordinary request deadlines are capped by current health expiry; matching
+response/error replies can substitute for probes. Both kinds share one sequence
+and outstanding slot. Wrong kind/sequence, duplicate, stale or late traffic
+cannot refresh health. The response-processing deadline and existing cleanup
+reserve cover the entire operation. A later poll may make one replacement
+attempt; it never hides a just-detected failure by retrying in the same call.
+Fresh worker pipes/state start Unknown; old replies cannot restore a failed
+session. Shutdown latches stopped and never implicitly relaunches.
+
+Pre-issue draining shares that same absolute deadline and existing storage
+bounds. Unsolicited current/future replies reject as protocol errors; stale
+frames/logs cannot confirm responsiveness. Partial frames must complete before
+a new write, so buffered preplayed data cannot become a fresh reply on issue.
 
 Workers get their own process group. The library observes exit with WNOWAIT,
 retaining the leader PID until group signalling, then closes stdio, sends group
@@ -96,7 +126,8 @@ config is delivered via `NEURADIX_WORKER_CONFIG`.
 
 `neuradix-python`: `WorkerConfig`, `PythonWorker`, `ReadyInfo`,
 `WorkerSupervisor`, `WorkerError`, `IoLimits`, `Timeouts`, `IoStats`,
-`CleanupReport`. Python: `neuradix_worker.run`.
+`CleanupReport`, `HeartbeatPolicy`, `WorkerFailure`, periodic `poll` and
+`check_heartbeat`, due/expiry accessors and `last_failure`. Python: `neuradix_worker.run`.
 
 ## Alternatives considered
 
@@ -130,6 +161,11 @@ with builders; makes `with_request_timeout` fallible; adds validated limit/time
 types; and returns cleanup reports from shutdown. Fatal failures now require
 session replacement. Non-Linux launches return UnsupportedPlatform. The kind/
 seq/payload envelope is unchanged; the SDK gains byte-limit environment settings.
+Heartbeat users must update custom ping responders to the compact pong kind and
+schedule periodic polling. The minimum 64-byte line limit supports a pong even
+at the maximum u64 sequence. Health no longer treats process existence as proof;
+ordinary requests may time out earlier at responsiveness expiry. Newly detected
+failures return before a later recovery call; explicit shutdown prevents restart.
 
 ## Testing strategy
 
@@ -141,11 +177,15 @@ oversized/flooded stdout, live-child EOF, descendants, total deadline accounting
 storage/admission bounds and failed launch budgets. CI also externally times
 the Python/workspace commands and the migrated Python example. Exact evidence
 and the limits of qualification live in the A05 implementation document.
+Heartbeat tests add externally timed idle, stopped/hung, scheduling-gap,
+duplicate/stale/late traffic, replacement, failed-launch, shutdown and independent
+local-control scenarios. Deterministic boundary tests exercise the same private
+monotonic state and deadline code at exact due/expiry and arithmetic limits.
 
 ## Unresolved questions
 
 - PyO3/Maturin bindings and NumPy zero-copy views (§19.1–§19.2); wheel packaging.
 - Content-addressed, locked Python dependency environments (§19.4).
 - Supervisor-enforced CPU/memory/GPU limits (§19.4).
-- Heartbeat/idle responsiveness policy and additional OS backends.
+- Additional OS/architecture qualification and deployed heartbeat scheduling.
 - Graph-compiler detection of Python in a declared deterministic control path.

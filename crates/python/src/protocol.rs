@@ -66,6 +66,9 @@ impl Frames {
         self.lengths.clear();
         self.partial = 0;
     }
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
 }
 
 struct LimitedWriter {

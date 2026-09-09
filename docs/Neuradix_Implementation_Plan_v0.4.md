@@ -151,7 +151,9 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Process separation being mistaken for complete resource or security isolation.
 
-**Bounded I/O increment (PR #11, unmerged):** Validated line/queue limits, one total operation deadline with cleanup reserve, nonblocking Linux stdio, process-group cleanup and bounded deferred reaping are implemented in this branch. Failed launches consume the restart budget. Adversarial subprocess tests have external timeouts and exercise independent local control. See [A05 design, migration and verification](implementation/WP-A05-Bounded-Worker-IO.md): 32 Python-crate tests/doctests, four SDK tests, 264 workspace tests/doctests and two separate AVR checks passed. WP-A05 and ACC-09 remain **partial**: heartbeat policy, comprehensive resource enforcement, additional OS backends and deployed supervision are deferred. Gate A remains open.
+**Bounded I/O integrated:** PR #11 merged as `e12420a` after review, correction of the SDK error-envelope defect and passing current PR CI `34318590924`. Validated line/queue limits, one total operation deadline with cleanup reserve, nonblocking Linux stdio, process-group cleanup and bounded deferred reaping are integrated. Failed launches consume the restart budget. The reviewed revision passed 32 Python-crate tests/doctests, five SDK tests, 264 workspace tests/doctests and two separate AVR checks. See [A05 I/O evidence](implementation/WP-A05-Bounded-Worker-IO.md).
+
+**Heartbeat increment (PR #12, unmerged):** Validated monotonic due/expiry windows, idle ping/pong operations, matching-reply health, latched failures and bounded replacement polling are implemented in this branch. Requests and probes share one outstanding sequence; scheduling gaps and unrelated replies cannot refresh health. See [heartbeat policy, migration and verification](implementation/WP-A05-Worker-Heartbeat.md). WP-A05/ACC-09 remain **partial**: comprehensive resource enforcement, escaped-session containment, other OS qualification and deployment supervision remain open. Gate A remains open.
 
 <a name="wp-a06"></a>
 

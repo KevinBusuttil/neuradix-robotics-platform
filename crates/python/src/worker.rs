@@ -303,8 +303,12 @@ impl PythonWorker {
             Err(error) => return Err(error),
         };
         self.outgoing_high = self.outgoing_high.max(line.len());
-        self.sequence = sequence;
         let result = (|| {
+            // Replies already present before issue are not responsiveness
+            // evidence. Drain bounded stale traffic, including partial lines,
+            // under this same absolute deadline before attempting a write.
+            self.drain_before_issue(&deadline)?;
+            self.sequence = sequence;
             self.write(&line, &deadline)?;
             loop {
                 let mut value = self.receive(&deadline)?;
@@ -362,6 +366,34 @@ impl PythonWorker {
                 Err(self.fail(error, &deadline))
             }
             ok => ok,
+        }
+    }
+    fn drain_before_issue(&mut self, deadline: &Deadline) -> Result<(), WorkerError> {
+        loop {
+            deadline.check()?;
+            if let Some(line) = self.frames.pop() {
+                let value: Value = serde_json::from_slice(&line)
+                    .map_err(|e| WorkerError::Protocol(format!("invalid worker JSON: {e}")))?;
+                if !value.is_object() {
+                    return Err(WorkerError::Protocol(
+                        "protocol line must be an object".into(),
+                    ));
+                }
+                let kind = value.get("kind").and_then(Value::as_str);
+                let future = value
+                    .get("seq")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|seq| seq > self.sequence);
+                if matches!(kind, Some("response" | "error" | "pong")) && future {
+                    return Err(WorkerError::Protocol("reply preceded its request".into()));
+                }
+            } else if !self.pump()? {
+                if self.frames.is_empty() {
+                    return deadline.check();
+                }
+                // Do not carry a pre-issued partial frame into a new operation.
+                pause_until(deadline.io);
+            }
         }
     }
     fn write(&mut self, bytes: &[u8], deadline: &Deadline) -> Result<(), WorkerError> {

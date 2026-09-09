@@ -101,7 +101,8 @@ scenarios!(
     replacement_state,
     failed_replacement_handshakes,
     failed_launches,
-    shutdown_and_drop
+    shutdown_and_drop,
+    preplayed_frames
 );
 
 #[test]
@@ -117,6 +118,26 @@ fn heartbeat_child() {
             .success()
     );
     match case.as_str() {
+        "preplayed_frames" => {
+            for mode in ["preplay", "preplay_partial", "preplay_response"] {
+                let cfg = config(mode);
+                let mut worker = PythonWorker::launch(&cfg).unwrap();
+                until(worker.heartbeat_due());
+                let expiry = worker.heartbeat_expires();
+                let start = Instant::now();
+                let error = if mode == "preplay_response" {
+                    worker.send(&Value::Null).unwrap_err()
+                } else {
+                    worker.check_heartbeat().unwrap_err()
+                };
+                assert!(matches!(cause(&error), WorkerError::Protocol(_)), "{error:?}");
+                bounded(start, RESPONSE + RESERVE);
+                assert_eq!(worker.health(), HealthState::Unavailable);
+                assert_eq!(worker.last_failure(), Some(WorkerFailure::Protocol));
+                assert_eq!(worker.heartbeat_expires(), expiry);
+                storage(&worker, &cfg);
+            }
+        }
         "healthy_idle" => {
             let cfg = config("healthy").with_limits(IoLimits::new(64, 64, 128, 2).unwrap());
             let mut worker = PythonWorker::launch(&cfg).unwrap();
