@@ -251,10 +251,10 @@ mod linux {
                 self.permit.take();
                 CleanupState::OwnershipLost
             } else {
-                if let Err(error) = killpg(self.pid, Signal::SIGKILL) {
-                    if error != Errno::ESRCH {
-                        signal_error = Some(error as i32);
-                    }
+                if let Err(error) = killpg(self.pid, Signal::SIGKILL)
+                    && error != Errno::ESRCH
+                {
+                    signal_error = Some(error as i32);
                 }
                 let mut child = self.child.take().expect("owned child");
                 let reaped = loop {
@@ -293,6 +293,33 @@ mod linux {
             // second signal after an earlier cleanup (avoids PID reuse).
             if self.report.is_none() {
                 self.finish(Instant::now());
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn deferred_reaping_retains_its_admission_token_until_exit() {
+            let mut permits = Vec::new();
+            for _ in 0..PROCESS_SLOTS {
+                permits.push(Permit::acquire().unwrap());
+            }
+            let child = Command::new("sleep").arg("5").spawn().unwrap();
+            let pid = Pid::from_raw(child.id() as i32);
+            nix::sys::signal::kill(pid, Signal::SIGSTOP).unwrap();
+            assert_eq!(permits.pop().unwrap().defer(child), CleanupState::Deferred);
+            assert!(matches!(Permit::acquire(), Err(WorkerError::ProcessCapacity)));
+            nix::sys::signal::kill(pid, Signal::SIGKILL).unwrap();
+            let end = Instant::now() + Duration::from_secs(1);
+            loop {
+                if let Ok(permit) = Permit::acquire() {
+                    drop(permit);
+                    break;
+                }
+                assert!(Instant::now() < end, "reaper did not release exited child");
+                pause_until(end);
             }
         }
     }

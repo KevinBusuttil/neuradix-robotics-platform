@@ -2,6 +2,7 @@
 //!
 //! These spawn a real `python3` process. If no interpreter is available the
 //! tests skip cleanly so the workspace suite still passes.
+#![cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 
 use std::process::Command;
 use std::time::Duration;
