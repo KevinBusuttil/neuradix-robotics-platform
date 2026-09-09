@@ -27,7 +27,7 @@ use std::io::Write;
 use neuradix_time::{ClockDomain, Timestamp};
 
 use crate::error::{RecordError, Result};
-use crate::model::{RawRecord, RecordingManifest};
+use crate::model::{Channel, RawRecord, RecordingManifest};
 
 /// The 8-byte MCAP magic at the start and end of every file: `\x89 MCAP0 \r \n`.
 pub const MCAP_MAGIC: [u8; 8] = [0x89, b'M', b'C', b'A', b'P', b'0', 0x0D, 0x0A];

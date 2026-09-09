@@ -141,6 +141,11 @@ struct State {
     per_channel: BTreeMap<u16, u64>,
     min_time: Option<u64>,
     max_time: Option<u64>,
+    outer_offset: u64,
+    summary_start: u64,
+    offset_start: u64,
+    summary_groups: BTreeMap<u8, (u64, u64)>,
+    offset_groups: std::collections::BTreeSet<u8>,
 }
 impl State {
     fn charge(&mut self, n: u64) -> Result<()> {
@@ -183,6 +188,23 @@ impl State {
             return Err(malformed("summary record before DataEnd"));
         }
         let record = mcap::parse_record(op, data).map_err(vendor)?;
+        let start = self.outer_offset;
+        if !inside {
+            self.outer_offset = start.checked_add(9 + data.len() as u64)
+                .ok_or_else(|| malformed("record offset overflow"))?;
+            if self.data_end && op != 2 {
+                if op == 0x0e {
+                    if self.summary_start == 0 { return Err(malformed("offsets without summary")); }
+                    if self.offset_start == 0 { self.offset_start = start; }
+                } else {
+                    if self.offset_start != 0 { return Err(malformed("summary after offset section")); }
+                    if self.summary_start == 0 { self.summary_start = start; }
+                    let group = self.summary_groups.entry(op).or_insert((start, start));
+                    if group.1 != start { return Err(malformed("noncontiguous summary group")); }
+                    group.1 = self.outer_offset;
+                }
+            }
+        }
         let ordinal = self.summary.stats.records;
         match record {
             Record::Header(h) => {
@@ -393,9 +415,12 @@ impl State {
                 }
                 self.data_end = true;
             }
-            Record::Footer(_) => {
+            Record::Footer(footer) => {
                 if !self.data_end {
                     return Err(malformed("missing DataEnd"));
+                }
+                if footer.summary_start != self.summary_start || footer.summary_offset_start != self.offset_start {
+                    return Err(malformed("footer section offsets disagree with file"));
                 }
                 self.finished = true;
             }
@@ -424,10 +449,19 @@ impl State {
                     accounted_bytes: charge,
                 })?;
             }
+            Record::SummaryOffset(offset) => {
+                let end = offset.group_start.checked_add(offset.group_length)
+                    .ok_or_else(|| malformed("summary group offset overflow"))?;
+                if self.summary_groups.get(&offset.group_opcode) != Some(&(offset.group_start, end))
+                    || !self.offset_groups.insert(offset.group_opcode) {
+                    return Err(malformed("summary offset disagrees with group"));
+                }
+                visit(McapEvent { kind: McapEventKind::Auxiliary { opcode: op, data }, ordinal, accounted_bytes: charge })?;
+            }
             Record::MessageIndex(_)
             | Record::ChunkIndex(_)
             | Record::MetadataIndex(_)
-            | Record::SummaryOffset(_) => {
+            => {
                 visit(McapEvent {
                     kind: McapEventKind::Auxiliary { opcode: op, data },
                     ordinal,
@@ -476,6 +510,11 @@ pub fn import_mcap(
         per_channel: BTreeMap::new(),
         min_time: None,
         max_time: None,
+        outer_offset: 8,
+        summary_start: 0,
+        offset_start: 0,
+        summary_groups: BTreeMap::new(),
+        offset_groups: std::collections::BTreeSet::new(),
     };
     while let Some(event) = parser.next_event() {
         match event.map_err(vendor)? {
