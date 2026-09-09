@@ -6,6 +6,26 @@ pub type Result<T> = std::result::Result<T, RecordError>;
 /// Errors from writing, reading, decoding or verifying a recording.
 #[derive(Debug, thiserror::Error)]
 pub enum RecordError {
+    /// Invalid bounded-writer configuration.
+    #[error("invalid MCAP write limit: {0}")]
+    InvalidWriteLimit(&'static str),
+    /// A writer admission budget was exceeded before serialization.
+    #[error("MCAP write {kind} limit exceeded ({limit})")]
+    WriteLimit {
+        /// Budget name.
+        kind: &'static str,
+        /// Configured inclusive ceiling.
+        limit: u64,
+    },
+    /// Invalid or conflicting writer input.
+    #[error("invalid MCAP write: {0}")]
+    InvalidMcapWrite(&'static str),
+    /// A previous operation failed; the partial output must be discarded.
+    #[error("MCAP writer previously failed")]
+    McapWriterFailed,
+    /// Maintained writer or sink failure; no later completion is permitted.
+    #[error("MCAP write failed: {0}")]
+    McapWrite(String),
     /// Invalid bounded-import configuration.
     #[error("invalid MCAP import limit: {0}")]
     InvalidImportLimit(&'static str),

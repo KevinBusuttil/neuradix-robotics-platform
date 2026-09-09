@@ -229,9 +229,8 @@ fn too_many_channels_is_rejected() {
         });
     }
     let err = McapWriter::new(Vec::new(), &builder.build())
-        .unwrap()
-        .finish()
-        .unwrap_err();
+        .err()
+        .unwrap();
     assert!(
         matches!(err, RecordError::TooManyChannels(_)),
         "got {err:?}"

@@ -41,6 +41,7 @@ pub struct McapImportSummary {
     channels: BTreeMap<u16, McapChannel>,
     metadata: BTreeMap<String, McapMetadata>,
     stats: McapImportStats,
+    channel_message_counts: BTreeMap<u16, u64>,
 }
 impl McapImportSummary {
     /// Producer profile/library, preserved without authentication claims.
@@ -58,6 +59,10 @@ impl McapImportSummary {
     /// Complete named metadata definitions.
     pub fn metadata(&self) -> &BTreeMap<String, McapMetadata> {
         &self.metadata
+    }
+    /// Counts accumulated while importing, including declared empty channels.
+    pub fn channel_message_counts(&self) -> &BTreeMap<u16, u64> {
+        &self.channel_message_counts
     }
     /// Executed budget counters.
     pub fn stats(&self) -> &McapImportStats {
@@ -138,7 +143,6 @@ struct State {
     finished: bool,
     statistics: bool,
     metadata_records: u64,
-    per_channel: BTreeMap<u16, u64>,
     min_time: Option<u64>,
     max_time: Option<u64>,
     outer_offset: u64,
@@ -308,13 +312,13 @@ impl State {
                         ordinal,
                         accounted_bytes: charge,
                     })?;
-                    self.per_channel.insert(channel.id, 0);
+                    self.summary.channel_message_counts.insert(channel.id, 0);
                     self.summary.channels.insert(channel.id, channel);
                 }
             }
             Record::Message { header: h, data } => {
                 let count = self
-                    .per_channel
+                    .summary.channel_message_counts
                     .get_mut(&h.channel_id)
                     .ok_or_else(|| malformed("message references missing channel"))?;
                 add(
@@ -460,8 +464,13 @@ impl State {
                     return Err(malformed("statistics disagree with observed data"));
                 }
                 for (id, count) in &s.channel_message_counts {
-                    if self.per_channel.get(id) != Some(count) {
+                    if self.summary.channel_message_counts.get(id) != Some(count) {
                         return Err(malformed("channel statistics mismatch"));
+                    }
+                }
+                for (id, count) in &self.summary.channel_message_counts {
+                    if *count != 0 && s.channel_message_counts.get(id) != Some(count) {
+                        return Err(malformed("statistics omit a nonzero channel"));
                     }
                 }
                 self.statistics = true;
@@ -540,13 +549,13 @@ pub fn import_mcap(
             channels: BTreeMap::new(),
             metadata: BTreeMap::new(),
             stats: McapImportStats::default(),
+            channel_message_counts: BTreeMap::new(),
         },
         started: false,
         data_end: false,
         finished: false,
         statistics: false,
         metadata_records: 0,
-        per_channel: BTreeMap::new(),
         min_time: None,
         max_time: None,
         outer_offset: 8,

@@ -50,6 +50,11 @@ jobs:
           cargo build --locked -p neuradix-record --example mcap_import_memory
           timeout --signal=TERM --kill-after=5s 90s python3 crates/record/tests/fixtures/memory.py target/debug/examples/mcap_import_memory /tmp/a06-memory
 
+      - name: Independent MCAP export and bounded writer memory
+        run: |
+          cargo build --locked -p neuradix-record --example mcap_export
+          timeout --signal=TERM --kill-after=5s 90s /tmp/a06-fixtures/bin/python crates/record/tests/fixtures/verify_export.py target/debug/examples/mcap_export
+
       - name: Bounded Python worker regressions (external timeout)
         run: |
           timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python
@@ -80,6 +85,7 @@ jobs:
         if: failure()
         run: |
           cargo fmt --all
+          cargo test --locked -p neuradix-record || true
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
           git diff -- Cargo.lock crates examples
 
