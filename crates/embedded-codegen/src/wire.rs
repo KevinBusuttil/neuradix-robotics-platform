@@ -18,17 +18,7 @@ use crate::error::CodegenError;
 
 /// The fixed byte width of a supported scalar type.
 pub fn field_size(ty: PrimitiveType, field: &str) -> Result<usize, CodegenError> {
-    Ok(match ty {
-        PrimitiveType::Float64 | PrimitiveType::Int64 | PrimitiveType::Uint64 => 8,
-        PrimitiveType::Float32 | PrimitiveType::Int32 | PrimitiveType::Uint32 => 4,
-        PrimitiveType::Bool => 1,
-        PrimitiveType::Str => {
-            return Err(CodegenError::UnsupportedType {
-                field: field.to_owned(),
-                ty: "string",
-            });
-        }
-    })
+    neuradix_contracts::layout::field_size(ty, field).map_err(Into::into)
 }
 
 /// A concrete scalar value used to build a golden vector.

@@ -5,6 +5,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::error::GraphError;
+use crate::configuration::ComponentConfiguration;
 
 /// The `apiVersion` accepted for deployment manifests.
 pub const SUPPORTED_API_VERSION: &str = "deploy.neuradix.io/v1alpha1";
@@ -143,6 +144,8 @@ pub struct Node {
 /// A validated component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Component {
+    /// Validated immutable configuration.
+    pub configuration: ComponentConfiguration,
     /// Component name.
     pub name: String,
     /// The node it is placed on.
@@ -242,6 +245,9 @@ pub struct RawNode {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawComponent {
+    /// Configuration object; omitted means empty. Explicit null is invalid.
+    #[serde(default = "empty_configuration")]
+    pub configuration: serde_yaml::Value,
     /// `name`
     pub name: Option<String>,
     /// `node`
@@ -274,6 +280,7 @@ pub struct RawConnection {
 
 /// Parse a raw deployment from a YAML string.
 pub fn from_yaml_str(source: &str, path: &Path) -> Result<RawDeployment, GraphError> {
+    if source.len() > MAX_MANIFEST_BYTES { return Err(GraphError::Limit); }
     serde_yaml::from_str(source).map_err(|source| GraphError::Parse {
         path: path.to_path_buf(),
         source,
@@ -282,9 +289,19 @@ pub fn from_yaml_str(source: &str, path: &Path) -> Result<RawDeployment, GraphEr
 
 /// Read and parse a raw deployment from a file.
 pub fn from_file(path: &Path) -> Result<RawDeployment, GraphError> {
-    let source = std::fs::read_to_string(path).map_err(|source| GraphError::Io {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|source| GraphError::Io {
+        path: path.to_path_buf(), source,
+    })?;
+    let mut source = String::new();
+    file.take((MAX_MANIFEST_BYTES + 1) as u64).read_to_string(&mut source).map_err(|source| GraphError::Io {
         path: path.to_path_buf(),
         source,
     })?;
     from_yaml_str(&source, path)
 }
+
+fn empty_configuration() -> serde_yaml::Value { serde_yaml::Value::Mapping(Default::default()) }
+
+/// Maximum UTF-8 manifest input bytes, checked before parsing.
+pub const MAX_MANIFEST_BYTES: usize = 1 << 20;

@@ -160,11 +160,11 @@ spec:
 fn registry_validation_resolves_every_wired_contract() {
     let raw = from_yaml_str(reference_manifest(), Path::new("registry-demo.yaml")).unwrap();
     let report = validate_with_registry(&raw, &registry());
-    assert!(report.is_valid(), "issues: {:?}", report.issues);
-    assert_eq!(report.resolved.len(), 2);
+    assert!(report.is_valid(), "issues: {:?}", report.issues());
+    assert_eq!(report.resolved().len(), 2);
     assert!(
         report
-            .resolved
+            .resolved()
             .iter()
             .all(|r| r.schema_id.starts_with("sha256:"))
     );
@@ -181,10 +181,10 @@ fn registry_validation_flags_an_unregistered_reference() {
     assert!(!report.is_valid());
     assert!(
         report
-            .issues
+            .issues()
             .iter()
             .any(|i| i.severity == Severity::Error && i.code == "unknown-contract"),
         "issues: {:?}",
-        report.issues
+        report.issues()
     );
 }

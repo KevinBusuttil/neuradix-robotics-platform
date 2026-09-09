@@ -6,6 +6,9 @@ use std::path::PathBuf;
 /// Errors from reading or parsing a deployment manifest.
 #[derive(Debug, thiserror::Error)]
 pub enum GraphError {
+    /// Manifest exceeds the admitted source byte limit.
+    #[error("deployment manifest exceeds 1 MiB")]
+    Limit,
     /// The manifest file could not be read.
     #[error("failed to read deployment `{path}`: {source}")]
     Io {

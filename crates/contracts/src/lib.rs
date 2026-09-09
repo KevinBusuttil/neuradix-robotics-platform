@@ -56,6 +56,7 @@ pub mod canonical;
 pub mod error;
 pub mod generate;
 pub mod model;
+pub mod layout;
 pub mod parse;
 pub mod validate;
 

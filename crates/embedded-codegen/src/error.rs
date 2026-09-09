@@ -3,6 +3,9 @@
 /// An error generating an embedded projection.
 #[derive(Debug, thiserror::Error)]
 pub enum CodegenError {
+    /// Scalar layout length overflow.
+    #[error("scalar layout size overflow")]
+    LayoutOverflow,
     /// A field type is not representable in the fixed-layout embedded wire.
     #[error("field `{field}` has type `{ty}`, which the embedded wire does not support")]
     UnsupportedType {
@@ -28,4 +31,13 @@ pub enum CodegenError {
         /// Selected target capability profile.
         target: &'static str,
     },
+}
+
+impl From<neuradix_contracts::layout::LayoutError> for CodegenError {
+    fn from(error: neuradix_contracts::layout::LayoutError) -> Self {
+        match error {
+            neuradix_contracts::layout::LayoutError::UnsupportedType { field, ty } => Self::UnsupportedType { field, ty },
+            neuradix_contracts::layout::LayoutError::Overflow => Self::LayoutOverflow,
+        }
+    }
 }
