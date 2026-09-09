@@ -130,7 +130,10 @@ fn heartbeat_child() {
                 } else {
                     worker.check_heartbeat().unwrap_err()
                 };
-                assert!(matches!(cause(&error), WorkerError::Protocol(_)), "{error:?}");
+                assert!(
+                    matches!(cause(&error), WorkerError::Protocol(_)),
+                    "{error:?}"
+                );
                 bounded(start, RESPONSE + RESERVE);
                 assert_eq!(worker.health(), HealthState::Unavailable);
                 assert_eq!(worker.last_failure(), Some(WorkerFailure::Protocol));
