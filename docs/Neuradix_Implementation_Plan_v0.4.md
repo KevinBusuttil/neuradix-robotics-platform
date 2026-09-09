@@ -159,6 +159,8 @@ Heartbeat implementation `58e2b224` passed 55 Python-crate tests/doctests, six S
 
 **Per-process resource increment (PR #13, unmerged):** Private validated CPU-time/virtual-address-space policy and a trusted native Linux launcher install/verify equal soft/hard limits before Python executes. Setup failures, observed exits, inherited bounds and replacement accounting are explicit. See [resource policy, migration and verification](implementation/WP-A05-Worker-Resource-Limits.md). WP-A05/ACC-09 remain **partial**: aggregate process-tree CPU/RSS, GPU limits, escaped-session containment, other OS qualification and deployment supervision remain open. Gate A remains open.
 
+Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324402352`: 75 Python-crate tests/doctests, six SDK tests, 88 command regressions, 307 workspace tests/doctests and two separate AVR checks, plus formatting, Clippy, migrated examples, four independent no_std checks and docs. Host/kernel and compiler checks do not supply physical acceptance evidence.
+
 <a name="wp-a06"></a>
 
 ## WP-A06: MCAP interchange and bounded recording

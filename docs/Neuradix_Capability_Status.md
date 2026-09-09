@@ -83,7 +83,12 @@ current-revision checks after final documentation/shared-observation changes.
 and remains unmerged. A required trusted native launcher installs and verifies
 private validated limits before Python executes; auditable setup and exit results
 preserve existing bounded supervision. Actual Linux enforcement and current
-verification are recorded in that evidence document. Aggregate process-tree
+verification are recorded in that evidence document. Implementation `4742a1ce`
+passed [PR CI 34324405885](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34324405885)
+and push CI `34324402352`: 75 Python-crate tests/doctests (16 resource scenarios),
+six SDK tests, 88 command regressions, 307 workspace tests/doctests, two separate
+AVR checks, four examples, four independent no_std checks, formatting, Clippy
+and docs. Counts exclude repeated subprocess reports. Aggregate process-tree
 CPU/RSS, GPU limits, escaped-session containment, other OS qualification and
 deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open.
 

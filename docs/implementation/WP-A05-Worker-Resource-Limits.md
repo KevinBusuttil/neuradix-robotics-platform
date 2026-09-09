@@ -160,9 +160,42 @@ restricted inherited environment. Tests use Cargo's matching binary path.
 
 ## Verification evidence
 
-Current-revision results will be recorded here after pinned CI completes.
-Local Rust/Cargo and AVR tools are unavailable. Six SDK tests passed locally
-under a 30-second external timeout. The actual kernel enforcement tests require
+Implementation `4742a1ce21400798d5eee8fed8f39c94dc9c9c3f` passed
+[PR CI 34324405885](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34324405885)
+and [push CI 34324402352](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34324402352).
+[PR #13](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/13)
+records current-revision checks after this evidence update and remains unmerged.
+CI used pinned Rust/Cargo **1.94.1**, locked dependencies, warnings denied,
+Linux GNU x86_64, Python 3.12.3, G++ 13.3.0 and AVR GCC 7.3.0.
+
+| Check | Result |
+|---|---|
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` | Passed |
+| `cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport` | 88 tests/doctests passed, preserving A04.1/A04.2/A04.3 regressions |
+| `timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python` | 75 top-level tests/doctests passed, including 16 resource, 16 heartbeat and 20 bounded-I/O subprocess scenarios |
+| `timeout --signal=TERM --kill-after=5s 30s python3 -B -m unittest discover -s python/tests -v` | Six SDK tests passed in CI and locally (local Python 3.12.13) |
+| `timeout --signal=TERM --kill-after=5s 180s cargo test --locked --workspace` | 307 top-level tests/doctests passed, including architecture checks; two AVR tests ignored here and executed below |
+| Four `cargo run --locked -p ...` examples: minimal-depth-stream, auv-depth-sim, embedded-propulsion, python-worker | Passed; helper built explicitly, Python example bounded to 30 seconds and reports installed defaults plus Reaped cleanup |
+| Independent `cargo check --locked -p <crate> --no-default-features` for time, command-core, embedded-transport, embedded-core | All four passed |
+| `cargo doc --locked --workspace --no-deps` | Passed |
+| `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture` | Both real AVR compiler conformance tests passed; no physical board execution |
+| Changed Markdown local links/anchors; `git diff --check` | Passed: seven Markdown files, 323 local references, zero errors |
+
+Earlier CI attempts failed formatting; output from the pinned formatter was
+applied. The first full resource run found two fixture races: the intentional
+exit could precede observation of its successful reply. The fixture now separates
+those events; the corrected revision passed both PR and push suites. No production
+heartbeat/deadline rule was relaxed to make the tests pass.
+
+**Unavailable locally:** Rust/rustup/Cargo and AVR tools. These checks were
+executed by pinned CI, not claimed as local results. Physical board/rig tests,
+musl/other-architecture resource qualification and aggregate/GPU enforcement
+remain unavailable or outside this increment. **Failed pre-existing check:**
+the full 47-file Markdown scan finds the same 32 missing archive references
+among 634 local links/anchors; unrelated archives were preserved.
+
+The actual kernel enforcement tests require
 an unprivileged Linux process, Python 3 and passwordless sudo for the explicit
 root-rejection negative test; missing prerequisites fail, never silently skip.
 That negative test runs only the trusted helper and never acknowledges target exec.
