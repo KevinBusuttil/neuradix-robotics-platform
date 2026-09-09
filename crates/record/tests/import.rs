@@ -380,7 +380,9 @@ fn import_child() {
                     _ => unreachable!(),
                 }
                 assert!(matches!(
-                    archive(&file(&records), limits).unwrap().try_into_recording(),
+                    archive(&file(&records), limits)
+                        .unwrap()
+                        .try_into_recording(),
                     Err(RecordError::UnsupportedMcap(_))
                 ));
             }
