@@ -247,7 +247,10 @@ mod linux {
                     Ok(true)
                 }
                 Ok(WaitStatus::Signaled(_, signal, core_dumped)) => {
-                    self.exit = Some(ObservedExit::Signal { signal: signal as i32, core_dumped });
+                    self.exit = Some(ObservedExit::Signal {
+                        signal: signal as i32,
+                        core_dumped,
+                    });
                     Ok(true)
                 }
                 Ok(_) => Ok(true),
@@ -259,7 +262,9 @@ mod linux {
                 Err(error) => Err(WorkerError::Io(error.into())),
             }
         }
-        pub fn observed_exit(&self) -> Option<ObservedExit> { self.exit }
+        pub fn observed_exit(&self) -> Option<ObservedExit> {
+            self.exit
+        }
         pub fn finish(&mut self, deadline: Instant) -> CleanupReport {
             if let Some(report) = self.report {
                 return report;
@@ -390,7 +395,9 @@ mod unsupported {
         pub fn has_exited(&mut self) -> Result<bool, WorkerError> {
             Err(WorkerError::UnsupportedPlatform)
         }
-        pub fn observed_exit(&self) -> Option<ObservedExit> { None }
+        pub fn observed_exit(&self) -> Option<ObservedExit> {
+            None
+        }
         pub fn finish(&mut self, _: Instant) -> CleanupReport {
             CleanupReport {
                 pid: 0,

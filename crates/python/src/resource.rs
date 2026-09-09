@@ -37,10 +37,18 @@ impl ResourceStage {
         }
     }
     pub(crate) fn from_str(value: &str) -> Option<Self> {
-        [Self::Configuration, Self::Platform, Self::Privileges,
-            Self::NoNewPrivileges, Self::Cpu, Self::AddressSpace,
-            Self::Verification, Self::Protocol]
-            .into_iter().find(|stage| stage.as_str() == value)
+        [
+            Self::Configuration,
+            Self::Platform,
+            Self::Privileges,
+            Self::NoNewPrivileges,
+            Self::Cpu,
+            Self::AddressSpace,
+            Self::Verification,
+            Self::Protocol,
+        ]
+        .into_iter()
+        .find(|stage| stage.as_str() == value)
     }
 }
 
@@ -65,14 +73,23 @@ impl ResourceLimits {
         if !(1..=86_400).contains(&cpu_seconds)
             || !(16_777_216..=1_099_511_627_776).contains(&address_space_bytes)
         {
-            return Err(WorkerError::InvalidConfig("invalid CPU/address-space limits"));
+            return Err(WorkerError::InvalidConfig(
+                "invalid CPU/address-space limits",
+            ));
         }
-        Ok(Self { cpu_seconds, address_space_bytes })
+        Ok(Self {
+            cpu_seconds,
+            address_space_bytes,
+        })
     }
     /// Integral CPU seconds across all threads for the lifetime of this process.
-    pub fn cpu_seconds(self) -> u64 { self.cpu_seconds }
+    pub fn cpu_seconds(self) -> u64 {
+        self.cpu_seconds
+    }
     /// Virtual address-space bytes. Resolved policy is rounded down to pages.
-    pub fn address_space_bytes(self) -> u64 { self.address_space_bytes }
+    pub fn address_space_bytes(self) -> u64 {
+        self.address_space_bytes
+    }
 
     /// Resolve page rounding and native representation without installing limits.
     /// This method never changes the calling process's resource limits.
@@ -83,15 +100,24 @@ impl ResourceLimits {
             use nix::sys::resource::RLIM_INFINITY;
             use nix::unistd::{SysconfVar, sysconf};
             let page = sysconf(SysconfVar::PAGE_SIZE)
-                .map_err(|error| WorkerError::ResourceSetup { stage: ResourceStage::Platform, errno: Some(error as i32) })?
+                .map_err(|error| WorkerError::ResourceSetup {
+                    stage: ResourceStage::Platform,
+                    errno: Some(error as i32),
+                })?
                 .and_then(|value| u64::try_from(value).ok())
                 .filter(|value| *value > 0)
-                .ok_or(WorkerError::ResourceSetup { stage: ResourceStage::Platform, errno: None })?;
+                .ok_or(WorkerError::ResourceSetup {
+                    stage: ResourceStage::Platform,
+                    errno: None,
+                })?;
             let bytes = self.address_space_bytes / page * page;
             if u128::from(bytes) >= u128::from(RLIM_INFINITY)
                 || u128::from(self.cpu_seconds) >= u128::from(RLIM_INFINITY)
             {
-                return Err(WorkerError::ResourceSetup { stage: ResourceStage::Platform, errno: None });
+                return Err(WorkerError::ResourceSetup {
+                    stage: ResourceStage::Platform,
+                    errno: None,
+                });
             }
             Self::new(self.cpu_seconds, bytes)
         }
@@ -125,9 +151,21 @@ mod tests {
     #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
     fn page_rounding_is_inward_and_does_not_change_supervisor_limits() {
         use nix::sys::resource::{Resource, getrlimit};
-        let before = (getrlimit(Resource::RLIMIT_CPU).unwrap(), getrlimit(Resource::RLIMIT_AS).unwrap());
+        let before = (
+            getrlimit(Resource::RLIMIT_CPU).unwrap(),
+            getrlimit(Resource::RLIMIT_AS).unwrap(),
+        );
         let policy = ResourceLimits::new(1, 268_435_457).unwrap();
-        assert_eq!(policy.for_current_platform().unwrap().address_space_bytes(), 268_435_456);
-        assert_eq!(before, (getrlimit(Resource::RLIMIT_CPU).unwrap(), getrlimit(Resource::RLIMIT_AS).unwrap()));
+        assert_eq!(
+            policy.for_current_platform().unwrap().address_space_bytes(),
+            268_435_456
+        );
+        assert_eq!(
+            before,
+            (
+                getrlimit(Resource::RLIMIT_CPU).unwrap(),
+                getrlimit(Resource::RLIMIT_AS).unwrap()
+            )
+        );
     }
 }

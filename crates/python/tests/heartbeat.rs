@@ -362,7 +362,10 @@ fn heartbeat_child() {
             until(supervisor.worker().unwrap().heartbeat_due());
             supervisor.poll().unwrap_err();
             for used in 1..=2 {
-                assert!(matches!(cause(&supervisor.poll().unwrap_err()), WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed));
+                assert!(matches!(
+                    cause(&supervisor.poll().unwrap_err()),
+                    WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed
+                ));
                 assert_eq!(supervisor.restarts_used(), used);
             }
             assert!(matches!(

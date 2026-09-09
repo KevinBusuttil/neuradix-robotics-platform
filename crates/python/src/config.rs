@@ -252,7 +252,9 @@ impl WorkerConfig {
     pub fn with_resource_launcher(mut self, path: impl Into<PathBuf>) -> Result<Self, WorkerError> {
         let path = path.into();
         if !path.is_absolute() {
-            return Err(WorkerError::InvalidConfig("resource launcher path must be absolute"));
+            return Err(WorkerError::InvalidConfig(
+                "resource launcher path must be absolute",
+            ));
         }
         self.resource_launcher = Some(path);
         Ok(self)
@@ -263,7 +265,9 @@ impl WorkerConfig {
         self
     }
     /// Requested immutable resource policy, before platform page rounding.
-    pub fn resources(&self) -> ResourceLimits { self.resources }
+    pub fn resources(&self) -> ResourceLimits {
+        self.resources
+    }
     /// Configured immutable responsiveness policy.
     pub fn heartbeat(&self) -> HeartbeatPolicy {
         self.heartbeat

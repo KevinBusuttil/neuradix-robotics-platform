@@ -22,7 +22,8 @@ use serde_json::json;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let manifest = env!("CARGO_MANIFEST_DIR");
-    let launcher = std::env::args_os().nth(1)
+    let launcher = std::env::args_os()
+        .nth(1)
         .ok_or("pass the installed neuradix-python-launcher path as the first argument")?;
     let launcher = std::fs::canonicalize(launcher)?;
     let config = WorkerConfig::new("python3", PathBuf::from(format!("{manifest}/detector.py")))
@@ -43,7 +44,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         (info.name.clone(), info.skip_policy.clone())
     };
     println!("  worker   : {name} (skip policy: {skip_policy})");
-    println!("  resources: {:?}", supervisor.worker().unwrap().applied_resources());
+    println!(
+        "  resources: {:?}",
+        supervisor.worker().unwrap().applied_resources()
+    );
     println!(
         "  startup  : {} (ready is not responsiveness proof)",
         supervisor.health()

@@ -24,8 +24,11 @@ mod linux {
         Ok(())
     }
     fn report_error((stage, errno): Failure) -> ExitCode {
-        let line = format!("{{\"kind\":\"limitError\",\"stage\":\"{}\",\"errno\":{}}}\n",
-            stage.as_str(), errno.map_or_else(|| "null".into(), |code| code.to_string()));
+        let line = format!(
+            "{{\"kind\":\"limitError\",\"stage\":\"{}\",\"errno\":{}}}\n",
+            stage.as_str(),
+            errno.map_or_else(|| "null".into(), |code| code.to_string())
+        );
         // Fits the minimum incoming line. Await ack/EOF to keep a diagnostic
         // waitable until its supervisor consumes it; no worker is ever executed.
         if line.len() <= 64 && std::io::stdout().write_all(line.as_bytes()).is_ok() {
@@ -38,29 +41,46 @@ mod linux {
         let file = std::fs::File::open("/proc/self/status")
             .map_err(|error| (ResourceStage::Privileges, error.raw_os_error()))?;
         let mut text = String::new();
-        file.take(16_385).read_to_string(&mut text)
+        file.take(16_385)
+            .read_to_string(&mut text)
             .map_err(|error| (ResourceStage::Privileges, error.raw_os_error()))?;
-        if text.len() > 16_384 { return Err(failure()); }
+        if text.len() > 16_384 {
+            return Err(failure());
+        }
         let mut seen = 0u8;
         for line in text.lines() {
-            let Some((name, value)) = line.split_once(':') else { continue; };
+            let Some((name, value)) = line.split_once(':') else {
+                continue;
+            };
             match name {
                 "Uid" => {
-                    let ids: Vec<u32> = value.split_whitespace()
-                        .map(str::parse).collect::<Result<_, _>>().map_err(|_| failure())?;
-                    if ids.len() != 4 || ids.contains(&0) { return Err(failure()); }
+                    let ids: Vec<u32> = value
+                        .split_whitespace()
+                        .map(str::parse)
+                        .collect::<Result<_, _>>()
+                        .map_err(|_| failure())?;
+                    if ids.len() != 4 || ids.contains(&0) {
+                        return Err(failure());
+                    }
                     seen |= 1;
                 }
                 "CapInh" | "CapPrm" | "CapEff" | "CapAmb" => {
                     if u64::from_str_radix(value.trim(), 16).map_err(|_| failure())? != 0 {
                         return Err(failure());
                     }
-                    seen |= match name { "CapInh" => 2, "CapPrm" => 4, "CapEff" => 8, _ => 16 };
+                    seen |= match name {
+                        "CapInh" => 2,
+                        "CapPrm" => 4,
+                        "CapEff" => 8,
+                        _ => 16,
+                    };
                 }
                 _ => {}
             }
         }
-        if seen != 31 { return Err(failure()); }
+        if seen != 31 {
+            return Err(failure());
+        }
         Ok(())
     }
     // rlim_t differs across supported Linux libc/word-size combinations.
@@ -68,14 +88,23 @@ mod linux {
     fn install(limits: ResourceLimits) -> Result<(), Failure> {
         unprivileged()?;
         set_no_new_privs().map_err(|error| (ResourceStage::NoNewPrivileges, Some(error as i32)))?;
-        let cpu: rlim_t = limits.cpu_seconds().try_into()
+        let cpu: rlim_t = limits
+            .cpu_seconds()
+            .try_into()
             .map_err(|_| (ResourceStage::Platform, None))?;
-        let memory: rlim_t = limits.address_space_bytes().try_into()
+        let memory: rlim_t = limits
+            .address_space_bytes()
+            .try_into()
             .map_err(|_| (ResourceStage::Platform, None))?;
-        for (resource, value, stage) in [(Resource::RLIMIT_CPU, cpu, ResourceStage::Cpu),
-            (Resource::RLIMIT_AS, memory, ResourceStage::AddressSpace)] {
+        for (resource, value, stage) in [
+            (Resource::RLIMIT_CPU, cpu, ResourceStage::Cpu),
+            (Resource::RLIMIT_AS, memory, ResourceStage::AddressSpace),
+        ] {
             setrlimit(resource, value, value).map_err(|error| (stage, Some(error as i32)))?;
-            if getrlimit(resource).map_err(|error| (ResourceStage::Verification, Some(error as i32)))? != (value, value) {
+            if getrlimit(resource)
+                .map_err(|error| (ResourceStage::Verification, Some(error as i32)))?
+                != (value, value)
+            {
                 return Err((ResourceStage::Verification, None));
             }
         }
@@ -83,8 +112,11 @@ mod linux {
     }
     fn prepare() -> Result<(Command, ResourceLimits), Failure> {
         let mut args = std::env::args_os().skip(1);
-        let mut number = || args.next().and_then(|value| value.to_str().and_then(|s| s.parse::<u64>().ok()))
-            .ok_or((ResourceStage::Configuration, None));
+        let mut number = || {
+            args.next()
+                .and_then(|value| value.to_str().and_then(|s| s.parse::<u64>().ok()))
+                .ok_or((ResourceStage::Configuration, None))
+        };
         let cpu = number()?;
         let bytes = number()?;
         if args.next() != Some(OsString::from("--")) {
@@ -99,14 +131,28 @@ mod linux {
         Ok((command, limits))
     }
     pub fn run() -> ExitCode {
-        let (mut command, limits) = match prepare() { Ok(value) => value, Err(error) => return report_error(error) };
+        let (mut command, limits) = match prepare() {
+            Ok(value) => value,
+            Err(error) => return report_error(error),
+        };
         // Prepare all ordinary allocations before lowering address space. Failure
         // to report/exec afterwards still cannot run the target without limits.
-        let confirmation = format!("{{\"kind\":\"limits-v1\",\"cpu\":{},\"as\":{}}}\n",
-            limits.cpu_seconds(), limits.address_space_bytes());
-        if confirmation.len() > 64 { return report_error((ResourceStage::Protocol, None)); }
-        if let Err(error) = install(limits) { return report_error(error); }
-        if std::io::stdout().write_all(confirmation.as_bytes()).is_err() || acknowledgement().is_err() {
+        let confirmation = format!(
+            "{{\"kind\":\"limits-v1\",\"cpu\":{},\"as\":{}}}\n",
+            limits.cpu_seconds(),
+            limits.address_space_bytes()
+        );
+        if confirmation.len() > 64 {
+            return report_error((ResourceStage::Protocol, None));
+        }
+        if let Err(error) = install(limits) {
+            return report_error(error);
+        }
+        if std::io::stdout()
+            .write_all(confirmation.as_bytes())
+            .is_err()
+            || acknowledgement().is_err()
+        {
             return ExitCode::from(125);
         }
         let error = command.exec();
@@ -119,7 +165,9 @@ mod linux {
 
 fn main() -> std::process::ExitCode {
     #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
-    { linux::run() }
+    {
+        linux::run()
+    }
     #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
     {
         eprintln!("bounded worker resource launch is unsupported on this platform");
