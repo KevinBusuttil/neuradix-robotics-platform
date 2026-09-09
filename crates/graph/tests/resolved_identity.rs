@@ -295,12 +295,12 @@ fn identity_child() {
             spec.components = (0..16)
                 .map(|i| {
                     let mut c = component.clone();
-                    c.name = format!("sensor{i}");
+                    c.name = Some(format!("sensor{i}"));
                     c
                 })
                 .collect();
             assert!(validate_with_registry(&a, &registry()).is_valid());
-            component.name = "extra".to_owned();
+            component.name = Some("extra".to_owned());
             component.configuration = serde_yaml::from_str("{}").unwrap();
             a.spec.as_mut().unwrap().components.push(component);
             let report = validate_with_registry(&a, &registry());
