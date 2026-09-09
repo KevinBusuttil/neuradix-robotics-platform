@@ -310,7 +310,10 @@ mod linux {
             let pid = Pid::from_raw(child.id() as i32);
             nix::sys::signal::kill(pid, Signal::SIGSTOP).unwrap();
             assert_eq!(permits.pop().unwrap().defer(child), CleanupState::Deferred);
-            assert!(matches!(Permit::acquire(), Err(WorkerError::ProcessCapacity)));
+            assert!(matches!(
+                Permit::acquire(),
+                Err(WorkerError::ProcessCapacity)
+            ));
             nix::sys::signal::kill(pid, Signal::SIGKILL).unwrap();
             let end = Instant::now() + Duration::from_secs(1);
             loop {

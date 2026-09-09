@@ -40,7 +40,9 @@ jobs:
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
       - name: Bounded Python worker regressions (external timeout)
-        run: timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python
+        run: |
+          timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python
+          timeout --signal=TERM --kill-after=5s 30s python3 -B -m unittest discover -s python/tests -v
 
       - name: Tests (workspace)
         run: timeout --signal=TERM --kill-after=5s 180s cargo test --locked --workspace
