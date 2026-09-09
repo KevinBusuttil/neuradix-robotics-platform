@@ -100,10 +100,10 @@ deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open
 Bounded uncompressed/LZ4 import, full semantic data preservation, checked legacy
 projection, independent Python fixtures and timed adversarial/memory workloads
 are implemented in unmerged [PR #14](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/14).
-Implementation `b5ef386` passed PR CI `34333001346`/push CI `34332997231`, including
-29 recording and 319 workspace tests/doctests, retained A04/A05 suites, SDK, examples,
-no_std and AVR checks. Streaming RSS was 4,352 KiB for 128 MiB of payload; archive
-RSS was 135,156 KiB, within 64/192 MiB budgets. The PR tracks final-revision checks; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
+Implementation `cb84c2b` passed PR CI `34333640806`/push CI `34333635985`, including
+30 recording and 321 workspace tests/doctests, retained A04/A05 suites, SDK, examples,
+no_std and AVR checks. Streaming RSS was 4,208 KiB for 128 MiB of payload; archive
+RSS was 135,088 KiB, within 64/192 MiB budgets. The PR tracks final-revision checks; see [A06 evidence](implementation/WP-A06-Bounded-MCAP-Import.md).
 This establishes neither decoded ROS interoperability nor writer/replay completion.
 WP-A06/ACC-08 remain partial; WP-A04, WP-A05 and Gate A retain their open criteria.
 

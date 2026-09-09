@@ -161,22 +161,21 @@ archives. The minimal-depth-stream example demonstrates the new boundary.
 
 ## Verification
 
-Implementation `b5ef38654f4a74ab301382ccefc831f10a940082` passed
-[PR CI 34333001346](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34333001346)
-and [push CI 34332997231](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34332997231).
+Implementation `cb84c2ba87635bbedd6e76cc43a863f9dfafbc2c` passed
+[PR CI 34333640806](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34333640806)
+and [push CI 34333635985](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34333635985).
 Host: Ubuntu 24.04 x86_64, Rust/Cargo 1.94.1, Python 3.12.3, locked dependencies,
-warnings denied. The PR records final-revision checks after evidence and expanded
-field/projection assertions; the counts below describe this exact tested commit.
+warnings denied. The PR records final-revision checks after the evidence-only update; the counts below describe this exact tested commit.
 
 Passed on that revision:
 
 - `cargo fmt --all --check`; workspace/all-target Clippy with `-D warnings`.
 - Independent fixture regeneration with pinned Python producer/decompressors.
 - `cargo test --locked -p neuradix-record` under 120-second outer timeout:
-  29 top-level tests/doctests, including ten timed adversarial scenarios.
+  30 top-level tests/doctests, including eleven timed adversarial scenarios.
 - 88 focused A04 command regressions; 75 Python-crate tests/doctests under a
   120-second timeout, plus six SDK tests under a 30-second timeout.
-- 319 workspace top-level tests/doctests under a 180-second timeout; includes
+- 321 workspace top-level tests/doctests under a 180-second timeout; includes
   architecture, CLI generic inspection/rejection and historical compatibility.
 - Four affected/integrated examples: minimal-depth-stream, auv-depth-sim,
   embedded-propulsion and bounded Python worker/launcher.
@@ -218,12 +217,12 @@ Measured peak RSS in the referenced PR run:
 
 | Import mode | Message payload workload | Peak RSS | Budget |
 |---|---:|---:|---:|
-| Streaming | 8 MiB / 128 messages | 4,276 KiB | 64 MiB |
-| Streaming | 128 MiB / 2,048 messages | 4,352 KiB | 64 MiB |
-| Archive | 128 MiB / 2,048 messages | 135,156 KiB | 192 MiB |
-| Archive rejecting at 8 MiB retained budget | 128 MiB available | 11,924 KiB | 64 MiB |
+| Streaming | 8 MiB / 128 messages | 4,200 KiB | 64 MiB |
+| Streaming | 128 MiB / 2,048 messages | 4,208 KiB | 64 MiB |
+| Archive | 128 MiB / 2,048 messages | 135,088 KiB | 192 MiB |
+| Archive rejecting at 8 MiB retained budget | 128 MiB available | 11,948 KiB | 64 MiB |
 
-Streaming growth was 76 KiB, below the declared 12 MiB tolerance. The large file
+Streaming growth was 8 KiB, below the declared 12 MiB tolerance. The large file
 was 766,901 bytes and decoded 134,281,253 chunk bytes; maximum chunk 1,049,109
 bytes, persistent accounted state 1,089 bytes, archive charge 135,313,145 bytes.
 This intentionally compressible expansion workload demonstrates bounded streaming
