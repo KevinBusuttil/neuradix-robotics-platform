@@ -17,6 +17,19 @@ class Stream:
 
 
 class WorkerLimits(unittest.TestCase):
+    def test_ping_is_separate_from_handler_and_fits_minimum_limit(self):
+        requests = [{"kind": "ping", "seq": seq} for seq in (1, 18446744073709551615)]
+        data = b"".join(json.dumps(value).encode() + b"\n" for value in requests)
+        output = Stream()
+        settings = {"NEURADIX_WORKER_MAX_INPUT_BYTES": "64", "NEURADIX_WORKER_MAX_OUTPUT_BYTES": "64", "NEURADIX_WORKER_CONFIG": "null"}
+        calls = []
+        with patch.dict(os.environ, settings), patch.object(sys, "stdin", Stream(data)), patch.object(sys, "stdout", output):
+            worker.run(lambda payload, config: calls.append(payload), name="test")
+        lines = output.buffer.getvalue().splitlines(keepends=True)
+        self.assertTrue(all(len(line) <= 64 for line in lines))
+        self.assertEqual([json.loads(line) for line in lines[1:]], [{"kind": "pong", "seq": seq} for seq in (1, 18446744073709551615)])
+        self.assertEqual(calls, [])
+
     def test_exact_output_and_oversize_emit_no_partial_line(self):
         output = Stream()
         with patch.dict(os.environ, {"NEURADIX_WORKER_MAX_OUTPUT_BYTES": "64"}), patch.object(sys, "stdout", output):

@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A05 bounded worker I/O branch.** This register is the current
+**Updated for the WP-A05 heartbeat branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -50,21 +50,34 @@ distinguishes corrected CI failures, unavailable hardware and archived link debt
 No physical hardware, durable-storage or board timing/resource validation is
 claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
 
-## WP-A05 bounded worker I/O branch
+## WP-A05 integrated I/O and heartbeat branch
 
 [PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11) adds
 validated protocol/storage limits, one deadline with cleanup reserve, Linux
 nonblocking stdio, process-group cleanup and bounded deferred reaping. Failed
 launch attempts consume the restart budget. [Implementation evidence](implementation/WP-A05-Bounded-Worker-IO.md)
 records API migration, exact checks, OS scope and remaining acceptance. The PR
-is unmerged; implementation does not establish integration or full containment.
+merged as `e12420a` after fixing small-limit SDK error reporting in `063d0d77`.
+[Current PR CI 34318590924](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34318590924)
+passed, including five SDK tests. This establishes integration of that bounded
+increment, not full containment. The following counts retain their original revision.
 Implementation `08d0f987` passed [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
 and its push run: 32 Python-crate tests/doctests, four separate SDK tests,
 88 command regressions, 264 workspace tests/doctests, two separate AVR checks,
 four examples, four independent no_std checks, formatting, Clippy and docs.
 Nested subprocess reports are not double-counted; focused tests overlap workspace.
-Heartbeat policy, comprehensive resource limits, other OS backends and deployment
-supervision remain open. WP-A05 and ACC-09 are partial; Gate A stays open.
+[PR #12](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/12) adds
+[heartbeat health and bounded recovery](implementation/WP-A05-Worker-Heartbeat.md)
+and remains unmerged. Private validated monotonic due/expiry windows, idle probes,
+matching replies, latched failure reasons and restart accounting are implemented
+in that branch; final verification is tracked in its evidence document.
+Implementation `58e2b224` passed [CI 34320430371](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320430371)
+and its push run: 55 Python-crate tests/doctests, six SDK tests, 88 command
+regressions, 287 workspace tests/doctests, two separate AVR checks, four examples,
+four independent no_std checks, formatting, Clippy and docs. The PR records
+current-revision checks after final documentation/shared-observation changes.
+Comprehensive resource limits, escaped-session containment, other OS backends and
+deployment supervision remain open. WP-A05/ACC-09 are partial; Gate A stays open.
 
 ## Capability inventory
 
@@ -74,7 +87,7 @@ supervision remain open. WP-A05 and ACC-09 are partial; Gate A stays open.
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
 | Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
-| Python | JSON-line supervised worker process and failure tests | A05 branch bounds Linux I/O/cleanup; heartbeat, comprehensive resources and deployment remain: A05/B07 |
+| Python | Bounded Linux JSON-line worker I/O, cleanup, admission/reaper and failure tests through PR #11 | Heartbeat/recovery is unmerged in PR #12; comprehensive resources, OS qualification and deployment remain: A05/B07 |
 | Recording/replay | Native recording and digest, handwritten MCAP subset; processor re-execution exists in a runtime test | Independent MCAP interchange and arbitrary program replay: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
@@ -110,7 +123,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
 | Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: trusted startup/board integration, physical safe response and timing/resource evidence remain open |
-| Worker bounds | This branch replaces blocking write/wait and unbounded line/channel storage with bounded Linux I/O/cleanup | A05 | Partial, unmerged: heartbeat, comprehensive resources and additional OS/deployment work remain |
+| Worker bounds | PR #11 integrates bounded Linux I/O/cleanup; PR #12 adds heartbeat/recovery | A05 | Partial: heartbeat PR unmerged; comprehensive resources and additional OS/deployment work remain |
 | MCAP subset | Private encodings/metadata and unsupported chunks can fail or omit external data | A06 | Open |
 | Replay CLI scope | `replay run` verifies the record digest; it does not execute a changed graph/controller | A07 | Existing behavior; extend through an explicit migration |
 | Deployment resolution/feedback | Identity excludes resolved behavior; cycle/role validation is not runtime enforcement | A08 | Open |

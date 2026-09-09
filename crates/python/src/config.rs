@@ -135,6 +135,49 @@ impl Default for Timeouts {
     }
 }
 
+/// Immutable responsiveness policy, measured only by the supervisor's Instant.
+/// Cleanup uses the separate Timeouts reserve. Neither interval nor response
+/// budget can be zero or greater than 60 seconds.
+///
+/// ```compile_fail
+/// use neuradix_python::HeartbeatPolicy;
+/// let mut policy = HeartbeatPolicy::default();
+/// policy.interval = std::time::Duration::ZERO;
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct HeartbeatPolicy {
+    interval: Duration,
+    response: Duration,
+}
+impl HeartbeatPolicy {
+    /// Set the interval after a confirmation (or initial handshake) and the
+    /// response-processing budget after that due time. Equality expires.
+    pub fn new(interval: Duration, response: Duration) -> Result<Self, WorkerError> {
+        if [interval, response]
+            .into_iter()
+            .any(|value| value < Duration::from_millis(1) || value > Duration::from_secs(60))
+        {
+            return Err(WorkerError::InvalidConfig(
+                "heartbeat durations must be 1ms..=60s",
+            ));
+        }
+        Ok(Self { interval, response })
+    }
+    /// Time from the last confirmation (or handshake) until a probe is due.
+    pub fn interval(self) -> Duration {
+        self.interval
+    }
+    /// I/O budget from due time; cleanup reserve is additional.
+    pub fn response(self) -> Duration {
+        self.response
+    }
+}
+impl Default for HeartbeatPolicy {
+    fn default() -> Self {
+        Self::new(Duration::from_secs(5), Duration::from_secs(1)).expect("valid defaults")
+    }
+}
+
 /// Launch configuration. Operational invariants can only be changed through
 /// validated value types. Launch arguments and the executable are trusted input.
 #[derive(Debug, Clone)]
@@ -147,6 +190,7 @@ pub struct WorkerConfig {
     pub(crate) skip_inputs: bool,
     pub(crate) limits: IoLimits,
     pub(crate) timeouts: Timeouts,
+    pub(crate) heartbeat: HeartbeatPolicy,
 }
 impl WorkerConfig {
     /// Configure an interpreter and script with bounded defaults.
@@ -160,6 +204,7 @@ impl WorkerConfig {
             skip_inputs: true,
             limits: IoLimits::default(),
             timeouts: Timeouts::default(),
+            heartbeat: HeartbeatPolicy::default(),
         }
     }
     /// Set trusted structured startup configuration; launch bounds its encoding.
@@ -191,6 +236,15 @@ impl WorkerConfig {
     pub fn with_timeouts(mut self, timeouts: Timeouts) -> Self {
         self.timeouts = timeouts;
         self
+    }
+    /// Install a validated responsiveness policy. Poll even when no inputs arrive.
+    pub fn with_heartbeat(mut self, heartbeat: HeartbeatPolicy) -> Self {
+        self.heartbeat = heartbeat;
+        self
+    }
+    /// Configured immutable responsiveness policy.
+    pub fn heartbeat(&self) -> HeartbeatPolicy {
+        self.heartbeat
     }
     /// Validate a new total request timeout. This builder now returns a Result.
     pub fn with_request_timeout(mut self, timeout: Duration) -> Result<Self, WorkerError> {

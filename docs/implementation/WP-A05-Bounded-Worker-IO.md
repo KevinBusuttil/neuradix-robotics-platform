@@ -1,8 +1,10 @@
 # WP-A05: bounded Python worker I/O and cleanup
 
 This is one bounded increment of **WP-A05: Bounded extension processes**.
-WP-A05 and ACC-09 remain partial: heartbeat policy, comprehensive resource
-enforcement, other OS backends and deployment supervision are deferred.
+WP-A05 and ACC-09 remain partial. This document records the I/O increment;
+the subsequent [heartbeat increment](WP-A05-Worker-Heartbeat.md) adds idle
+responsiveness policy. Comprehensive resource enforcement, other OS backends
+and deployment supervision remain deferred.
 WP-A04 remains partial, ACC-05 incomplete and Gate A open while physical response,
 board restart/timing, durable startup and resource evidence remain unavailable.
 
@@ -105,7 +107,9 @@ Call the worker API outside the conventional local-control executor.
 Sequences begin at 1 and are consumed when a write is attempted. A terminal
 failure prevents reuse of a partly written session. Sequence checks identify
 responses; they are not authentication and confer no command authority.
-`Healthy` still means an available running process, not heartbeat/handler health.
+At this I/O baseline, `Healthy` meant an available running process. The
+[subsequent heartbeat policy](WP-A05-Worker-Heartbeat.md) replaces that meaning
+with matching-reply responsiveness and requires periodic supervision.
 
 ### Cleanup and OS scope
 
@@ -164,7 +168,10 @@ Implementation [`08d0f987`](https://github.com/KevinBusuttil/neuradix-robotics-p
 passed both [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
 and [push CI 34293816722](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293816722).
 [PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11) records
-checks on the final documentation revision and remains unmerged for review.
+checks on the final documentation revision. It subsequently merged as
+`e12420a` after correcting SDK error-envelope sizing in `063d0d77` and passing
+[current PR CI 34318590924](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34318590924),
+including five SDK tests. Historical counts below belong to the named earlier revision.
 CI used pinned Rust/Cargo **1.94.1**, locked dependencies, warnings denied,
 G++ 13.3.0, Python 3.12.3 and AVR GCC 7.3.0.
 
@@ -214,7 +221,8 @@ not physical timing qualification or measured worst-case execution times.
 
 ## Remaining acceptance
 
-General heartbeat/idle responsiveness policy, comprehensive CPU/memory/GPU
+The [subsequent heartbeat increment](WP-A05-Worker-Heartbeat.md) addresses
+heartbeat/idle responsiveness. Comprehensive CPU/memory/GPU
 enforcement, escaped-session containment, additional OS backends and deployment
 supervision remain WP-A05/B07 work. ACC-09 cannot close on I/O tests alone.
 Physical control response, board timer/reset behavior and resource qualification

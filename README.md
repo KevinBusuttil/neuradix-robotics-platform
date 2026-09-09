@@ -49,7 +49,7 @@ Current limits:
 - `replay run` verifies recorded-data integrity; the runtime lockstep test separately re-executes a processor. An arbitrary changed deployment graph has no CLI runner yet.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
-- This A05 branch implements bounded Linux Python-worker stdio and cleanup. Heartbeat health, comprehensive resource enforcement, other OS backends and deployment supervision remain open; process separation is not a security sandbox.
+- PR #11 integrates bounded Linux Python-worker stdio and cleanup. This A05 branch adds [heartbeat health and bounded recovery](docs/implementation/WP-A05-Worker-Heartbeat.md), requiring periodic supervision outside local control. Comprehensive resource enforcement, other OS backends and deployment supervision remain open; process separation is not a security sandbox.
 - MCAP is a private subset. Serial framing does not negotiate wire identity; recording migration and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
