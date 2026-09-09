@@ -251,6 +251,17 @@ fn identity_child() {
                 "a".repeat(neuradix_graph::model::MAX_MANIFEST_BYTES - text.len() - 1)
             );
             assert!(from_yaml_str(&exact, Path::new("exact")).is_ok());
+            let file =
+                std::env::temp_dir().join(format!("neuradix-manifest-{}.yaml", std::process::id()));
+            std::fs::write(&file, &exact).unwrap();
+            assert!(neuradix_graph::from_file(&file).is_ok());
+            // The detection byte can split a UTF-8 scalar; size still wins over decoding.
+            std::fs::write(&file, exact.clone() + "é").unwrap();
+            assert!(matches!(
+                neuradix_graph::from_file(&file),
+                Err(neuradix_graph::GraphError::Limit)
+            ));
+            std::fs::remove_file(file).unwrap();
             assert!(from_yaml_str(&(exact + "a"), Path::new("over")).is_err());
             let dup = text.replace(
                 "executionClass: interactive",
@@ -268,20 +279,38 @@ fn identity_child() {
             let empty = from_yaml_str("apiVersion: deploy.neuradix.io/v1alpha1\nkind: RobotDeployment\nmetadata: {name: empty}\nspec: {}", Path::new("empty")).unwrap();
             // Independent Python 3.11 json.dumps(sort_keys=True,separators=(',',':'))
             // + hashlib.sha256 over the documented empty resolved-v2 descriptor.
-            assert_eq!(validate_with_registry(&empty, &ContractRegistry::new()).resolved_identity(), Some("neuradix.deployment.resolved.v2:sha256:8dfecbb59620f7ce755aab5afee5247feda95a6c238e778855af9b621067602e"));
+            assert_eq!(
+                validate_with_registry(&empty, &ContractRegistry::new()).resolved_identity(),
+                Some(
+                    "neuradix.deployment.resolved.v2:sha256:8dfecbb59620f7ce755aab5afee5247feda95a6c238e778855af9b621067602e"
+                )
+            );
             let mut a = raw();
             let spec = a.spec.as_mut().unwrap();
             let mut component = spec.components[0].clone();
-            component.configuration = serde_yaml::from_str(&format!("{{x: '{}' }}", "a".repeat(Config::MAX_BYTES - 8))).unwrap();
+            component.configuration =
+                serde_yaml::from_str(&format!("{{x: '{}' }}", "a".repeat(Config::MAX_BYTES - 8)))
+                    .unwrap();
             spec.connections.clear();
-            spec.components = (0..16).map(|i| { let mut c = component.clone(); c.name = format!("sensor{i}"); c }).collect();
+            spec.components = (0..16)
+                .map(|i| {
+                    let mut c = component.clone();
+                    c.name = format!("sensor{i}");
+                    c
+                })
+                .collect();
             assert!(validate_with_registry(&a, &registry()).is_valid());
             component.name = "extra".to_owned();
             component.configuration = serde_yaml::from_str("{}").unwrap();
             a.spec.as_mut().unwrap().components.push(component);
             let report = validate_with_registry(&a, &registry());
             assert!(report.resolved_identity().is_none());
-            assert!(report.issues().iter().any(|i| i.code == "configuration-total-limit"));
+            assert!(
+                report
+                    .issues()
+                    .iter()
+                    .any(|i| i.code == "configuration-total-limit")
+            );
             let unknown = "apiVersion: deploy.neuradix.io/v1alpha1\nkind: RobotDeployment\nmetadata: {name: empty}\nspec: {unknown: ignored}";
             assert!(from_yaml_str(unknown, Path::new("unknown")).is_err());
         }

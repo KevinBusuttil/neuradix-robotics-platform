@@ -296,13 +296,20 @@ pub fn from_file(path: &Path) -> Result<RawDeployment, GraphError> {
         path: path.to_path_buf(),
         source,
     })?;
-    let mut source = String::new();
+    let mut bytes = Vec::new();
     file.take((MAX_MANIFEST_BYTES + 1) as u64)
-        .read_to_string(&mut source)
+        .read_to_end(&mut bytes)
         .map_err(|source| GraphError::Io {
             path: path.to_path_buf(),
             source,
         })?;
+    if bytes.len() > MAX_MANIFEST_BYTES {
+        return Err(GraphError::Limit);
+    }
+    let source = String::from_utf8(bytes).map_err(|error| GraphError::Io {
+        path: path.to_path_buf(),
+        source: std::io::Error::new(std::io::ErrorKind::InvalidData, error),
+    })?;
     from_yaml_str(&source, path)
 }
 
