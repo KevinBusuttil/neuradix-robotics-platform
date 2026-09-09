@@ -67,6 +67,25 @@ def log(message):
     sys.stderr.flush()
 
 
+def _send_error(seq, message):
+    """Fit diagnostics to the encoded envelope, including UTF-8 and newline."""
+    limit = _limit("NEURADIX_WORKER_MAX_OUTPUT_BYTES")
+    response = {"kind": "error", "seq": seq, "message": ""}
+    remaining = limit - len(json.dumps(response, separators=(",", ":")).encode()) - 1
+    prefix = []
+    # Keep diagnostics small even with a large configured wire limit. A valid
+    # u64 sequence and empty error envelope fit the minimum 64-byte limit.
+    for char in str(message)[:128]:
+        char = char.encode("utf-8", errors="replace").decode("utf-8")
+        size = len(json.dumps(char, ensure_ascii=False).encode("utf-8")) - 2
+        if size > remaining:
+            break
+        prefix.append(char)
+        remaining -= size
+    response["message"] = "".join(prefix)
+    _send(response)
+
+
 def run(handler, name="python-worker", skip_policy="may-skip"):
     """Run the worker loop, dispatching each request payload to ``handler``.
 
@@ -112,7 +131,7 @@ def run(handler, name="python-worker", skip_policy="may-skip"):
                 result = handler(message.get("payload"), config)
                 _send({"kind": "response", "seq": seq, "payload": result})
             except Exception as exc:  # noqa: BLE001 - report any handler error
-                _send({"kind": "error", "seq": seq, "message": str(exc)[:128]})
+                _send_error(seq, exc)
             continue
 
-        _send({"kind": "error", "seq": seq, "message": f"unknown kind: {kind}"})
+        _send_error(seq, f"unknown kind: {kind}")

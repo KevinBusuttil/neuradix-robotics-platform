@@ -152,6 +152,14 @@ execution is evidence here; musl/other architecture qualification remains open.
 
 ## Verification evidence
 
+Prerequisite review found that a fixed 128-character handler diagnostic could
+exceed a valid 64-byte output budget and terminate the SDK. Error reporting now
+fits the complete encoded envelope, sequence, UTF-8/JSON escaping and newline.
+The independently timed SDK suite passes **5 tests**, including continued
+request processing after long ASCII, multibyte, escaped and surrogate errors
+at both sequence 1 and u64 maximum. Current-revision CI is recorded on PR #11;
+the historical implementation results below remain attributed to their revision.
+
 Implementation [`08d0f987`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/08d0f987a4d7539e11b8ba9402ab99891beb68f5)
 passed both [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
 and [push CI 34293816722](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293816722).
