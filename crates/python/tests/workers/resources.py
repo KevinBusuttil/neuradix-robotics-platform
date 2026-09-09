@@ -6,6 +6,7 @@ import resource
 import signal
 import subprocess
 import sys
+import time
 
 import neuradix_worker
 
@@ -42,6 +43,8 @@ for raw in sys.stdin.buffer:
             pass
     if action in ("exit", "signal"):
         send({"kind": "response", "seq": seq, "payload": "exiting"})
+        # Separate successful request observation from the exit being audited.
+        time.sleep(0.1)
         if action == "exit":
             os._exit(42)
         os.kill(os.getpid(), signal.SIGKILL)
@@ -78,7 +81,6 @@ for raw in sys.stdin.buffer:
     elif action == "environment":
         result = {key: os.environ.get(key) for key in ("LD_PRELOAD", "LD_LIBRARY_PATH", "HOME", "NEURADIX_WORKER_CONFIG")}
     elif action == "idle":
-        import time
         time.sleep(1.1)
         result = limits()
     elif action == "forge-setup":
