@@ -15,6 +15,13 @@ struct Deadline {
     end: Instant,
     reserve: Duration,
 }
+
+fn handshake_error(error: WorkerError) -> WorkerError {
+    match error {
+        WorkerError::Timeout => WorkerError::HandshakeTimeout,
+        other => other,
+    }
+}
 impl Deadline {
     fn new(total: Duration, reserve: Duration) -> Result<Self, WorkerError> {
         let start = Instant::now();
@@ -92,7 +99,8 @@ impl PythonWorker {
             None,
             config.limits.outgoing_bytes(),
             deadline.io,
-        )?;
+        )
+        .map_err(handshake_error)?;
         let mut command = Command::new(&config.interpreter);
         command
             .arg(&config.script)
@@ -121,7 +129,7 @@ impl PythonWorker {
             "NEURADIX_WORKER_MAX_OUTPUT_BYTES",
             config.limits.incoming_bytes().to_string(),
         );
-        deadline.check()?;
+        deadline.check().map_err(handshake_error)?;
         let process = Process::spawn(&mut command, deadline.cleanup_end())?;
         let mut worker = Self {
             process,
@@ -156,12 +164,7 @@ impl PythonWorker {
             deadline.check()
         });
         if let Err(error) = handshake {
-            let error = if matches!(error, WorkerError::Timeout) {
-                WorkerError::HandshakeTimeout
-            } else {
-                error
-            };
-            return Err(worker.fail(error, &deadline));
+            return Err(worker.fail(handshake_error(error), &deadline));
         }
         Ok(worker)
     }

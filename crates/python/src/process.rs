@@ -40,8 +40,9 @@ mod linux {
     use std::os::fd::AsFd;
     use std::os::unix::process::CommandExt;
     use std::process::{Child, ChildStdin, ChildStdout, Command};
-    use std::sync::mpsc::{self, Receiver, SyncSender};
-    use std::sync::{LazyLock, Mutex};
+    use std::sync::LazyLock;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::mpsc::{self, SyncSender};
     use std::time::{Duration, Instant};
 
     use nix::errno::Errno;
@@ -55,18 +56,12 @@ mod linux {
 
     // Live children and deferred reaping share the same admission budget.
     const PROCESS_SLOTS: usize = 32;
+    static ADMITTED: AtomicUsize = AtomicUsize::new(0);
     struct Reaper {
-        available: Mutex<Receiver<()>>,
-        release: SyncSender<()>,
         pending: SyncSender<Child>,
     }
     static REAPER: LazyLock<io::Result<Reaper>> = LazyLock::new(|| {
-        let (release, available) = mpsc::sync_channel(PROCESS_SLOTS);
         let (pending, rx) = mpsc::sync_channel::<Child>(PROCESS_SLOTS);
-        for _ in 0..PROCESS_SLOTS {
-            release.try_send(()).expect("empty admission queue");
-        }
-        let free = release.clone();
         std::thread::Builder::new()
             .name("neuradix-child-reaper".into())
             .spawn(move || {
@@ -79,23 +74,19 @@ mod linux {
                     }
                     children.retain_mut(|child| match child.try_wait() {
                         Ok(Some(_)) => {
-                            let _ = free.try_send(());
+                            ADMITTED.fetch_sub(1, Ordering::AcqRel);
                             false
                         }
                         // External reaping violates ownership, but do not leak a slot.
                         Err(e) if e.raw_os_error() == Some(Errno::ECHILD as i32) => {
-                            let _ = free.try_send(());
+                            ADMITTED.fetch_sub(1, Ordering::AcqRel);
                             false
                         }
                         _ => true,
                     });
                 }
             })?;
-        Ok(Reaper {
-            available: Mutex::new(available),
-            release,
-            pending,
-        })
+        Ok(Reaper { pending })
     });
 
     struct Permit {
@@ -103,18 +94,27 @@ mod linux {
     }
     impl Permit {
         fn acquire() -> Result<Self, WorkerError> {
-            let reaper = REAPER.as_ref().map_err(|e| {
+            REAPER.as_ref().map_err(|e| {
                 WorkerError::Io(io::Error::new(
                     e.kind(),
                     "cannot start bounded child reaper",
                 ))
             })?;
-            let queue = reaper
-                .available
-                .try_lock()
-                .map_err(|_| WorkerError::ProcessCapacity)?;
-            queue.try_recv().map_err(|_| WorkerError::ProcessCapacity)?;
-            Ok(Self { active: true })
+            // No try-lock rejection during ordinary concurrent starts. Bound
+            // contention retries as well as the number of reserved children.
+            for _ in 0..PROCESS_SLOTS {
+                let count = ADMITTED.load(Ordering::Acquire);
+                if count == PROCESS_SLOTS {
+                    return Err(WorkerError::ProcessCapacity);
+                }
+                if ADMITTED
+                    .compare_exchange(count, count + 1, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+                {
+                    return Ok(Self { active: true });
+                }
+            }
+            Err(WorkerError::ProcessCapacity)
         }
         fn defer(mut self, child: Child) -> CleanupState {
             // The token remains reserved until the reaper observes actual exit.
@@ -134,11 +134,7 @@ mod linux {
     impl Drop for Permit {
         fn drop(&mut self) {
             if self.active {
-                let _ = REAPER
-                    .as_ref()
-                    .expect("admitted reaper")
-                    .release
-                    .try_send(());
+                ADMITTED.fetch_sub(1, Ordering::AcqRel);
             }
         }
     }
@@ -323,6 +319,20 @@ mod linux {
                 }
                 assert!(Instant::now() < end, "reaper did not release exited child");
                 pause_until(end);
+            }
+            drop(permits);
+            for _ in 0..8 {
+                let barrier = std::sync::Barrier::new(16);
+                std::thread::scope(|scope| {
+                    for _ in 0..16 {
+                        scope.spawn(|| {
+                            barrier.wait();
+                            let result = Permit::acquire();
+                            barrier.wait();
+                            drop(result.expect("capacity exists during concurrent admission"));
+                        });
+                    }
+                });
             }
         }
     }
