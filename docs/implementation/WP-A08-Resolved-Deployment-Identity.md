@@ -185,7 +185,7 @@ link failures are reported separately and not repaired in this increment.
 ## Remaining acceptance
 
 At this increment, legal delayed feedback and instantaneous-loop distinctions were still missing; the [delayed-feedback follow-up](WP-A08-Delayed-Feedback-Validation.md) implements their offline validation. WP-A08 remains partial for
-runtime role/capability/physical-driver enforcement remain open. Existing graph
+runtime role/capability/physical-driver enforcement. Existing graph
 role checks are declarative only. A07/ACC-07 remain partial for broader execution
 and closed-loop evidence; A04/ACC-05, A05/ACC-09, A06/ACC-08 and Gate A retain their
 missing acceptance. This content identity increment does not close those gaps.

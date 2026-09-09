@@ -1,6 +1,6 @@
 # WP-A08 — Explicit delayed-feedback topology validation
 
-Status: implemented on `codex/a08-delayed-feedback-validation`; integration pending.
+Status: implemented on `codex/a08-delayed-feedback-validation`; [PR #18](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/18) open and unmerged.
 WP-A08 remains partial and Gate A open. This is offline validation, not execution.
 
 ## Baseline and defect
@@ -138,9 +138,37 @@ and instantaneous loops, mixed/disconnected cycles, deterministic bounded witnes
 1024-tick/65536-slot/4096-edge boundaries, invalid syntax, conflicts, seed obligations,
 resolved v3 ordering/change behavior and historical v2 pins.
 
-Exact verification results will be recorded here after CI completes. Local Rust,
-Cargo and AVR tools are unavailable in the editing environment; pinned GitHub CI
-supplies compiler checks. Host/compiler tests are not physical hardware validation.
+Implementation revision `86a7a792a771429ffa3380a60871f4d91414fcbd` passed
+[PR CI 34403559830](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34403559830).
+PR #18 records the final-head checks after the added delayed-edge policy assertions
+and v3 golden pin. The run used Rust/Cargo 1.94.1 and locked dependencies; there
+are no dependency or lockfile additions.
+
+| Check | Result |
+|---|---|
+| `cargo fmt --all --check`; Clippy workspace/all-targets with warnings denied | Passed |
+| Graph tests/doctests plus CLI graph suite, with external 60/30-second limits | 39 + 6 passed |
+| Resolved identity and delayed-feedback executable examples | Passed |
+| Workspace tests/doctests, external 180-second limit | 363 passed (focused counts are subsets, not additional totals) |
+| Preserved A04 command/safety/embedded conformance | 88 passed |
+| Preserved A05 bounded I/O/heartbeat/resource tests; SDK | 75 Rust tests/doctests; six Python tests passed |
+| Preserved A07 runner and executable example | 20 tests/doctests and example passed |
+| Preserved A06 import/export, independently pinned Python reader/fixtures | 44 Rust tests/doctests; independent payload/schema/metadata/time/CRC checks passed |
+| MCAP memory regression budgets | Stream import 4,156/4,208 KiB for 8/128 MiB against 64 MiB; materialization 135,104 KiB against 192 MiB; rejection 11,920 KiB against 64 MiB; writer 3,012/2,860 KiB against 64 MiB |
+| Migrated control/embedded/Python examples | Passed |
+| Independent no-default-features checks: time, command-core, embedded-transport, embedded-core | All four passed |
+| Separate actual ATmega328P ABI/compiler conformance | Two passed |
+| `cargo doc --locked --workspace --no-deps` | Passed |
+| Local SDK and independent fixture regeneration | Six SDK tests and exact fixture hashes passed; mcap 1.3.1, lz4 4.4.4, zstandard 0.23.0 |
+| Changed Markdown links/anchors | Passed; eight documents scanned |
+| Full Markdown inventory | 32 pre-existing archived missing-link failures, unchanged; archive repairs deferred |
+
+Initial CI 34403212092 failed formatting and a new test fixture that retained an
+unconnected requirement after removing its edge. Pinned formatter output and the
+fixture were corrected; no gate was waived. Local Rust/Cargo and AVR executables
+are unavailable in the editing environment; the above compiler results are from
+GitHub CI. Physical rigs, response/timing and stack measurements are unavailable.
+Host/compiler checks are not physical hardware validation.
 
 ## Remaining acceptance and next dependency
 

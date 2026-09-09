@@ -95,6 +95,15 @@ fn feedback_child() {
             e.to = e.from.clone();
             s.connections.push(e);
             assert!(has(&a, "prohibited-cycle"));
+            let mut a = raw();
+            a.spec.as_mut().unwrap().components[1].runtime = Some("python".into());
+            assert!(has(&a, "python-feeds-deterministic-path"));
+            let mut a = raw();
+            a.spec.as_mut().unwrap().components[0].role = Some("actuator".into());
+            assert!(has(&a, "actuator-authority-bypass"));
+            let mut a = raw();
+            a.spec.as_mut().unwrap().connections[1].from = Some("missing".into());
+            assert!(has(&a, "unknown-endpoint"));
         }
         "delay_boundaries_and_invalid" => {
             for n in [1, 1024] {
@@ -148,6 +157,10 @@ fn feedback_child() {
             let mut a = raw();
             let r = validate_with_registry(&a, &reg);
             assert!(r.is_valid(), "{:?}", r.issues());
+            assert_eq!(
+                r.resolved_identity().unwrap(),
+                "neuradix.deployment.resolved.v3:sha256:277a1301c175c3a6c1a465764b0866eb67b875c22df0aa0adb5a8e5ba0acd2db"
+            );
             assert!(
                 r.identity()
                     .unwrap()

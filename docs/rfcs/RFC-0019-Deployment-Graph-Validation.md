@@ -83,8 +83,8 @@ cycle path.
 ### Deployment identity
 
 WP-A08 replaces the structural-only hash with versioned declared and resolved
-identities. Valid topology checks expose declared-v2; complete registry-aware
-checks additionally expose resolved-v2, binding canonical configuration and computed
+identities. All-instantaneous topology checks expose declared-v2; complete registry-aware
+checks additionally expose resolved-v2. Delayed graphs select v3 as specified below, binding canonical configuration and computed
 schema/scalar-layout identities. Invalid graphs expose neither. Raw model labels
 are not validation evidence. See [A08 policy and migration](../implementation/WP-A08-Resolved-Deployment-Identity.md).
 
@@ -157,7 +157,7 @@ wires the authored `contracts/standard/` contracts by their pinned references.
 GraphReport now has immutable accessors: identity()/resolved_identity() return
 optional versioned strings; issues()/resolved() return borrowed evidence. The
 unchecked public deployment_identity helper is removed. CLI identity remains
-explicitly declared-v2 and adds resolvedIdentity; invalid reports use null. Old
+explicitly declared-v2 (or declared-v3 for delayed graphs) and adds resolvedIdentity; invalid reports use null. Old
 unversioned pins require revalidation, not reinterpretation. Configuration is a
 bounded object with exact integers, strings, bool/null, arrays and string keys;
 floats/tags/unknown manifest fields reject explicitly. All declared port references
