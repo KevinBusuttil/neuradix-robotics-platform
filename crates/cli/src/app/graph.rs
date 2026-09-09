@@ -85,7 +85,9 @@ fn report_to_json(report: &GraphReport) -> Value {
 
     json!({
         "identity": report.identity(),
-        "identityKind": "declared-v2",
+        "identityKind": report.identity().map(|id| if id.starts_with("neuradix.deployment.declared.v3:") { "declared-v3" } else { "declared-v2" }),
+        "topologyPolicy": "instantaneous-dag-v1",
+        "executionValidated": false,
         "resolvedIdentity": report.resolved_identity(),
         "valid": report.is_valid(),
         "errors": report.error_count(),

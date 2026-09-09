@@ -1,0 +1,29 @@
+# Offline logical loop; neither plant execution nor physical authority is provided.
+# Future execution requires trusted history for the delayed feedback edge.
+apiVersion: deploy.neuradix.io/v1alpha1
+kind: RobotDeployment
+metadata:
+  name: delayed-depth-loop
+spec:
+  nodes:
+    - name: host
+      target: linux-aarch64
+  components:
+    - name: controller
+      node: host
+      executionClass: deterministic
+      requires: [io.neuradix.navigation/vehicle-depth@1.0.0]
+      provides: [io.neuradix.control/depth-setpoint@1.0.0]
+    - name: plant
+      node: host
+      executionClass: deterministic
+      requires: [io.neuradix.control/depth-setpoint@1.0.0]
+      provides: [io.neuradix.navigation/vehicle-depth@1.0.0]
+  connections:
+    - from: controller
+      to: plant
+      contract: io.neuradix.control/depth-setpoint@1.0.0
+    - from: plant
+      to: controller
+      contract: io.neuradix.navigation/vehicle-depth@1.0.0
+      delay: {ticks: 1, unit: evaluation-ticks, initialization: require-seed}
