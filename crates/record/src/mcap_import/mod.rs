@@ -190,17 +190,28 @@ impl State {
         let record = mcap::parse_record(op, data).map_err(vendor)?;
         let start = self.outer_offset;
         if !inside {
-            self.outer_offset = start.checked_add(9 + data.len() as u64)
+            self.outer_offset = start
+                .checked_add(9 + data.len() as u64)
                 .ok_or_else(|| malformed("record offset overflow"))?;
             if self.data_end && op != 2 {
                 if op == 0x0e {
-                    if self.summary_start == 0 { return Err(malformed("offsets without summary")); }
-                    if self.offset_start == 0 { self.offset_start = start; }
+                    if self.summary_start == 0 {
+                        return Err(malformed("offsets without summary"));
+                    }
+                    if self.offset_start == 0 {
+                        self.offset_start = start;
+                    }
                 } else {
-                    if self.offset_start != 0 { return Err(malformed("summary after offset section")); }
-                    if self.summary_start == 0 { self.summary_start = start; }
+                    if self.offset_start != 0 {
+                        return Err(malformed("summary after offset section"));
+                    }
+                    if self.summary_start == 0 {
+                        self.summary_start = start;
+                    }
                     let group = self.summary_groups.entry(op).or_insert((start, start));
-                    if group.1 != start { return Err(malformed("noncontiguous summary group")); }
+                    if group.1 != start {
+                        return Err(malformed("noncontiguous summary group"));
+                    }
                     group.1 = self.outer_offset;
                 }
             }
@@ -419,7 +430,9 @@ impl State {
                 if !self.data_end {
                     return Err(malformed("missing DataEnd"));
                 }
-                if footer.summary_start != self.summary_start || footer.summary_offset_start != self.offset_start {
+                if footer.summary_start != self.summary_start
+                    || footer.summary_offset_start != self.offset_start
+                {
                     return Err(malformed("footer section offsets disagree with file"));
                 }
                 self.finished = true;
@@ -450,18 +463,32 @@ impl State {
                 })?;
             }
             Record::SummaryOffset(offset) => {
-                let end = offset.group_start.checked_add(offset.group_length)
+                let end = offset
+                    .group_start
+                    .checked_add(offset.group_length)
                     .ok_or_else(|| malformed("summary group offset overflow"))?;
-                if self.summary_groups.get(&offset.group_opcode) != Some(&(offset.group_start, end))
-                    || !self.offset_groups.insert(offset.group_opcode) {
+                let empty = offset.group_length == 0
+                    && matches!(offset.group_opcode, 3 | 4 | 8 | 0x0a | 0x0b | 0x0d)
+                    && !self.summary_groups.contains_key(&offset.group_opcode)
+                    && (offset.group_start == self.offset_start
+                        || self
+                            .summary_groups
+                            .values()
+                            .any(|group| group.0 == offset.group_start));
+                let matches_group = self.summary_groups.get(&offset.group_opcode)
+                    == Some(&(offset.group_start, end));
+                if (!empty && !matches_group)
+                    || !self.offset_groups.insert(offset.group_opcode)
+                {
                     return Err(malformed("summary offset disagrees with group"));
                 }
-                visit(McapEvent { kind: McapEventKind::Auxiliary { opcode: op, data }, ordinal, accounted_bytes: charge })?;
+                visit(McapEvent {
+                    kind: McapEventKind::Auxiliary { opcode: op, data },
+                    ordinal,
+                    accounted_bytes: charge,
+                })?;
             }
-            Record::MessageIndex(_)
-            | Record::ChunkIndex(_)
-            | Record::MetadataIndex(_)
-            => {
+            Record::MessageIndex(_) | Record::ChunkIndex(_) | Record::MetadataIndex(_) => {
                 visit(McapEvent {
                     kind: McapEventKind::Auxiliary { opcode: op, data },
                     ordinal,

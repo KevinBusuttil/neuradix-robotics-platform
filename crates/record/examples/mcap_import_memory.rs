@@ -18,11 +18,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if args[1] == "bounded-reject" {
         let error = McapArchive::from_reader(input, limits.with_retained_bytes(8 << 20)?)
             .expect_err("materialization must reject at its budget");
-        assert!(matches!(error, neuradix_record::RecordError::ImportLimit { kind: "retained bytes", .. }));
+        assert!(matches!(
+            error,
+            neuradix_record::RecordError::ImportLimit {
+                kind: "retained bytes",
+                ..
+            }
+        ));
         println!("bounded-reject: {error}");
     } else {
         let archive = McapArchive::from_reader(input, limits)?;
-        println!("archive {:?}, retained={}", archive.summary().stats(), archive.retained_bytes());
+        println!(
+            "archive {:?}, retained={}",
+            archive.summary().stats(),
+            archive.retained_bytes()
+        );
     }
     Ok(())
 }
