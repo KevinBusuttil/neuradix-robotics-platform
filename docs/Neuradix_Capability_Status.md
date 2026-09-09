@@ -141,7 +141,7 @@ unsupported layouts and invalid graphs cannot produce a resolved identity. Immut
 reports prevent caller edits from forging successful validation. Identity labels do
 not attest execution or grant authority. API/CLI pin migration is deliberate; see
 [A08 evidence](implementation/WP-A08-Resolved-Deployment-Identity.md).
-[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) is open and unmerged; final verification is pending. WP-A08 stays partial for delayed
+[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) is open and unmerged. Pinned implementation PR CI 34384823142/push CI 34384817885 passed: 354 workspace tests/doctests, 31 graph plus five CLI graph tests, graph example, preserved A04/A05/A06/A07, SDK, no_std, independent MCAP and separate AVR checks. WP-A08 stays partial for delayed
 feedback and runtime authority enforcement. Existing package/acceptance gaps remain.
 
 ## Capability inventory
@@ -150,10 +150,10 @@ feedback and runtime authority enforcement. Existing package/acceptance gaps rem
 |---|---|---|
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
-| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Resolved identities, delayed feedback and deployed supervisor: A08/B02/B07 |
+| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | A08 resolved identities on the current branch; delayed feedback and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
-| Recording/replay | Native recording/digest and integrated bounded MCAP import; processor re-execution exists in a runtime test | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
+| Recording/replay | Native recording/digest and integrated bounded MCAP import; reusable single-processor re-execution with pinned cases and exact comparisons | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
 | Simulation | Fixed-step one-dimensional closed-loop AUV depth model and example | Native backend API and general simulator integration: C01/C02/C05 |
 | Studio | Headless timeline/scalar inspection library and CLI | Graphical authoring, diagnosis and shared services: C03/C04 |
 | Embedded runtime/link | Host-tested no_std core and serial CRC/sequence framing; actual AVR compiler checks for generated scalars | Complete firmware, flash/monitor, physical board execution, timing and stack: B04/B05/B06 |

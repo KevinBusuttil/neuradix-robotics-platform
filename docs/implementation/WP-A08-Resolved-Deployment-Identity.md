@@ -1,6 +1,6 @@
 # WP-A08 — Resolved contract and configuration deployment identity
 
-Status: implemented on `codex/a08-resolved-deployment-identity`; verification and
+Status: implemented on `codex/a08-resolved-deployment-identity`;
 [PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) open and unmerged. WP-A08 remains partial; Gate A remains open.
 
 ## Baseline and prerequisite review
@@ -11,6 +11,7 @@ rulesets were empty and no reviews/comments were present. Review covered factory
 ownership, trusted evaluation time, exact comparison, admission/report bounds,
 terminal failures and evidence. No concrete prerequisite defect required a change.
 PR #16 was merged as `88c8eb1015a96d5314b1314b623758c7d43100f1` before this branch.
+[Post-merge main CI 34382971652](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34382971652) passed.
 Existing branches and user work were preserved in an isolated checkout. No AGENTS.md
 instructions were found. PR #13/#14/#15 integration was not repeated; A05 code is unchanged.
 
@@ -102,8 +103,10 @@ RSS promise. Invalid configuration never receives an identity.
 Manifest text is capped at 1 MiB before YAML parsing; file reads take at most that
 plus one detection byte. Graph admission caps 256 nodes, 1,024 components, 4,096
 connections and 256 entries per provides/requires list before typed-model copying.
-These bound accepted identity content and traversal depth, not arbitrary YAML parser,
-registry loading, caller data or allocator RSS. Configuration nesting is checked
+These bound graph counts, canonical configuration and traversal depth, not arbitrary YAML parser,
+registry loading, caller data or allocator RSS. Programmatically supplied raw model
+labels/reference strings have no new byte cap; trusted callers must bound those
+inputs themselves. The source byte cap applies to the file/string parsing APIs. Configuration nesting is checked
 before recursive conversion. Run parsing/compilation outside conventional local
 control with external supervision; no wall-time or whole-process sandbox guarantee.
 
@@ -132,7 +135,39 @@ It performs no deployment execution or authorization.
 
 ## Verification
 
-Pinned compiler and full CI evidence pending. Focused tests use external 10-second
+Verified implementation `4b6fad3b616c1f2455a79e793053f3f40decc721`:
+[PR CI 34384823142](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34384823142)
+and [push CI 34384817885](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34384817885)
+passed. Documentation-only follow-up revisions are checked before PR readiness;
+PR #17 links their final-head results.
+
+- Pinned Rust/Cargo 1.94.1, locked dependencies: formatting, all-target Clippy with
+  warnings denied, workspace documentation and architecture checks passed.
+- Graph: 31 tests/doctests (six supervised scenarios plus child helper); CLI graph:
+  five tests; resolved_identity example passed. Empty resolved-v2 hash is pinned
+  against independently computed Python 3.11 json/hashlib bytes.
+- Workspace: 354 tests/doctests passed. Counts exclude repeated child result lines;
+  the two generic-host ignored AVR tests passed explicitly in the separate AVR job.
+- Preserved A04: 88, A05: 75, recording: 44, runtime/replay: 20 tests/doctests;
+  Python SDK: six. Integrated examples, four independent no_std configurations,
+  scalar wire/ABI goldens and actual AVR compiler conformance passed.
+- Independent MCAP producer fixtures and export reader/checksum agreement passed.
+  Import RSS at 8/128 MiB streaming payload: 4,156/4,140 KiB (64 MiB budget);
+  128 MiB materialization: 134,940 KiB (192 MiB budget); bounded rejection:
+  11,956 KiB (64 MiB budget). Writer RSS at 8/128 MiB output: 2,892/2,864 KiB
+  (64 MiB budget). These preserve A06 qualification, not graph-parser RSS claims.
+- Local independent fixture regeneration/check and six SDK tests passed.
+  Changed Markdown: eight files, 333 local links/anchors, zero errors. Full scan:
+  52 files/661 links, 32 pre-existing missing archived spec/image targets (failed,
+  deferred). Whitespace check passed.
+
+Earlier iterations failed formatting, a missed CLI LayoutError conversion and two
+raw-model Option assignments in a new test. These were corrected. The initial AVR
+package refresh failed on unrelated Chrome repository hash mismatches before any
+AVR compile; signed Ubuntu-only refresh resolved that infrastructure blocker. No
+required compiler gate is waived, and full successful runs supersede those attempts.
+
+Focused tests use external 10-second
 child deadlines; CI wraps graph tests (60s), CLI graph tests/example (30s each),
 plus existing externally timed workspace and A04/A05/A06/A07 suites. Tests cover
 schema/layout/configuration changes, canonical ordering, exact byte/value/depth
