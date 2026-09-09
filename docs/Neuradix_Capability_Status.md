@@ -58,6 +58,11 @@ nonblocking stdio, process-group cleanup and bounded deferred reaping. Failed
 launch attempts consume the restart budget. [Implementation evidence](implementation/WP-A05-Bounded-Worker-IO.md)
 records API migration, exact checks, OS scope and remaining acceptance. The PR
 is unmerged; implementation does not establish integration or full containment.
+Implementation `08d0f987` passed [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
+and its push run: 32 Python-crate tests/doctests, four separate SDK tests,
+88 command regressions, 264 workspace tests/doctests, two separate AVR checks,
+four examples, four independent no_std checks, formatting, Clippy and docs.
+Nested subprocess reports are not double-counted; focused tests overlap workspace.
 Heartbeat policy, comprehensive resource limits, other OS backends and deployment
 supervision remain open. WP-A05 and ACC-09 are partial; Gate A stays open.
 
@@ -94,7 +99,8 @@ See [Gate A implementation evidence](implementation/Gate-A-Embedded-Wire-and-ABI
 
 The workspace's two AVR tests are explicitly ignored by the ordinary test command
 and executed in the separate AVR CI job. Host C++ and Python are CI prerequisites;
-local Python tests still allow skips. No physical board, complete simulator,
+older Python tests still allow local skips; the A05 adversarial/SDK suites require
+Python, and CI requires the interpreter before testing. No physical board, complete simulator,
 hard-real-time profile, fleet scale or enterprise HA claim follows from these tests.
 
 ## Findings and closure status

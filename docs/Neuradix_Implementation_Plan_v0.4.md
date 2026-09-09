@@ -151,7 +151,7 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Process separation being mistaken for complete resource or security isolation.
 
-**Bounded I/O increment (PR #11, unmerged):** Validated line/queue limits, one total operation deadline with cleanup reserve, nonblocking Linux stdio, process-group cleanup and bounded deferred reaping are implemented in this branch. Failed launches consume the restart budget. Adversarial subprocess tests have external timeouts and exercise independent local control. See [A05 design, migration and verification](implementation/WP-A05-Bounded-Worker-IO.md). WP-A05 and ACC-09 remain **partial**: heartbeat policy, comprehensive resource enforcement, additional OS backends and deployed supervision are deferred. Gate A remains open.
+**Bounded I/O increment (PR #11, unmerged):** Validated line/queue limits, one total operation deadline with cleanup reserve, nonblocking Linux stdio, process-group cleanup and bounded deferred reaping are implemented in this branch. Failed launches consume the restart budget. Adversarial subprocess tests have external timeouts and exercise independent local control. See [A05 design, migration and verification](implementation/WP-A05-Bounded-Worker-IO.md): 32 Python-crate tests/doctests, four SDK tests, 264 workspace tests/doctests and two separate AVR checks passed. WP-A05 and ACC-09 remain **partial**: heartbeat policy, comprehensive resource enforcement, additional OS backends and deployed supervision are deferred. Gate A remains open.
 
 <a name="wp-a06"></a>
 

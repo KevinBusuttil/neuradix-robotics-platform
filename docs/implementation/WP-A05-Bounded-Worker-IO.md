@@ -15,6 +15,8 @@ and push CI passed; there were no review comments or blocking repository rules.
 The shared slew arithmetic, actual-gate conformance, migration and remaining
 physical acceptance matched the implementation. No prerequisite code defect
 was found. PR #10 merged as `9dafdb7e3fd692c229bf12db5a0f39202bcf957e`.
+Its [merge CI 34291207700](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34291207700)
+also passed.
 
 The isolated `codex/a05-bounded-worker-io` checkout starts from that updated main;
 existing checkouts and branches were preserved. No applicable AGENTS.md was
@@ -119,6 +121,9 @@ reaping; stuck children can exhaust 32 slots but cannot create unbounded threads
 queues or additional admitted workers. `CleanupReport` distinguishes Reaped,
 Deferred, OwnershipLost and ReaperUnavailable, plus any signal error. Non-normal
 operation cleanup preserves the original failure in `WorkerError::Cleanup`.
+Admission uses at most 32 atomic compare/exchange attempts; ordinary concurrent
+starts do not fail on a transient mutex try-lock. Persistent contention returns
+the same explicit capacity/busy result without an unbounded wait.
 
 The embedding process must leave child reaping to this library: no external
 `waitpid(-1)`, SIGCHLD auto-reaping or competing reaper. Observed ownership loss
@@ -147,11 +152,50 @@ execution is evidence here; musl/other architecture qualification remains open.
 
 ## Verification evidence
 
-Pinned CI and final evidence are in progress in [PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11).
-Local Rust/rustup/Cargo and AVR tools are unavailable; repository CI supplies
-compiler/test evidence. Local Python syntax parsing and whitespace checks run
-independently. Exact passed, failed and unavailable checks will be recorded
-before this PR is marked ready for review.
+Implementation [`08d0f987`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/08d0f987a4d7539e11b8ba9402ab99891beb68f5)
+passed both [PR CI 34293819208](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293819208)
+and [push CI 34293816722](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293816722).
+[PR #11](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/11) records
+checks on the final documentation revision and remains unmerged for review.
+CI used pinned Rust/Cargo **1.94.1**, locked dependencies, warnings denied,
+G++ 13.3.0, Python 3.12.3 and AVR GCC 7.3.0.
+
+| Check | Result |
+|---|---|
+| `cargo fmt --all --check` | Passed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` | Passed |
+| `cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport` | **88 passed**, none failed/ignored; A04.1/A04.2/A04.3 guarantees retained |
+| `timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python` | **32 top-level tests/doctests passed**; includes 19 adversarial subprocess scenarios and the bounded reaper/concurrent-admission regression |
+| `timeout --signal=TERM --kill-after=5s 30s python3 -B -m unittest discover -s python/tests -v` | **4 SDK tests passed**, also passed independently locally |
+| `timeout --signal=TERM --kill-after=5s 180s cargo test --locked --workspace` | **264 top-level tests/doctests passed**, none failed; two AVR tests ignored here and executed separately |
+| Four `cargo run --locked -p ...` examples: minimal-depth-stream, auv-depth-sim, embedded-propulsion, python-worker | Passed; Python example externally bounded to 30 seconds and reports Reaped cleanup |
+| Independent `cargo check --locked -p ... --no-default-features`: time, command-core, embedded-transport, embedded-core | All four passed |
+| `cargo doc --locked --workspace --no-deps` | Passed |
+| `cargo test --locked -p neuradix-embedded-codegen --test avr -- --ignored --nocapture` | **2 passed**, supported ATmega328P scalar compile/link and intended binary64 rejection |
+| Local changed Markdown path/anchor scan and `git diff --check` | Passed: 7 Markdown files, 310 local links/anchors, no missing targets |
+
+Focused tests overlap the workspace suite. The 19 nested scenario-child reports
+are execution of their parent tests and are not counted twice. SDK tests and
+the two separately executed AVR tests are additional to the 264 workspace
+passes. AVR compilation does not execute Python supervision or qualify a
+physical control rig.
+
+Earlier failures were corrected, not omitted: [34292837228](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34292837228)
+and [34293356882](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293356882)
+stopped at formatting; [34293017476](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293017476)
+found one Clippy style issue. The pinned formatter/style corrections were applied.
+[Push run 34293506885](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34293506885)
+then exposed false capacity errors during ordinary concurrent launches, despite
+the paired PR run passing. Bounded atomic admission replaced try-lock admission;
+the new concurrent regression and both subsequent runs passed.
+
+The full local archive scan still fails on **32 pre-existing missing references**:
+31 figure links in specifications v0.4/v0.5 and one v0.2 specification link in
+plan v0.1. No unrelated archive repairs were made. Local Rust/rustup/Cargo and
+AVR tools were unavailable; repository CI supplied compiler/test evidence.
+Physical rigs, other OS/architecture execution and musl qualification were
+unavailable. No physical hardware, worst-case timing or complete resource
+containment claim follows from these checks.
 
 Adversarial cases execute in separate test subprocesses with 10-second external
 timeouts. Fixture workers self-expire to clean up failed runs. CI also applies
