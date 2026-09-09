@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::WorkerError;
+use crate::{ResourceLimits, WorkerError};
 
 /// Immutable wire/storage limits. Line sizes include the terminating newline.
 /// One request is outstanding at a time; there is no outbound request queue.
@@ -191,6 +191,8 @@ pub struct WorkerConfig {
     pub(crate) limits: IoLimits,
     pub(crate) timeouts: Timeouts,
     pub(crate) heartbeat: HeartbeatPolicy,
+    pub(crate) resource_launcher: Option<PathBuf>,
+    pub(crate) resources: ResourceLimits,
 }
 impl WorkerConfig {
     /// Configure an interpreter and script with bounded defaults.
@@ -205,6 +207,8 @@ impl WorkerConfig {
             limits: IoLimits::default(),
             timeouts: Timeouts::default(),
             heartbeat: HeartbeatPolicy::default(),
+            resource_launcher: None,
+            resources: ResourceLimits::default(),
         }
     }
     /// Set trusted structured startup configuration; launch bounds its encoding.
@@ -242,6 +246,24 @@ impl WorkerConfig {
         self.heartbeat = heartbeat;
         self
     }
+    /// Select the installed trusted neuradix-python-launcher by absolute path.
+    /// The operator must protect this executable and its parent directories.
+    /// Launch fails explicitly if this required boundary is not configured.
+    pub fn with_resource_launcher(mut self, path: impl Into<PathBuf>) -> Result<Self, WorkerError> {
+        let path = path.into();
+        if !path.is_absolute() {
+            return Err(WorkerError::InvalidConfig("resource launcher path must be absolute"));
+        }
+        self.resource_launcher = Some(path);
+        Ok(self)
+    }
+    /// Install validated per-process limits, applied before interpreter execution.
+    pub fn with_resources(mut self, resources: ResourceLimits) -> Self {
+        self.resources = resources;
+        self
+    }
+    /// Requested immutable resource policy, before platform page rounding.
+    pub fn resources(&self) -> ResourceLimits { self.resources }
     /// Configured immutable responsiveness policy.
     pub fn heartbeat(&self) -> HeartbeatPolicy {
         self.heartbeat

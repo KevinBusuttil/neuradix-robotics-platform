@@ -3,6 +3,14 @@
 /// Errors from launching, supervising or exchanging with a Python worker.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkerError {
+    /// The trusted launcher could not establish or confirm requested enforcement.
+    #[error("worker resource setup failed at {stage:?} (errno {errno:?})")]
+    ResourceSetup {
+        /// Bounded setup stage; never inferred from a generic worker crash.
+        stage: crate::ResourceStage,
+        /// Reported OS errno when available; None denotes validation/protocol failure.
+        errno: Option<i32>,
+    },
     /// A due heartbeat did not receive its matching pong before expiry.
     #[error("python worker heartbeat timed out")]
     HeartbeatTimeout,

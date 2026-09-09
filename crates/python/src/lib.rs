@@ -42,12 +42,14 @@ pub mod error;
 mod heartbeat;
 mod process;
 mod protocol;
+mod resource;
 pub mod supervisor;
 pub mod worker;
 
 pub use config::{HeartbeatPolicy, IoLimits, Timeouts, WorkerConfig};
 pub use error::WorkerError;
 pub use heartbeat::WorkerFailure;
-pub use process::{CleanupReport, CleanupState};
+pub use process::{CleanupReport, CleanupState, ObservedExit};
+pub use resource::{ResourceLimits, ResourceStage};
 pub use supervisor::WorkerSupervisor;
 pub use worker::{IoStats, PythonWorker, ReadyInfo};

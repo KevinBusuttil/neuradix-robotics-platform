@@ -20,6 +20,8 @@ fn config(mode: &str) -> WorkerConfig {
         "python3",
         format!("{}/tests/workers/adversary.py", env!("CARGO_MANIFEST_DIR")),
     )
+    .with_resource_launcher(env!("CARGO_BIN_EXE_neuradix-python-launcher"))
+    .unwrap()
     .with_arg(mode)
     .with_limits(IoLimits::new(256, 1_048_576, 1024, 4).unwrap())
     .with_timeouts(Timeouts::new(Duration::from_secs(1), TOTAL, TOTAL, RESERVE).unwrap())

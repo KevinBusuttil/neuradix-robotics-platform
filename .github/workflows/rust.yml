@@ -52,7 +52,8 @@ jobs:
           cargo run --locked -p neuradix-example-minimal-depth-stream
           cargo run --locked -p neuradix-example-auv-depth-sim
           cargo run --locked -p neuradix-example-embedded-propulsion
-          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-example-python-worker
+          cargo build --locked -p neuradix-python --bin neuradix-python-launcher
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-example-python-worker -- target/debug/neuradix-python-launcher
 
       - name: Embedded no_std configuration
         run: |

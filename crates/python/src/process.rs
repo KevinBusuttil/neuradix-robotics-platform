@@ -2,6 +2,21 @@
 
 use std::time::{Duration, Instant};
 
+/// Direct-child termination observed before supervisor cleanup signalling.
+/// A signal records an observation, not proof of CPU or memory exhaustion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservedExit {
+    /// Normal process exit code.
+    Code(i32),
+    /// Terminating signal, with the kernel's core-dump status.
+    Signal {
+        /// Linux signal number.
+        signal: i32,
+        /// Whether the kernel reported a core dump.
+        core_dumped: bool,
+    },
+}
+
 /// Result of the one bounded cleanup attempt for a worker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CleanupState {
@@ -51,7 +66,7 @@ mod linux {
     use nix::sys::wait::{Id, WaitPidFlag, WaitStatus, waitid};
     use nix::unistd::Pid;
 
-    use super::{CleanupReport, CleanupState, pause_until};
+    use super::{CleanupReport, CleanupState, ObservedExit, pause_until};
     use crate::WorkerError;
 
     // Live children and deferred reaping share the same admission budget.
@@ -153,6 +168,7 @@ mod linux {
         permit: Option<Permit>,
         report: Option<CleanupReport>,
         owns_child: bool,
+        exit: Option<ObservedExit>,
     }
     impl Process {
         pub fn spawn(command: &mut Command, cleanup_end: Instant) -> Result<Self, WorkerError> {
@@ -172,6 +188,7 @@ mod linux {
                 permit: Some(permit),
                 report: None,
                 owns_child: true,
+                exit: None,
             };
             let setup = (|| {
                 nonblocking(
@@ -225,6 +242,14 @@ mod linux {
                 WaitPidFlag::WEXITED | WaitPidFlag::WNOHANG | WaitPidFlag::WNOWAIT,
             ) {
                 Ok(WaitStatus::StillAlive) => Ok(false),
+                Ok(WaitStatus::Exited(_, code)) => {
+                    self.exit = Some(ObservedExit::Code(code));
+                    Ok(true)
+                }
+                Ok(WaitStatus::Signaled(_, signal, core_dumped)) => {
+                    self.exit = Some(ObservedExit::Signal { signal: signal as i32, core_dumped });
+                    Ok(true)
+                }
                 Ok(_) => Ok(true),
                 Err(Errno::EINTR) => Ok(false),
                 Err(Errno::ECHILD) => {
@@ -234,6 +259,7 @@ mod linux {
                 Err(error) => Err(WorkerError::Io(error.into())),
             }
         }
+        pub fn observed_exit(&self) -> Option<ObservedExit> { self.exit }
         pub fn finish(&mut self, deadline: Instant) -> CleanupReport {
             if let Some(report) = self.report {
                 return report;
@@ -343,7 +369,7 @@ pub(crate) use linux::Process;
 
 #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
 mod unsupported {
-    use super::{CleanupReport, CleanupState};
+    use super::{CleanupReport, CleanupState, ObservedExit};
     use crate::WorkerError;
     use std::{io, process::Command, time::Instant};
     pub(crate) struct Process;
@@ -364,6 +390,7 @@ mod unsupported {
         pub fn has_exited(&mut self) -> Result<bool, WorkerError> {
             Err(WorkerError::UnsupportedPlatform)
         }
+        pub fn observed_exit(&self) -> Option<ObservedExit> { None }
         pub fn finish(&mut self, _: Instant) -> CleanupReport {
             CleanupReport {
                 pid: 0,
