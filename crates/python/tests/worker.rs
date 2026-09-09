@@ -23,6 +23,8 @@ fn base_config() -> WorkerConfig {
     let script = format!("{manifest}/tests/workers/testkit_worker.py");
     let python_dir = format!("{manifest}/../../python");
     WorkerConfig::new("python3", script)
+        .with_resource_launcher(env!("CARGO_BIN_EXE_neuradix-python-launcher"))
+        .unwrap()
         .with_python_path(python_dir)
         .with_config(json!({ "threshold": 12.0 }))
 }

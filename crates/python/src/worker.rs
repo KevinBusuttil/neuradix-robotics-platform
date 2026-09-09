@@ -4,7 +4,10 @@ pub use crate::config::WorkerConfig;
 use crate::heartbeat::Heartbeat;
 use crate::process::{Process, pause_until};
 use crate::protocol::{Frames, encode};
-use crate::{CleanupReport, CleanupState, Timeouts, WorkerError, WorkerFailure};
+use crate::{
+    CleanupReport, CleanupState, ResourceLimits, ResourceStage, Timeouts, WorkerError,
+    WorkerFailure,
+};
 use neuradix_runtime::HealthState;
 use serde_json::{Value, json};
 use std::io;
@@ -105,6 +108,7 @@ pub struct PythonWorker {
     unavailable: bool,
     cleanup: Option<CleanupReport>,
     heartbeat: Heartbeat,
+    resources: ResourceLimits,
 }
 impl PythonWorker {
     /// Launch and handshake within one total budget. This library must exclusively
@@ -114,6 +118,13 @@ impl PythonWorker {
             return Err(WorkerError::UnsupportedPlatform);
         }
         let deadline = Deadline::new(config.timeouts.handshake(), config.timeouts.cleanup())?;
+        let launcher = config
+            .resource_launcher
+            .as_ref()
+            .ok_or(WorkerError::InvalidConfig(
+                "a trusted absolute resource launcher is required",
+            ))?;
+        let resources = config.resources.for_current_platform()?;
         let encoded_config = encode(
             &config.config,
             None,
@@ -121,13 +132,25 @@ impl PythonWorker {
             deadline.io,
         )
         .map_err(handshake_error)?;
-        let mut command = Command::new(&config.interpreter);
+        let mut command = Command::new(launcher);
         command
+            .arg(resources.cpu_seconds().to_string())
+            .arg(resources.address_space_bytes().to_string())
+            .arg("--")
+            .arg(&config.interpreter)
             .arg(&config.script)
             .args(&config.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
+        // Do not let ambient loader hooks execute code in the trusted launcher
+        // before limits. PATH is used only for the post-limit interpreter exec.
+        command.env_clear();
+        command.env(
+            "PATH",
+            std::env::var_os("PATH").unwrap_or_else(|| "/usr/bin:/bin".into()),
+        );
+        command.env("LANG", "C.UTF-8");
         if !config.python_path.is_empty() {
             let joined = std::env::join_paths(&config.python_path)
                 .map_err(|_| WorkerError::InvalidConfig("invalid Python import path"))?;
@@ -166,8 +189,30 @@ impl PythonWorker {
             unavailable: false,
             cleanup: None,
             heartbeat,
+            resources,
         };
-        let handshake = worker.receive(&deadline).and_then(|value| {
+        let handshake = (|| {
+            let confirmation = worker.receive(&deadline)?;
+            Self::setup_error(&confirmation)?;
+            if confirmation.get("kind").and_then(Value::as_str) != Some("limits-v1")
+                || confirmation.get("cpu").and_then(Value::as_u64) != Some(resources.cpu_seconds())
+                || confirmation.get("as").and_then(Value::as_u64)
+                    != Some(resources.address_space_bytes())
+            {
+                return Err(WorkerError::ResourceSetup {
+                    stage: ResourceStage::Protocol,
+                    errno: None,
+                });
+            }
+            // Removing the first frame before ack preserves a one-message queue.
+            // The launcher consumes exactly this ack before exec, so no worker
+            // bytes or old handshake data can become an ordinary input command.
+            let acknowledgement = b"{\"kind\":\"start\"}\n";
+            worker.outgoing_high = acknowledgement.len();
+            worker.write(acknowledgement, &deadline)?;
+            let value = worker.receive(&deadline)?;
+            // From this point stdout may be worker-controlled. It cannot supply
+            // another trusted setup result or alter the confirmed limits.
             if value.get("kind").and_then(Value::as_str) != Some("ready") {
                 return Err(WorkerError::Protocol("expected ready handshake".into()));
             }
@@ -188,11 +233,41 @@ impl PythonWorker {
             // not responsiveness confirmation. No worker time is accepted.
             worker.heartbeat = Heartbeat::new(config.heartbeat, Instant::now())?;
             Ok(())
-        });
+        })();
         if let Err(error) = handshake {
             return Err(worker.fail(handshake_error(error), &deadline));
         }
         Ok(worker)
+    }
+    fn setup_error(value: &Value) -> Result<(), WorkerError> {
+        if value.get("kind").and_then(Value::as_str) == Some("limitError") {
+            let stage = value
+                .get("stage")
+                .and_then(Value::as_str)
+                .and_then(ResourceStage::from_str)
+                .unwrap_or(ResourceStage::Protocol);
+            let errno = value
+                .get("errno")
+                .and_then(Value::as_i64)
+                .and_then(|code| i32::try_from(code).ok());
+            return Err(WorkerError::ResourceSetup { stage, errno });
+        }
+        Ok(())
+    }
+    /// Resource policy confirmed by the trusted pre-exec launcher, after page
+    /// rounding. A crash signal does not by itself identify which limit caused it.
+    pub fn applied_resources(&self) -> ResourceLimits {
+        self.resources
+    }
+    /// Direct-child exit observed before supervisor cleanup, if available.
+    /// SIGKILL/SIGSEGV alone must not be labelled resource exhaustion.
+    pub fn observed_exit(&self) -> Option<crate::ObservedExit> {
+        self.process.observed_exit()
+    }
+    fn exit_error(&self) -> WorkerError {
+        WorkerError::WorkerExited {
+            status: format!("{:?}", self.process.observed_exit()),
+        }
     }
     /// Bounded startup metadata; worker declarations grant no authority.
     pub fn ready_info(&self) -> &ReadyInfo {
@@ -237,9 +312,7 @@ impl PythonWorker {
         }
         let result = self.heartbeat.observe(Instant::now()).and_then(|state| {
             if self.process.has_exited()? {
-                Err(WorkerError::WorkerExited {
-                    status: "observed exit".into(),
-                })
+                Err(self.exit_error())
             } else {
                 Ok(state)
             }
@@ -404,9 +477,7 @@ impl PythonWorker {
         while written < bytes.len() {
             deadline.check()?;
             if self.process.has_exited()? {
-                return Err(WorkerError::WorkerExited {
-                    status: "observed exit".into(),
-                });
+                return Err(self.exit_error());
             }
             let before = written;
             match self
@@ -434,9 +505,7 @@ impl PythonWorker {
         match self.process.read(&mut buffer) {
             Ok(0) => {
                 if self.process.has_exited()? {
-                    Err(WorkerError::WorkerExited {
-                        status: "stdout EOF after exit".into(),
-                    })
+                    Err(self.exit_error())
                 } else {
                     Err(WorkerError::StdoutClosed)
                 }
@@ -471,9 +540,7 @@ impl PythonWorker {
                 return Ok(value);
             }
             if self.process.has_exited()? {
-                return Err(WorkerError::WorkerExited {
-                    status: "observed exit".into(),
-                });
+                return Err(self.exit_error());
             }
             if !self.pump()? {
                 pause_until(deadline.io);

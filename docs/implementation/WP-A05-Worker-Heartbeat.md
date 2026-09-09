@@ -191,7 +191,10 @@ Implementation `58e2b224` (including the preplayed-frame correction) passed
 and [push CI 34320426971](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34320426971).
 [PR #12](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/12) records
 current-revision checks after the final shared-observation/API documentation
-correction. It remains unmerged for review. CI used pinned Rust/Cargo **1.94.1**,
+correction. It subsequently merged as `5cda65a`, with unchanged head `0cd31b7`
+and passing current PR/push CI `34320795164`/`34320791968`. The subsequent
+[resource increment](WP-A05-Worker-Resource-Limits.md) records that integration
+review and adds per-process Linux CPU/AS policy. CI used pinned Rust/Cargo **1.94.1**,
 locked dependencies, warnings denied, G++ 13.3.0, Python 3.12.3 and AVR GCC 7.3.0.
 
 | Check | Result |

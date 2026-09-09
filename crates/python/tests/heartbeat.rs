@@ -22,6 +22,8 @@ fn config(mode: &str) -> WorkerConfig {
         "python3",
         format!("{}/tests/workers/heartbeat.py", env!("CARGO_MANIFEST_DIR")),
     )
+    .with_resource_launcher(env!("CARGO_BIN_EXE_neuradix-python-launcher"))
+    .unwrap()
     .with_arg(mode)
     .with_limits(IoLimits::new(256, 256, 1024, 4).unwrap())
     .with_timeouts(
@@ -163,6 +165,8 @@ fn heartbeat_child() {
                     env!("CARGO_MANIFEST_DIR")
                 ),
             )
+            .with_resource_launcher(env!("CARGO_BIN_EXE_neuradix-python-launcher"))
+            .unwrap()
             .with_python_path(format!("{}/../../python", env!("CARGO_MANIFEST_DIR")))
             .with_heartbeat(HeartbeatPolicy::new(INTERVAL, RESPONSE).unwrap());
             let mut worker = PythonWorker::launch(&cfg).unwrap();
@@ -349,6 +353,8 @@ fn heartbeat_child() {
                 &path,
                 format!("{}/tests/workers/heartbeat.py", env!("CARGO_MANIFEST_DIR")),
             )
+            .with_resource_launcher(env!("CARGO_BIN_EXE_neuradix-python-launcher"))
+            .unwrap()
             .with_arg("hang")
             .with_heartbeat(HeartbeatPolicy::new(INTERVAL, RESPONSE).unwrap());
             let mut supervisor = WorkerSupervisor::start(cfg, 2).unwrap();
@@ -356,7 +362,10 @@ fn heartbeat_child() {
             until(supervisor.worker().unwrap().heartbeat_due());
             supervisor.poll().unwrap_err();
             for used in 1..=2 {
-                assert!(matches!(supervisor.poll(), Err(WorkerError::Launch(_))));
+                assert!(matches!(
+                    cause(&supervisor.poll().unwrap_err()),
+                    WorkerError::WorkerExited { .. } | WorkerError::StdoutClosed
+                ));
                 assert_eq!(supervisor.restarts_used(), used);
             }
             assert!(matches!(
