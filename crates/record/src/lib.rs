@@ -6,8 +6,10 @@
 //!
 //! The recorder stores opaque payload bytes plus a manifest (channels, schema
 //! identities, clock domains and software provenance), so a recording carries
-//! enough context to be interpreted and reproduced. External containers such as
-//! MCAP are intended to be added later behind the same writer/reader surface.
+//! enough context to be interpreted and reproduced. [`import_mcap`] streams
+//! bounded MCAP events; [`McapArchive`] preserves full schemas, encodings and
+//! separate source/log times. [`McapRecording`] is a checked projection into the
+//! historical one-timestamp Neuradix interface, rejecting unrepresentable data.
 //!
 //! ```
 //! use neuradix_record::{NativeRecordWriter, NativeRecording, RecordingManifest, replay_digest};
@@ -29,6 +31,7 @@ pub mod codec;
 pub mod digest;
 pub mod error;
 pub mod mcap;
+pub mod mcap_import;
 pub mod model;
 pub mod native;
 pub mod recording;
@@ -37,6 +40,11 @@ pub use codec::RecordCodec;
 pub use digest::replay_digest;
 pub use error::{RecordError, Result};
 pub use mcap::{MCAP_MAGIC, McapRecording, McapWriter};
+pub use mcap_import::{
+    McapArchive, McapAuxiliary, McapChannel, McapEvent, McapEventKind, McapHeader,
+    McapImportLimits, McapImportStats, McapImportSummary, McapMessage, McapMessageRef,
+    McapMetadata, McapSchema, import_mcap,
+};
 pub use model::{
     Channel, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };

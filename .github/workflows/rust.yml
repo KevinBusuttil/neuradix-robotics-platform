@@ -41,6 +41,15 @@ jobs:
       - name: Trusted command regressions
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
+      - name: Independent MCAP fixtures and bounded import
+        run: |
+          python3 -m venv /tmp/a06-fixtures
+          /tmp/a06-fixtures/bin/pip install -r crates/record/tests/fixtures/requirements.txt
+          timeout --signal=TERM --kill-after=5s 60s /tmp/a06-fixtures/bin/python crates/record/tests/fixtures/generate.py --check --memory /tmp/a06-memory
+          timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-record
+          cargo build --locked -p neuradix-record --example mcap_import_memory
+          timeout --signal=TERM --kill-after=5s 90s python3 crates/record/tests/fixtures/memory.py target/debug/examples/mcap_import_memory /tmp/a06-memory
+
       - name: Bounded Python worker regressions (external timeout)
         run: |
           timeout --signal=TERM --kill-after=5s 120s cargo test --locked -p neuradix-python
@@ -72,7 +81,7 @@ jobs:
         run: |
           cargo fmt --all
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
-          git diff -- crates examples
+          git diff -- Cargo.lock crates examples
 
   avr-codegen:
     name: Arduino Uno codec ABI
