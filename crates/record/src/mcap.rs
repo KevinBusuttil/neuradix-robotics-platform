@@ -4,9 +4,9 @@
 //! distinct source/log times use that generic interface. Historical buffered
 //! recordings remain readable, including the narrowly scoped summary exception
 //! documented by the importer. New files use a Statistics-only summary and CRCs.
-use crate::model::{RawRecord, RecordingManifest};
 use crate::error::Result;
 pub use crate::mcap_write::legacy::McapWriter;
+use crate::model::{RawRecord, RecordingManifest};
 /// MCAP leading and trailing magic.
 pub const MCAP_MAGIC: [u8; 8] = [0x89, b'M', b'C', b'A', b'P', b'0', 0x0D, 0x0A];
 
@@ -57,4 +57,3 @@ impl crate::recording::Recording for McapRecording {
         &self.records
     }
 }
-

@@ -22,8 +22,8 @@ use std::path::Path;
 
 use neuradix_contracts::{ClockDomainRef, schema_identity, validate};
 use neuradix_record::{
-    Channel, McapArchive, McapImportLimits, McapWriteLimits, McapWriter, NativeRecordWriter, NativeRecording,
-    RecordCodec, RecordError, RecordingManifest, SoftwareId, replay_digest,
+    Channel, McapArchive, McapImportLimits, McapWriteLimits, McapWriter, NativeRecordWriter,
+    NativeRecording, RecordCodec, RecordError, RecordingManifest, SoftwareId, replay_digest,
 };
 use neuradix_runtime::{
     Component, ComponentError, ComponentId, HealthState, Lifecycle, LifecycleState, Processor,
@@ -284,7 +284,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 9b. Stream opaque MCAP with explicit limits (container support only). Reading the MCAP
     // back must reproduce the identical replay digest: cross-container
     // replay equivalence.
-    let mut mcap_writer = McapWriter::with_limits(Vec::new(), recording.manifest(), McapWriteLimits::default())?;
+    let mut mcap_writer =
+        McapWriter::with_limits(Vec::new(), recording.manifest(), McapWriteLimits::default())?;
     for r in recording.records() {
         mcap_writer.write_record(r.channel_id, r.sequence, r.timestamp, &r.payload)?;
     }

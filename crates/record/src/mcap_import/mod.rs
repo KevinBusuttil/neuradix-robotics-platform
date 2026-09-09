@@ -318,7 +318,8 @@ impl State {
             }
             Record::Message { header: h, data } => {
                 let count = self
-                    .summary.channel_message_counts
+                    .summary
+                    .channel_message_counts
                     .get_mut(&h.channel_id)
                     .ok_or_else(|| malformed("message references missing channel"))?;
                 add(

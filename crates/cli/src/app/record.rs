@@ -202,7 +202,12 @@ pub fn export(file: &Path, out: &Path) -> Result<Outcome, AppError> {
     let recording = loaded.recording();
     let source_digest = replay_digest(recording);
 
-    let (temporary, output) = PartialOutput::create(out).map_err(|e| AppError::message(ExitCode::GeneralFailure, format!("could not create export: {e}")))?;
+    let (temporary, output) = PartialOutput::create(out).map_err(|e| {
+        AppError::message(
+            ExitCode::GeneralFailure,
+            format!("could not create export: {e}"),
+        )
+    })?;
     let mut writer = McapWriter::new(output, recording.manifest()).map_err(|e| {
         AppError::message(
             ExitCode::GeneralFailure,
@@ -231,9 +236,22 @@ pub fn export(file: &Path, out: &Path) -> Result<Outcome, AppError> {
         )
     })?;
 
-    let bytes = output.metadata().map_err(|e| AppError::message(ExitCode::GeneralFailure, format!("could not inspect export: {e}")))?.len();
+    let bytes = output
+        .metadata()
+        .map_err(|e| {
+            AppError::message(
+                ExitCode::GeneralFailure,
+                format!("could not inspect export: {e}"),
+            )
+        })?
+        .len();
     drop(output);
-    std::fs::rename(&temporary.0, out).map_err(|e| AppError::message(ExitCode::GeneralFailure, format!("could not publish export: {e}")))?;
+    std::fs::rename(&temporary.0, out).map_err(|e| {
+        AppError::message(
+            ExitCode::GeneralFailure,
+            format!("could not publish export: {e}"),
+        )
+    })?;
 
     Ok(Outcome::new(json!({
         "sourceFormat": loaded.format,
@@ -253,16 +271,27 @@ impl PartialOutput {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         for _ in 0..16 {
             let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let path = out.with_file_name(format!(".neuradix-export-{}-{id}.partial", std::process::id()));
-            match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            let path = out.with_file_name(format!(
+                ".neuradix-export-{}-{id}.partial",
+                std::process::id()
+            ));
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
                 Ok(file) => return Ok((Self(path), file)),
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 Err(e) => return Err(e),
             }
         }
-        Err(std::io::Error::other("export temporary-name admission exhausted"))
+        Err(std::io::Error::other(
+            "export temporary-name admission exhausted",
+        ))
     }
 }
 impl Drop for PartialOutput {
-    fn drop(&mut self) { let _ = std::fs::remove_file(&self.0); }
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }

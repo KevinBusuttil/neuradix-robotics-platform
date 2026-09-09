@@ -96,6 +96,7 @@ case!(expansion_limits);
 case!(streaming_backpressure);
 case!(summary_integrity);
 case!(legacy_projection);
+case!(complete_statistics_and_duplicate_keys);
 
 #[test]
 fn import_child() {
@@ -437,6 +438,38 @@ fn import_child() {
                 .messages,
                 3
             );
+        }
+        "complete_statistics_and_duplicate_keys" => {
+            fn with_stats(records:&[(u8,Vec<u8>)], stats:&[u8]) -> Vec<u8> {
+                let mut out=MCAP_MAGIC.to_vec();
+                for (op,body) in records { append(&mut out,*op,body); }
+                append(&mut out,15,&[0;4]); let start=out.len() as u64;
+                append(&mut out,11,stats);
+                let mut footer=start.to_le_bytes().to_vec(); footer.extend_from_slice(&[0;12]);
+                append(&mut out,2,&footer); out.extend_from_slice(&MCAP_MAGIC); out
+            }
+            let original=data_records();
+            let stats=parts(&fixture("uncompressed")).into_iter().find(|(op,_)| *op==11).unwrap().1;
+            archive(&with_stats(&original,&stats),limits).unwrap();
+            let mut missing=stats.clone(); missing.truncate(56); missing[42..46].copy_from_slice(&10u32.to_le_bytes());
+            let error=archive(&with_stats(&original,&missing),limits).unwrap_err();
+            assert!(error.to_string().contains("omit a nonzero"),"{error}");
+            let mut duplicate=stats.clone(); duplicate.extend_from_slice(&stats[46..56]); duplicate[42..46].copy_from_slice(&30u32.to_le_bytes());
+            let error=archive(&with_stats(&original,&duplicate),limits).unwrap_err();
+            assert!(error.to_string().contains("Duplicate keys"),"{error}");
+            // Both string map types use the maintained parser's duplicate guard.
+            for opcode in [4,12] {
+                let mut records=original.clone();
+                let body=&mut records.iter_mut().find(|(op,_)| *op==opcode).unwrap().1;
+                let mut pos=if opcode==4 {4} else {0};
+                for _ in 0..if opcode==4 {2} else {1} {
+                    let len=u32::from_le_bytes(body[pos..pos+4].try_into().unwrap()) as usize; pos+=4+len;
+                }
+                let map=body[pos+4..].to_vec(); body.extend_from_slice(&map);
+                body[pos..pos+4].copy_from_slice(&((map.len()*2) as u32).to_le_bytes());
+                let error=archive(&file(&records),limits).unwrap_err();
+                assert!(error.to_string().contains("Duplicate keys"),"{error}");
+            }
         }
         "summary_integrity" => {
             let bytes = file(&data_records());
