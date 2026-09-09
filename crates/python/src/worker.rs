@@ -1,11 +1,12 @@
 //! Synchronous bounded Python-worker stdio, outside the local control executor.
 
 pub use crate::config::WorkerConfig;
+use crate::heartbeat::Heartbeat;
 use crate::process::{Process, pause_until};
 use crate::protocol::{Frames, encode};
-use crate::{CleanupReport, CleanupState, Timeouts, WorkerError};
+use crate::{CleanupReport, CleanupState, Timeouts, WorkerError, WorkerFailure};
 use neuradix_runtime::HealthState;
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::io;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -34,11 +35,23 @@ impl Deadline {
         Ok(Self { io, end, reserve })
     }
     fn check(&self) -> Result<(), WorkerError> {
-        if Instant::now() >= self.io {
+        self.check_at(Instant::now())
+    }
+    fn check_at(&self, now: Instant) -> Result<(), WorkerError> {
+        if now >= self.io {
             Err(WorkerError::Timeout)
         } else {
             Ok(())
         }
+    }
+    fn heartbeat(io: Instant, reserve: Duration) -> Result<Self, WorkerError> {
+        let end = io.checked_add(reserve).ok_or(WorkerError::SupervisionClock)?;
+        Ok(Self { io, end, reserve })
+    }
+    fn cap_io(mut self, expiry: Instant) -> Result<Self, WorkerError> {
+        self.io = self.io.min(expiry);
+        self.end = self.end.min(self.io.checked_add(self.reserve).ok_or(WorkerError::SupervisionClock)?);
+        Ok(self)
     }
     fn cleanup_end(&self) -> Instant {
         Instant::now()
@@ -85,6 +98,7 @@ pub struct PythonWorker {
     ready: ReadyInfo,
     unavailable: bool,
     cleanup: Option<CleanupReport>,
+    heartbeat: Heartbeat,
 }
 impl PythonWorker {
     /// Launch and handshake within one total budget. This library must exclusively
@@ -130,6 +144,7 @@ impl PythonWorker {
             config.limits.incoming_bytes().to_string(),
         );
         deadline.check().map_err(handshake_error)?;
+        let heartbeat = Heartbeat::new(config.heartbeat, Instant::now())?;
         let process = Process::spawn(&mut command, deadline.cleanup_end())?;
         let mut worker = Self {
             process,
@@ -144,6 +159,7 @@ impl PythonWorker {
             },
             unavailable: false,
             cleanup: None,
+            heartbeat,
         };
         let handshake = worker.receive(&deadline).and_then(|value| {
             if value.get("kind").and_then(Value::as_str) != Some("ready") {
@@ -161,7 +177,11 @@ impl PythonWorker {
                 name: name.to_owned(),
                 skip_policy: skip_policy.to_owned(),
             };
-            deadline.check()
+            deadline.check()?;
+            // A ready declaration starts the initial scheduling window but is
+            // not responsiveness confirmation. No worker time is accepted.
+            worker.heartbeat = Heartbeat::new(config.heartbeat, Instant::now())?;
+            Ok(())
         });
         if let Err(error) = handshake {
             return Err(worker.fail(handshake_error(error), &deadline));
@@ -188,22 +208,73 @@ impl PythonWorker {
             outgoing_bytes: self.outgoing_high,
         }
     }
+    /// First terminal failure, retained through shutdown and late traffic.
+    pub fn last_failure(&self) -> Option<WorkerFailure> {
+        self.heartbeat.failure()
+    }
+    /// Next monotonic probe due time. Call check_heartbeat even during idle
+    /// periods; ordinary replies may move this time forward.
+    pub fn heartbeat_due(&self) -> Instant {
+        self.heartbeat.due()
+    }
+    /// Absolute responsiveness expiry; equality is expired. A delayed poll
+    /// receives only the remaining response budget, never a new full timeout.
+    pub fn heartbeat_expires(&self) -> Instant {
+        self.heartbeat.expires()
+    }
+    pub(crate) fn available(&self) -> bool {
+        !self.unavailable
+    }
+    pub(crate) fn check_session(&mut self) -> Result<HealthState, WorkerError> {
+        if self.unavailable {
+            return Err(WorkerError::Unavailable);
+        }
+        let result = self.heartbeat.observe(Instant::now()).and_then(|state| {
+            if self.process.has_exited()? {
+                Err(WorkerError::WorkerExited { status: "observed exit".into() })
+            } else {
+                Ok(state)
+            }
+        });
+        result.map_err(|error| self.retire(error))
+    }
+
+    /// Perform at most one due ping/pong operation, returning true if confirmed.
+    /// Before due time this does no pipe I/O. Poll outside local control, at due
+    /// time or earlier; lateness shortens the anchored response window. No
+    /// background task exists. A failure retires this session until replacement.
+    pub fn check_heartbeat(&mut self) -> Result<bool, WorkerError> {
+        self.check_session()?;
+        if Instant::now() < self.heartbeat.due() {
+            return Ok(false);
+        }
+        let deadline = Deadline::heartbeat(self.heartbeat.expires(), self.timeouts.cleanup())
+            .map_err(|error| self.retire(error))?;
+        self.exchange(None, deadline).map(|_| true)
+    }
 
     /// Send a borrowed payload without cloning its tree. Encoding is bounded
     /// before any write. Sequences start at 1, never wrap and are consumed only
     /// when a write is attempted. Unrelated lines never extend the deadline.
     pub fn send(&mut self, payload: &Value) -> Result<Value, WorkerError> {
-        if self.unavailable {
-            return Err(WorkerError::Unavailable);
-        }
-        let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?;
-        let sequence = self
-            .sequence
-            .checked_add(1)
-            .ok_or(WorkerError::SequenceExhausted)?;
-        let line = match encode(payload, Some(sequence), self.outgoing_limit, deadline.io) {
+        self.check_session()?;
+        let deadline = Deadline::new(self.timeouts.request(), self.timeouts.cleanup())?
+            .cap_io(self.heartbeat.expires()).map_err(|error| self.retire(error))?;
+        self.exchange(Some(payload), deadline)
+    }
+    fn exchange(&mut self, payload: Option<&Value>, deadline: Deadline) -> Result<Value, WorkerError> {
+        let sequence = self.sequence.checked_add(1)
+            .ok_or(WorkerError::SequenceExhausted).map_err(|error| self.fail(error, &deadline))?;
+        let encoded = match payload {
+            Some(payload) => encode(payload, Some(sequence), self.outgoing_limit, deadline.io),
+            None => encode(&json!({"kind": "ping", "seq": sequence}), None, self.outgoing_limit, deadline.io),
+        };
+        let line = match encoded {
             Ok(line) => line,
-            Err(WorkerError::Timeout) => return Err(self.fail(WorkerError::Timeout, &deadline)),
+            Err(WorkerError::Timeout) => {
+                let error = if payload.is_none() { WorkerError::HeartbeatTimeout } else { WorkerError::Timeout };
+                return Err(self.fail(error, &deadline));
+            }
             Err(error) => return Err(error),
         };
         self.outgoing_high = self.outgoing_high.max(line.len());
@@ -215,15 +286,19 @@ impl PythonWorker {
                 if value.get("seq").and_then(Value::as_u64) != Some(sequence) {
                     continue;
                 }
-                match value.get("kind").and_then(Value::as_str) {
-                    Some("response") => {
+                match (payload.is_some(), value.get("kind").and_then(Value::as_str)) {
+                    (false, Some("pong")) => {
+                        deadline.check()?;
+                        return Ok(Value::Null);
+                    }
+                    (true, Some("response")) => {
                         deadline.check()?;
                         return Ok(value
                             .get_mut("payload")
                             .map(Value::take)
                             .unwrap_or(Value::Null));
                     }
-                    Some("error") => {
+                    (true, Some("error")) => {
                         let message = value
                             .get("message")
                             .and_then(Value::as_str)
@@ -236,9 +311,21 @@ impl PythonWorker {
                 }
             }
         })();
+        // Both application responses and matching Remote errors demonstrate
+        // loop/handler responsiveness, not application correctness. Pongs are
+        // accepted only for a ping using this session's next sequence.
+        if result.is_ok() || matches!(&result, Err(WorkerError::Remote(_))) {
+            if let Err(error) = deadline.check().and_then(|()| self.heartbeat.confirm(Instant::now())) {
+                let error = if payload.is_none() && matches!(error, WorkerError::Timeout) { WorkerError::HeartbeatTimeout } else { error };
+                return Err(self.fail(error, &deadline));
+            }
+        }
         match result {
             Err(error @ WorkerError::Remote(_)) => Err(error),
-            Err(error) => Err(self.fail(error, &deadline)),
+            Err(error) => {
+                let error = if payload.is_none() && matches!(error, WorkerError::Timeout) { WorkerError::HeartbeatTimeout } else { error };
+                Err(self.fail(error, &deadline))
+            }
             ok => ok,
         }
     }
@@ -325,13 +412,24 @@ impl PythonWorker {
     }
     fn finish(&mut self, end: Instant) -> CleanupReport {
         self.unavailable = true;
+        self.heartbeat.fail(WorkerFailure::Shutdown);
         self.frames.clear();
         let report = self.process.finish(end);
         self.cleanup = Some(report);
         report
     }
     fn fail(&mut self, error: WorkerError, deadline: &Deadline) -> WorkerError {
+        self.heartbeat.fail(WorkerFailure::from_error(&error));
         let report = self.finish(deadline.cleanup_end());
+        Self::with_cleanup(error, report)
+    }
+    fn retire(&mut self, error: WorkerError) -> WorkerError {
+        self.heartbeat.fail(WorkerFailure::from_error(&error));
+        let now = Instant::now();
+        let report = self.finish(now.checked_add(self.timeouts.cleanup()).unwrap_or(now));
+        Self::with_cleanup(error, report)
+    }
+    fn with_cleanup(error: WorkerError, report: CleanupReport) -> WorkerError {
         if report.state == CleanupState::Reaped && report.signal_error.is_none() {
             error
         } else {
@@ -341,23 +439,17 @@ impl PythonWorker {
             }
         }
     }
-    /// Available running process status, not a heartbeat or handler liveness proof.
+    /// Whether the session remains usable and unexpired. This never probes an
+    /// idle process; periodic check_heartbeat is required to demonstrate health.
     pub fn is_running(&mut self) -> bool {
-        if self.unavailable {
-            return false;
-        }
-        matches!(self.process.has_exited(), Ok(false))
+        self.check_session().is_ok()
     }
-    /// Failed sessions remain Unavailable until replaced, even if reaping is deferred.
+    /// Unknown until a matching timely reply, Healthy before the next due time,
+    /// Degraded when a confirmed session owes a probe, Unavailable after expiry
+    /// or failure. Observation can retire an expired session using cleanup reserve;
+    /// it does not itself issue a ping. Keep all supervision outside local control.
     pub fn health(&mut self) -> HealthState {
-        if self.unavailable {
-            return HealthState::Unavailable;
-        }
-        match self.process.has_exited() {
-            Ok(false) => HealthState::Healthy,
-            Ok(true) => HealthState::Unavailable,
-            Err(_) => HealthState::Unknown,
-        }
+        self.check_session().unwrap_or(HealthState::Unavailable)
     }
     /// Best-effort graceful shutdown, group termination and bounded reaping,
     /// within the configured total. Repeated calls reuse the cleanup report.
@@ -386,5 +478,27 @@ impl Drop for PythonWorker {
                 .unwrap_or_else(Instant::now);
             self.finish(end);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn absolute_deadlines_cap_requests_and_reserve_cleanup() {
+        let start = Instant::now();
+        let reserve = Duration::from_millis(50);
+        let expiry = start + Duration::from_millis(200);
+        let deadline = Deadline::heartbeat(expiry, reserve).unwrap();
+        assert!(deadline.check_at(expiry - Duration::from_nanos(1)).is_ok());
+        assert!(matches!(deadline.check_at(expiry), Err(WorkerError::Timeout)));
+        assert_eq!(deadline.end, expiry + reserve);
+        let capped = Deadline::new(Duration::from_secs(10), reserve).unwrap().cap_io(expiry).unwrap();
+        assert_eq!(capped.io, expiry);
+        assert_eq!(capped.end, expiry + reserve);
+        // An operation's earlier total deadline remains the limiting one.
+        let short = Deadline::new(Duration::from_millis(100), reserve).unwrap();
+        let end = short.end;
+        assert_eq!(short.cap_io(expiry).unwrap().end, end);
     }
 }

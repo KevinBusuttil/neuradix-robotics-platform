@@ -105,6 +105,7 @@ scenario!(
     failed_restart_budget,
     process_admission_bound,
     local_control_continues,
+    local_control_during_heartbeat_failure,
     remote_error_recovery,
     write_and_response_share_deadline
 );
@@ -324,12 +325,13 @@ fn scenario_child() {
             // receive deadline after write would exceed this 1.25s ceiling.
             assert!(start.elapsed() <= total + Duration::from_millis(250));
         }
-        "local_control_continues" => local_control(),
+        "local_control_continues" => local_control(false),
+        "local_control_during_heartbeat_failure" => local_control(true),
         other => panic!("unknown scenario {other}"),
     }
 }
 
-fn local_control() {
+fn local_control(heartbeat: bool) {
     use neuradix_safety::{
         AuthorityLease, Capability, CommandMeta, CommandPolicy, CommandRequest, Constraint,
         Generation, Identity, LeaseTable, SafetyGate, SessionConfig, SharedTimeline,
@@ -360,10 +362,19 @@ fn local_control() {
         0.0,
     )
     .unwrap();
-    let mut worker = PythonWorker::launch(&config("hang")).unwrap();
+    let cfg = config("hang").with_heartbeat(neuradix_python::HeartbeatPolicy::new(
+        Duration::from_millis(20), Duration::from_millis(250),
+    ).unwrap());
+    let mut worker = PythonWorker::launch(&cfg).unwrap();
     let task = std::thread::spawn(move || {
-        let error = worker.send(&Value::Null).unwrap_err();
-        assert!(matches!(cause(&error), WorkerError::Timeout));
+        if heartbeat {
+            std::thread::sleep(worker.heartbeat_due().saturating_duration_since(Instant::now()));
+            let error = worker.check_heartbeat().unwrap_err();
+            assert!(matches!(cause(&error), WorkerError::HeartbeatTimeout));
+        } else {
+            let error = worker.send(&Value::Null).unwrap_err();
+            assert!(matches!(cause(&error), WorkerError::Timeout));
+        }
         worker.health()
     });
     let mut ticks = 0u64;

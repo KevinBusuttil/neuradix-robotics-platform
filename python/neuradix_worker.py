@@ -8,7 +8,7 @@ This module implements the newline-delimited JSON protocol the Rust supervisor
 * the supervisor sends ``{"kind": "request", "seq", "payload"}`` lines;
 * the worker replies ``{"kind": "response", "seq", "payload"}`` or
   ``{"kind": "error", "seq", "message"}``;
-* ``{"kind": "ping", "seq"}`` is answered with ``{"pong": true}``;
+* ``{"kind": "ping", "seq"}`` is answered with ``{"kind": "pong", "seq"}``;
 * ``{"kind": "shutdown"}`` ends the loop.
 
 Only protocol JSON goes to stdout; logs and tracebacks go to stderr, so a crash
@@ -124,7 +124,9 @@ def run(handler, name="python-worker", skip_policy="may-skip"):
         if type(seq) is not int or not 1 <= seq <= 18446744073709551615:
             raise ValueError("invalid request sequence")
         if kind == "ping":
-            _send({"kind": "response", "seq": seq, "payload": {"pong": True}})
+            # Distinct reply kind prevents ordinary responses from satisfying a
+            # probe. This small envelope fits even a 64-byte limit at u64 max.
+            _send({"kind": "pong", "seq": seq})
             continue
         if kind == "request":
             try:

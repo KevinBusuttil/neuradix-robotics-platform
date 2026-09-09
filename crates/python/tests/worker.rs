@@ -35,11 +35,12 @@ fn round_trips_a_request_and_passes_config() {
     }
     let mut worker = PythonWorker::launch(&base_config()).expect("launch");
     assert_eq!(worker.ready_info().name, "testkit-worker");
-    assert_eq!(worker.health(), HealthState::Healthy);
+    assert_eq!(worker.health(), HealthState::Unknown);
 
     let response = worker.send(&json!({ "depth": 3.0 })).expect("send");
     assert_eq!(response["echo"]["depth"], 3.0);
     assert_eq!(response["config"]["threshold"], 12.0);
+    assert_eq!(worker.health(), HealthState::Healthy);
 
     worker.shutdown();
 }

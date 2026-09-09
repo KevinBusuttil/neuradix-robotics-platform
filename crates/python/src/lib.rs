@@ -24,8 +24,10 @@
 //! [`WorkerError::UnsupportedPlatform`] before launch. No per-worker I/O thread
 //! exists; at most 32 live/deferred children share one bounded reaper thread.
 //! Process-group cleanup requires exclusive child-reaping ownership. This is not
-//! a security sandbox or comprehensive CPU/memory containment, and Healthy is
-//! process status rather than heartbeat health. Keep calls outside local control.
+//! a security sandbox or comprehensive CPU/memory containment. [`HeartbeatPolicy`]
+//! and periodic [`WorkerSupervisor::poll`] provide bounded responsiveness health,
+//! including idle periods. A ready process starts Unknown; only a matching timely
+//! reply establishes Healthy. Keep all supervision calls outside local control.
 //!
 //! ## Not yet implemented
 //!
@@ -37,13 +39,15 @@
 
 pub mod config;
 pub mod error;
+mod heartbeat;
 mod process;
 mod protocol;
 pub mod supervisor;
 pub mod worker;
 
-pub use config::{IoLimits, Timeouts, WorkerConfig};
+pub use config::{HeartbeatPolicy, IoLimits, Timeouts, WorkerConfig};
 pub use error::WorkerError;
+pub use heartbeat::WorkerFailure;
 pub use process::{CleanupReport, CleanupState};
 pub use supervisor::WorkerSupervisor;
 pub use worker::{IoStats, PythonWorker, ReadyInfo};

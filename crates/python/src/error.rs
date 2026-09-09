@@ -3,6 +3,15 @@
 /// Errors from launching, supervising or exchanging with a Python worker.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkerError {
+    /// A due heartbeat did not receive its matching pong before expiry.
+    #[error("python worker heartbeat timed out")]
+    HeartbeatTimeout,
+    /// The supervisor observed an already-expired responsiveness window.
+    #[error("python worker responsiveness expired before supervision resumed")]
+    HeartbeatExpired,
+    /// Trusted monotonic observations regressed or deadline arithmetic overflowed.
+    #[error("python worker supervision clock fault")]
+    SupervisionClock,
     /// Invalid immutable I/O or timeout configuration.
     #[error("invalid worker configuration: {0}")]
     InvalidConfig(&'static str),
