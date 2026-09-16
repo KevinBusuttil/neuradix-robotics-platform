@@ -165,6 +165,8 @@ pub struct Component {
 /// A typed connection between two components carrying a contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connection {
+    /// Validated offline delay declaration.
+    pub delay: crate::ConnectionDelay,
     /// Producer component name.
     pub from: String,
     /// Consumer component name.
@@ -270,6 +272,9 @@ pub struct RawComponent {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RawConnection {
+    /// Omitted means instantaneous. Explicit null or malformed delay is invalid.
+    #[serde(default = "crate::delay::instantaneous")]
+    pub delay: serde_yaml::Value,
     /// `from`
     pub from: Option<String>,
     /// `to`

@@ -10,6 +10,7 @@ The current direction is a unified robotics development and operations platform 
 | [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) | Work packages, dependencies, owner roles, engineer-week ranges, 90-day capacity plan, acceptance catalogue and traceability |
 | [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) | Repository-native revised research report with pinned code findings and external citations |
 | [Capability Status](Neuradix_Capability_Status.md) | Integrated implementation and evidence; partial work packages and open findings |
+| [A08 delayed-feedback evidence](implementation/WP-A08-Delayed-Feedback-Validation.md) | Explicit tick boundaries, offline instantaneous DAG proof, v3 identity migration and remaining runtime obligations |
 | [A08 resolved deployment identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md) | Canonical configuration, resolved schema/layout identity, migration and remaining graph acceptance |
 | [A07 program replay runner evidence](implementation/WP-A07-Program-Replay-Runner.md) | Fresh selected processor execution, pinned cases, bounded exact comparison and remaining replay acceptance |
 | [A06 bounded MCAP writer evidence](implementation/WP-A06-Bounded-MCAP-Writer.md) | Uncompressed streaming, failure policy, independent export verification and measured memory |

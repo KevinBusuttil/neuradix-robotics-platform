@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A08 resolved deployment identity branch.** This register is the current
+**Updated for the WP-A08 delayed-feedback validation branch.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -133,16 +133,11 @@ Pinned implementation CI 34380370682 passed: 346 workspace tests/doctests, 20 ru
 WP-A01's integrated baseline supplies the prerequisite, while its broader inventory
 remains partial. A04/A05/A06 and Gate A retain their open criteria.
 
-## WP-A08 resolved deployment identity branch
+## WP-A08 resolved identity and delayed feedback
 
-The current branch adds versioned declared and resolved identities, bounded canonical
-configuration and shared scalar layout computation. All declared ports resolve;
-unsupported layouts and invalid graphs cannot produce a resolved identity. Immutable
-reports prevent caller edits from forging successful validation. Identity labels do
-not attest execution or grant authority. API/CLI pin migration is deliberate; see
-[A08 evidence](implementation/WP-A08-Resolved-Deployment-Identity.md).
-[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) is open and unmerged. Pinned implementation PR CI 34384823142/push CI 34384817885 passed: 354 workspace tests/doctests, 31 graph plus five CLI graph tests, graph example, preserved A04/A05/A06/A07, SDK, no_std, independent MCAP and separate AVR checks. WP-A08 stays partial for delayed
-feedback and runtime authority enforcement. Existing package/acceptance gaps remain.
+[PR #17](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/17) merged as `11847e60010d67df636be067ece30ba19fff7da8`; [post-merge CI 34390070855](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34390070855) passed. Its bounded configuration, complete scalar schema/layout resolution and immutable identity reports are integrated. See [identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md).
+
+The current branch adds explicit validated evaluation-tick delays, required seed-history obligations, bounded deterministic instantaneous-cycle rejection and v3 identities for delayed graphs. Existing all-instantaneous v2 pins survive. [PR #18](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/18) is open and unmerged. Implementation PR CI 34403559830 passed: 363 workspace tests/doctests, 39 graph and six CLI graph tests, examples and preserved conformance suites. See [delayed-feedback evidence](implementation/WP-A08-Delayed-Feedback-Validation.md). No graph execution, runtime delay enforcement or actuator authority is supplied. WP-A08 stays partial for runtime capability/physical driver permission separation. All other package and acceptance gaps remain.
 
 ## Capability inventory
 
@@ -150,7 +145,7 @@ feedback and runtime authority enforcement. Existing package/acceptance gaps rem
 |---|---|---|
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
-| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | A08 resolved identities on the current branch; delayed feedback and deployed supervisor: A08/B02/B07 |
+| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Delayed-feedback validation on the current branch; runtime authority and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
 | Recording/replay | Native recording/digest and integrated bounded MCAP import; reusable single-processor re-execution with pinned cases and exact comparisons | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
@@ -191,7 +186,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
 | MCAP subset | PR #14 integrates bounded maintained import; PR #15 integrates bounded uncompressed output and independent export checks | A06 | Partial: bounded import/writer integrated; broader interchange/scale qualification remains |
 | Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner integrated; graph execution and ACC-07 closed-loop evidence remain open |
-| Deployment resolution/feedback | PR #17 implements resolved schema/layout/configuration identity; cycle/role validation is not runtime enforcement | A08 | Partial: identity integration pending; delayed feedback and runtime enforcement remain open |
+| Deployment resolution/feedback | PR #17 integrated resolved identity; current branch adds offline delayed-feedback validation | A08 | Partial: delayed-feedback integration pending; runtime authority/driver enforcement remains open |
 
 WP-A01 has an integrated source baseline and compiler evidence. The broader evidence
 inventory and optional-tool audit remain. WP-A02 and WP-A03 are partial; their

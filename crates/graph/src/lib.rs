@@ -18,7 +18,8 @@
 //! - **Declared safety topology** — an actuator must be adjacent to a Safety
 //!   component, and a deployment with actuators must declare a Safety authority
 //!   (§16.1). Labels do not grant runtime actuator permission.
-//! - **Topology** — the component graph must be acyclic.
+//! - **Topology** — instantaneous edges must be acyclic; admitted positive-delay
+//!   edges break same-tick dependencies without claiming runtime enforcement.
 //!
 //! Structural and policy problems are surfaced as [`GraphIssue`]s in a
 //! [`GraphReport`] rather than as hard errors, so a single pass reports every
@@ -75,6 +76,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod delay;
+pub use delay::ConnectionDelay;
 pub mod configuration;
 pub use configuration::ComponentConfiguration;
 pub mod error;

@@ -91,3 +91,14 @@ implementation to honor injected time/configuration/seed and avoid ambient mutab
 state. The trait is not a resource sandbox or wall-time guarantee. See
 [runner evidence](../implementation/WP-A07-Program-Replay-Runner.md) and
 [RFC-0015](RFC-0015-Recording-and-Deterministic-Replay.md).
+
+
+## Offline delayed-feedback declarations (A08)
+
+The graph validator now admits explicit positive evaluation-tick boundaries and
+proves that remaining instantaneous dependencies form a DAG. This does not add a
+deployment scheduler or buffers to this runtime. Future graph execution must supply
+trusted seed history, enforce a common tick association and reject unsatisfied
+initialization/scheduling requirements. Source timestamps do not choose evaluation
+time. The single-processor replay runner remains unchanged. See the
+[A08 normative obligations](../implementation/WP-A08-Delayed-Feedback-Validation.md).

@@ -43,6 +43,7 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-graph
           timeout --signal=TERM --kill-after=5s 30s cargo test --locked -p neuradix-cli --test graph
           timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-graph --example resolved_identity
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-graph --example delayed_feedback
 
       - name: Program replay regressions and example
         run: |

@@ -11,14 +11,12 @@ use crate::model::Deployment;
 /// connections and configuration, with unordered declarations sorted. This alone
 /// does not resolve contracts or attest execution; only validated reports expose it.
 pub(crate) fn declared_identity(deployment: &Deployment) -> String {
-    let value = json!({"identityVersion": "neuradix.deployment.declared.v2", "deployment": canonical_value(deployment)});
+    let version = identity_version(deployment, "declared");
+    let value = json!({"identityVersion": version, "deployment": canonical_value(deployment)});
     let bytes = serde_json::to_vec(&sort_keys(value)).expect("canonical JSON cannot fail");
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
-    format!(
-        "neuradix.deployment.declared.v2:sha256:{}",
-        to_hex(&hasher.finalize())
-    )
+    format!("{version}:sha256:{}", to_hex(&hasher.finalize()))
 }
 
 fn canonical_value(deployment: &Deployment) -> Value {
@@ -51,10 +49,19 @@ fn canonical_value(deployment: &Deployment) -> Value {
         .collect();
     components.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
 
+    let delayed = has_delay(deployment);
     let mut connections: Vec<Value> = deployment
         .connections
         .iter()
-        .map(|c| json!({ "from": c.from, "to": c.to, "contract": c.contract }))
+        .map(|c| {
+            let mut value = json!({ "from": c.from, "to": c.to, "contract": c.contract });
+            if delayed {
+                value["delay"] = if c.delay.is_instantaneous() { json!("instantaneous") } else {
+                    json!({"ticks": c.delay.ticks(), "unit": "evaluation-ticks", "initialization": "require-seed"})
+                };
+            }
+            value
+        })
         .collect();
     connections.sort_by(|a, b| {
         (a["from"].as_str(), a["to"].as_str(), a["contract"].as_str()).cmp(&(
@@ -113,13 +120,24 @@ pub(crate) fn resolved_identity(
             })
         })
         .collect();
+    let version = identity_version(deployment, "resolved");
     let bytes = serde_json::to_vec(&sort_keys(json!({
-        "identityVersion": "neuradix.deployment.resolved.v2",
+        "identityVersion": version,
         "deployment": canonical_value(deployment), "contracts": bindings,
     })))
     .expect("canonical JSON");
+    format!("{version}:sha256:{}", to_hex(&Sha256::digest(bytes)))
+}
+
+fn has_delay(deployment: &Deployment) -> bool {
+    deployment
+        .connections
+        .iter()
+        .any(|c| !c.delay.is_instantaneous())
+}
+fn identity_version(deployment: &Deployment, kind: &str) -> String {
     format!(
-        "neuradix.deployment.resolved.v2:sha256:{}",
-        to_hex(&Sha256::digest(bytes))
+        "neuradix.deployment.{kind}.v{}",
+        if has_delay(deployment) { 3 } else { 2 }
     )
 }
