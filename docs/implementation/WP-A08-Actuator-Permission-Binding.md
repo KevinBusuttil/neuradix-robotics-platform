@@ -128,7 +128,9 @@ queue/history. Reports retain at most one admitted request (holder/capability at
 most 128 bytes each), one SafetyDecision and at most two acted-rule IDs. Scalar
 metadata/reasons and two driver results have fixed size. The gate allocates small
 bounded vectors/strings per host evaluation; this is not an allocation-free host
-API or a global allocator/RSS bound. Incoming allocation before admission, driver
+API or a global allocator/RSS bound. Admitted label bytes are copied into fresh bounded ownership, so a short input
+String with excessive spare capacity is not retained in the report. Incoming
+allocation before admission, driver
 implementation storage and caller-retained report history belong to their owners.
 Rejected identities never create lease entries. Count tests exercise repeated
 rejected grants and the single-slot limit. No embedded/no_std dependency changes.

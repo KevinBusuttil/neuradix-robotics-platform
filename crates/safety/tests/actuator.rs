@@ -269,9 +269,13 @@ fn actuator_child() {
             }
             assert_eq!(trace.borrow().calls.len(), 1); // No allocation of new binding slots or I/O on rejected grants.
             assert_eq!(a.binding_count(), 1);
-            let wrong_mode = ActuatorBinding::new("controller", "thrust", "driver/one", ExecutionMode::Replay).unwrap();
-            assert!(matches!(DriverPermission::new(wrong_mode, lease(2)), Err(PermissionError::ModeMismatch)));
-
+            let wrong_mode =
+                ActuatorBinding::new("controller", "thrust", "driver/one", ExecutionMode::Replay)
+                    .unwrap();
+            assert!(matches!(
+                DriverPermission::new(wrong_mode, lease(2)),
+                Err(PermissionError::ModeMismatch)
+            ));
         }
         "replacement_revocation_and_renewal" => {
             let (mut a, trace) = setup(1.0);
@@ -337,8 +341,13 @@ fn actuator_child() {
             // Old source time cannot authorize a command at the captured runtime expiry.
             let (mut expired, _) = setup(10.0);
             expired.grant(permission(1), t(0)).unwrap();
-            let report = expired.port(ExecutionMode::Live, t(1000)).tick(Some(req(1, 0, 500, 1.0)));
-            assert_eq!(report.decision.unwrap().outcome, Outcome::Rejected(RejectReason::LeaseExpired));
+            let report = expired
+                .port(ExecutionMode::Live, t(1000))
+                .tick(Some(req(1, 0, 500, 1.0)));
+            assert_eq!(
+                report.decision.unwrap().outcome,
+                Outcome::Rejected(RejectReason::LeaseExpired)
+            );
 
             let (mut a, _) = setup(10.0);
             a.grant(permission(1), t(0)).unwrap();

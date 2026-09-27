@@ -397,6 +397,16 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
         if let Some(reason) = denied {
             return self.inhibit(now, reason);
         }
+        // Re-own only admitted bytes: a caller may supply a short String with an
+        // arbitrarily large spare capacity. Never retain that buffer in reports.
+        let input = input.map(|r| {
+            CommandRequest::new(
+                Identity::new(r.holder.as_str()),
+                Capability::new(r.capability.as_str()),
+                r.value,
+                r.meta,
+            )
+        });
         let decision = self.gate.evaluate(input, now);
         let output = decision.applied;
         self.write_report(now, PermissionStatus::Granted, Some(decision), None, output)
