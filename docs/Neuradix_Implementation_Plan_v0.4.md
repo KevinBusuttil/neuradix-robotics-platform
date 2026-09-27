@@ -798,3 +798,18 @@ Functional Specification v0.6 owns normative behaviour; this plan owns sequencin
 Every implementation PR should state WP/requirement IDs, resulting behaviour, focused verification, remaining limits and documentation changes. Update the capability register at the integrated commit, never pre-emptively. Keep historical document versions labelled as superseded and prevent old generators from replacing current entry points.
 
 The review was static: no Rust/AVR build, board trial or cluster benchmark was performed while preparing this plan. All new timing, footprint, availability and performance claims need the evidence described above.
+
+
+## Pending integration: Neuradix Manufacturing
+
+The [Manufacturing integration note](integrations/Neuradix-Manufacturing.md) records a new
+consumer requiring one selected machine and robot/cell workflow through this platform. Begin
+hardware/contract discovery alongside Manufacturing development; completion of the entire platform
+roadmap is not a prerequisite for that application to start. Physical pilot release still requires
+the selected identity, authority, Edge supervision, transport and adapter profile to be qualified.
+
+Map RI-01 to RI-05 to existing A04/A08, B07, applicable D03 prerequisites and selected F03 work;
+E02 is conditional on ROS use. These are coordination items, not additional claims that the 38
+work packages or A–F gates are complete. Record shared capacity once and explicitly approve any
+F03 pull-forward before displacing current gate work. The note does not revise existing estimates
+or automatically close/reorder gates.
