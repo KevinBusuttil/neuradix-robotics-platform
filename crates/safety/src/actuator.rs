@@ -5,9 +5,11 @@
 //! precomputed decision or access the driver. Native code/OS isolation and physical
 //! behavior are outside this API guarantee. Driver implementations are trusted.
 
+use crate::{
+    AuthorityLease, Capability, CommandRequest, Constraint, Identity, LeaseTable, RejectReason,
+    SafetyDecision, SafetyGate, SessionError,
+};
 use neuradix_time::{ClockDomain, Timestamp};
-use crate::{AuthorityLease, Capability, CommandRequest, Constraint, Identity,
-    LeaseTable, RejectReason, SafetyDecision, SafetyGate, SessionError};
 
 /// Maximum UTF-8 bytes in each admitted component, capability or driver name.
 pub const MAX_BINDING_NAME_BYTES: usize = 128;
@@ -25,7 +27,11 @@ pub enum ExecutionMode {
 impl ExecutionMode {
     /// Required evaluation and lease clock domain for this selected adapter.
     pub const fn clock_domain(self) -> ClockDomain {
-        match self { Self::Live => ClockDomain::Monotonic, Self::Simulation => ClockDomain::Simulation, Self::Replay => ClockDomain::Replay }
+        match self {
+            Self::Live => ClockDomain::Monotonic,
+            Self::Simulation => ClockDomain::Simulation,
+            Self::Replay => ClockDomain::Replay,
+        }
     }
 }
 
@@ -40,22 +46,45 @@ pub struct ActuatorBinding {
 impl ActuatorBinding {
     /// Admit nonempty ASCII names of at most 128 bytes: letters, digits, `_-/.:`.
     /// No trimming/normalization or allocations occur before all names validate.
-    pub fn new(holder: &str, capability: &str, driver: &str, mode: ExecutionMode) -> Result<Self, PermissionError> {
+    pub fn new(
+        holder: &str,
+        capability: &str,
+        driver: &str,
+        mode: ExecutionMode,
+    ) -> Result<Self, PermissionError> {
         for name in [holder, capability, driver] {
-            if name.is_empty() || name.len() > MAX_BINDING_NAME_BYTES || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-/.:".contains(&b)) {
+            if name.is_empty()
+                || name.len() > MAX_BINDING_NAME_BYTES
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"_-/.:".contains(&b))
+            {
                 return Err(PermissionError::InvalidName);
             }
         }
-        Ok(Self { holder: Identity::new(holder), capability: Capability::new(capability), driver: driver.to_owned(), mode })
+        Ok(Self {
+            holder: Identity::new(holder),
+            capability: Capability::new(capability),
+            driver: driver.to_owned(),
+            mode,
+        })
     }
     /// Bound component/source name, not an authenticated principal.
-    pub fn holder(&self) -> &Identity { &self.holder }
+    pub fn holder(&self) -> &Identity {
+        &self.holder
+    }
     /// Bound scalar command capability.
-    pub fn capability(&self) -> &Capability { &self.capability }
+    pub fn capability(&self) -> &Capability {
+        &self.capability
+    }
     /// Selected endpoint label, verified against the trusted driver's descriptor.
-    pub fn driver(&self) -> &str { &self.driver }
+    pub fn driver(&self) -> &str {
+        &self.driver
+    }
     /// Immutable execution mode.
-    pub fn mode(&self) -> ExecutionMode { self.mode }
+    pub fn mode(&self) -> ExecutionMode {
+        self.mode
+    }
 }
 
 /// Private validated output configuration; exactly two constraints are retained.
@@ -68,11 +97,32 @@ pub struct ActuatorConfig {
 impl ActuatorConfig {
     /// Require finite ordered hard bounds, finite nonnegative rate and an in-range
     /// finite safe output. Safing bypasses slew; recovery starts from safe output.
-    pub fn new(binding: ActuatorBinding, min: f64, max: f64, rate: f64, safe: f64) -> Result<Self, PermissionError> {
-        if !min.is_finite() || !max.is_finite() || min > max || !rate.is_finite() || rate < 0.0 || !safe.is_finite() || safe < min || safe > max {
+    pub fn new(
+        binding: ActuatorBinding,
+        min: f64,
+        max: f64,
+        rate: f64,
+        safe: f64,
+    ) -> Result<Self, PermissionError> {
+        if !min.is_finite()
+            || !max.is_finite()
+            || min > max
+            || !rate.is_finite()
+            || rate < 0.0
+            || !safe.is_finite()
+            || safe < min
+            || safe > max
+        {
             return Err(PermissionError::InvalidOutputConfig);
         }
-        Ok(Self { binding, constraints: [Constraint::range("actuator.range", min, max).expect("validated"), Constraint::slew_rate("actuator.slew", rate).expect("validated")], safe })
+        Ok(Self {
+            binding,
+            constraints: [
+                Constraint::range("actuator.range", min, max).expect("validated"),
+                Constraint::slew_rate("actuator.slew", rate).expect("validated"),
+            ],
+            safe,
+        })
     }
 }
 
@@ -123,7 +173,9 @@ pub enum PermissionError {
     NotGranted,
 }
 impl std::fmt::Display for PermissionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "{self:?}") }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
 }
 impl std::error::Error for PermissionError {}
 
@@ -181,7 +233,7 @@ pub struct DispatchReport {
     pub permission: PermissionStatus,
     /// Gate evidence when a command or idle tick was evaluated normally.
     pub decision: Option<SafetyDecision>,
-    /// Latched clock error, including when permission inhibition also applies.
+    /// Clock error during permission inhibition; normal gate faults are in decision.
     pub evaluation_fault: Option<RejectReason>,
     /// Validated value selected for the first driver call.
     pub output: f64,
@@ -210,69 +262,141 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
     /// No I/O occurs here; setup must grant or tick to establish the safe output
     /// before enabling ingress. Reconstruction needs a durably newer generation.
     pub fn new(config: ActuatorConfig, driver: D) -> Result<Self, PermissionError> {
-        if driver.endpoint() != config.binding.driver { return Err(PermissionError::BindingMismatch); }
-        if driver.mode() != config.binding.mode { return Err(PermissionError::ModeMismatch); }
-        let gate = SafetyGate::new(LeaseTable::new(), config.constraints.to_vec(), config.safe).expect("validated config");
-        Ok(Self { binding: config.binding, driver, gate, safe: config.safe, status: PermissionStatus::Missing, driver_fault: None })
+        if driver.endpoint() != config.binding.driver {
+            return Err(PermissionError::BindingMismatch);
+        }
+        if driver.mode() != config.binding.mode {
+            return Err(PermissionError::ModeMismatch);
+        }
+        let gate = SafetyGate::new(LeaseTable::new(), config.constraints.to_vec(), config.safe)
+            .expect("validated config");
+        Ok(Self {
+            binding: config.binding,
+            driver,
+            gate,
+            safe: config.safe,
+            status: PermissionStatus::Missing,
+            driver_fault: None,
+        })
     }
     /// Trusted installation/replacement only. Fixed binding; same/older generations
     /// reject, including after revocation. Always establish safe output immediately.
     /// Driver failure is in the returned report and latches, even if fallback works.
-    pub fn grant(&mut self, permission: DriverPermission, now: Timestamp) -> Result<DispatchReport, PermissionError> {
+    pub fn grant(
+        &mut self,
+        permission: DriverPermission,
+        now: Timestamp,
+    ) -> Result<DispatchReport, PermissionError> {
         self.control_ready()?;
-        if permission.binding != self.binding { return Err(PermissionError::BindingMismatch); }
-        if now.domain() != self.binding.mode.clock_domain() { return Err(PermissionError::ModeMismatch); }
-        self.gate.check_control_time(now).map_err(PermissionError::Session)?;
-        self.gate.leases_mut().grant(permission.lease).map_err(PermissionError::Session)?;
+        if permission.binding != self.binding {
+            return Err(PermissionError::BindingMismatch);
+        }
+        if now.domain() != self.binding.mode.clock_domain() {
+            return Err(PermissionError::ModeMismatch);
+        }
+        self.gate
+            .check_control_time(now)
+            .map_err(PermissionError::Session)?;
+        self.gate
+            .leases_mut()
+            .grant(permission.lease)
+            .map_err(PermissionError::Session)?;
         self.status = PermissionStatus::Granted;
         Ok(self.inhibit(now, PermissionStatus::Initialized))
     }
     /// Trusted renewal only; keeps replay, slew and accepted-command state intact.
     pub fn renew(&mut self, expires: Timestamp, now: Timestamp) -> Result<(), PermissionError> {
         self.control_ready()?;
-        if self.status != PermissionStatus::Granted { return Err(PermissionError::NotGranted); }
-        self.gate.renew_lease(&self.binding.holder, &self.binding.capability, expires, now).map_err(PermissionError::Session)
+        if self.status != PermissionStatus::Granted {
+            return Err(PermissionError::NotGranted);
+        }
+        self.gate
+            .renew_lease(&self.binding.holder, &self.binding.capability, expires, now)
+            .map_err(PermissionError::Session)
     }
     /// Trusted revocation immediately attempts safe output; retains generation.
     pub fn revoke(&mut self, now: Timestamp) -> DispatchReport {
-        if self.status == PermissionStatus::Shutdown { return self.inhibit(now, PermissionStatus::Shutdown); }
-        self.gate.leases_mut().revoke(&self.binding.holder, &self.binding.capability);
+        if self.status == PermissionStatus::Shutdown {
+            return self.inhibit(now, PermissionStatus::Shutdown);
+        }
+        self.gate
+            .leases_mut()
+            .revoke(&self.binding.holder, &self.binding.capability);
         self.status = PermissionStatus::Revoked;
         self.inhibit(now, PermissionStatus::Revoked)
     }
     /// Terminal explicit shutdown. At most two calls on the first invocation;
     /// repeats and subsequent port calls perform no I/O. Drop performs none.
     pub fn shutdown(&mut self, now: Timestamp) -> DispatchReport {
-        if self.status == PermissionStatus::Shutdown { return self.inhibit(now, PermissionStatus::Shutdown); }
+        if self.status == PermissionStatus::Shutdown {
+            return self.inhibit(now, PermissionStatus::Shutdown);
+        }
         let mut report = self.revoke(now);
         report.permission = PermissionStatus::Shutdown;
         self.status = PermissionStatus::Shutdown;
         report
     }
-    /// Trusted composition creates an immutable-mode scoped ingress port. Hand
+    /// Trusted composition creates a single-use port with immutable mode and time. Hand
     /// components only this port, never the adapter or permission control plane.
-    pub fn port(&mut self, mode: ExecutionMode) -> ActuatorPort<'_, D> { ActuatorPort { adapter: self, mode } }
+    pub fn port(&mut self, mode: ExecutionMode, now: Timestamp) -> ActuatorPort<'_, D> {
+        ActuatorPort {
+            adapter: self,
+            mode,
+            now,
+        }
+    }
     /// Reserved lease slots, including revoked state; always zero or one.
-    pub fn binding_count(&self) -> usize { self.gate.leases().binding_count() }
+    pub fn binding_count(&self) -> usize {
+        self.gate.leases().binding_count()
+    }
     /// Last command accepted by the gate, not last successful physical actuation.
-    pub fn last_accepted_at(&self) -> Option<Timestamp> { self.gate.leases().last_accepted_at(&self.binding.holder, &self.binding.capability) }
+    pub fn last_accepted_at(&self) -> Option<Timestamp> {
+        self.gate
+            .leases()
+            .last_accepted_at(&self.binding.holder, &self.binding.capability)
+    }
     /// First driver failure, latched even if a safe write was acknowledged.
-    pub fn driver_fault(&self) -> Option<DriverError> { self.driver_fault }
+    pub fn driver_fault(&self) -> Option<DriverError> {
+        self.driver_fault
+    }
     /// Trusted binding is immutable throughout this adapter's lifetime.
-    pub fn binding(&self) -> &ActuatorBinding { &self.binding }
+    pub fn binding(&self) -> &ActuatorBinding {
+        &self.binding
+    }
     fn control_ready(&self) -> Result<(), PermissionError> {
-        if self.status == PermissionStatus::Shutdown { return Err(PermissionError::Shutdown); }
-        if self.driver_fault.is_some() { return Err(PermissionError::DriverFault); }
+        if self.status == PermissionStatus::Shutdown {
+            return Err(PermissionError::Shutdown);
+        }
+        if self.driver_fault.is_some() {
+            return Err(PermissionError::DriverFault);
+        }
         Ok(())
     }
-    fn tick(&mut self, mode: ExecutionMode, now: Timestamp, input: Option<CommandRequest>) -> DispatchReport {
-        let denied = if self.status == PermissionStatus::Shutdown { Some(PermissionStatus::Shutdown) }
-            else if self.driver_fault.is_some() { Some(PermissionStatus::DriverFault) }
-            else if mode != self.binding.mode { Some(PermissionStatus::ModeMismatch) }
-            else if self.status != PermissionStatus::Granted { Some(self.status) }
-            else if input.as_ref().is_some_and(|r| r.holder.as_str().len() > MAX_BINDING_NAME_BYTES || r.capability.as_str().len() > MAX_BINDING_NAME_BYTES) { Some(PermissionStatus::OversizedInput) }
-            else { None };
-        if let Some(reason) = denied { return self.inhibit(now, reason); }
+    fn tick(
+        &mut self,
+        mode: ExecutionMode,
+        now: Timestamp,
+        input: Option<CommandRequest>,
+    ) -> DispatchReport {
+        let denied = if self.status == PermissionStatus::Shutdown {
+            Some(PermissionStatus::Shutdown)
+        } else if self.driver_fault.is_some() {
+            Some(PermissionStatus::DriverFault)
+        } else if mode != self.binding.mode {
+            Some(PermissionStatus::ModeMismatch)
+        } else if self.status != PermissionStatus::Granted {
+            Some(self.status)
+        } else if input.as_ref().is_some_and(|r| {
+            r.holder.as_str().len() > MAX_BINDING_NAME_BYTES
+                || r.capability.as_str().len() > MAX_BINDING_NAME_BYTES
+        }) {
+            Some(PermissionStatus::OversizedInput)
+        } else {
+            None
+        };
+        if let Some(reason) = denied {
+            return self.inhibit(now, reason);
+        }
         let decision = self.gate.evaluate(input, now);
         let output = decision.applied;
         self.write_report(now, PermissionStatus::Granted, Some(decision), None, output)
@@ -281,13 +405,33 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
         let fault = self.gate.inhibit(now);
         self.write_report(now, reason, None, fault, self.safe)
     }
-    fn write_report(&mut self, now: Timestamp, permission: PermissionStatus, decision: Option<SafetyDecision>, evaluation_fault: Option<RejectReason>, output: f64) -> DispatchReport {
-        let mut report = DispatchReport { at: now, permission, decision, evaluation_fault, output, write_result: None, fallback_result: None, latched_driver_fault: self.driver_fault };
-        if self.status == PermissionStatus::Shutdown { return report; }
+    fn write_report(
+        &mut self,
+        now: Timestamp,
+        permission: PermissionStatus,
+        decision: Option<SafetyDecision>,
+        evaluation_fault: Option<RejectReason>,
+        output: f64,
+    ) -> DispatchReport {
+        let mut report = DispatchReport {
+            at: now,
+            permission,
+            decision,
+            evaluation_fault,
+            output,
+            write_result: None,
+            fallback_result: None,
+            latched_driver_fault: self.driver_fault,
+        };
+        if self.status == PermissionStatus::Shutdown {
+            return report;
+        }
         let result = self.driver.write(output);
         report.write_result = Some(result);
         if let Err(error) = result {
-            if self.driver_fault.is_none() { self.driver_fault = Some(error); }
+            if self.driver_fault.is_none() {
+                self.driver_fault = Some(error);
+            }
             // Preserve the clock and sequence state, but future recovery can never
             // slew from an output whose physical write failed.
             self.gate.inhibit(now);
@@ -298,7 +442,7 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
     }
 }
 
-/// Scoped ingress with a mode fixed by trusted setup. No grant, renewal,
+/// Single-use scoped ingress with mode and time fixed by trusted setup. No grant, renewal,
 /// revocation, driver access or mode mutation is exposed to the component.
 ///
 /// ```compile_fail
@@ -310,14 +454,35 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
 ///
 /// ```compile_fail
 /// use neuradix_safety::{actuator::{ActuatorDriver, ActuatorPort}, SafetyDecision};
-/// use neuradix_time::Timestamp;
-/// fn forged<D: ActuatorDriver>(port: &mut ActuatorPort<'_, D>, now: Timestamp, decision: SafetyDecision) {
-///     port.tick(now, Some(decision));
+/// fn forged<D: ActuatorDriver>(port: ActuatorPort<'_, D>, decision: SafetyDecision) {
+///     port.tick(Some(decision));
 /// }
 /// ```
-pub struct ActuatorPort<'a, D: ActuatorDriver> { adapter: &'a mut ActuatorAdapter<D>, mode: ExecutionMode }
+///
+/// ```compile_fail
+/// use neuradix_safety::actuator::{ActuatorDriver, ActuatorPort};
+/// use neuradix_time::Timestamp;
+/// fn backdate<D: ActuatorDriver>(port: &mut ActuatorPort<'_, D>, source_at: Timestamp) {
+///     port.now = source_at;
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use neuradix_safety::actuator::{ActuatorDriver, ActuatorPort};
+/// fn twice<D: ActuatorDriver>(port: ActuatorPort<'_, D>) {
+///     port.tick(None);
+///     port.tick(None);
+/// }
+/// ```
+pub struct ActuatorPort<'a, D: ActuatorDriver> {
+    adapter: &'a mut ActuatorAdapter<D>,
+    mode: ExecutionMode,
+    now: Timestamp,
+}
 impl<D: ActuatorDriver> ActuatorPort<'_, D> {
     /// Evaluate internally at trusted runtime time and attempt the validated
     /// output. There is no overload accepting a SafetyDecision or raw scalar.
-    pub fn tick(&mut self, now: Timestamp, input: Option<CommandRequest>) -> DispatchReport { self.adapter.tick(self.mode, now, input) }
+    pub fn tick(self, input: Option<CommandRequest>) -> DispatchReport {
+        self.adapter.tick(self.mode, self.now, input)
+    }
 }

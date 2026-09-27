@@ -133,3 +133,21 @@ rejection tests, and replayable lineage/`explain` verification.
 - Lease arbitration policy details (exclusivity/priority/voting — NRX-SAF-002).
 - Fail-silent vs fail-safe selection per hazard (NRX-SAF-006).
 - Independent safety-island IPC and its trust boundary.
+
+
+## A08 owned host actuator boundary
+
+`neuradix_safety::actuator` adds explicit trusted permission installation and one
+owned scalar driver. Validated holder/capability/endpoint/mode binding is separate
+from graph roles. The trusted runner creates single-use ports with fixed mode and
+runtime evaluation time; ports accept commands only, never SafetyDecision values.
+The adapter evaluates commands internally and distinguishes selected output from
+driver acknowledgement. Revocation safes immediately; driver failures latch with
+one bounded fallback attempt. Physical effect may remain unknown after an error.
+
+Configuration/state bounds, scheduling, restart generation ownership, source-mode
+trust assumptions, API migration and evidence are normative in
+[A08 permission evidence](../implementation/WP-A08-Actuator-Permission-Binding.md).
+This host boundary neither isolates native code nor authenticates sources. Existing
+raw drivers must migrate explicitly. Embedded driver binding, actual hardware/OS
+permission enforcement and independent protections remain required acceptance.

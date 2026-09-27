@@ -1,6 +1,6 @@
 # WP-A08 — Explicit delayed-feedback topology validation
 
-Status: implemented on `codex/a08-delayed-feedback-validation`; [PR #18](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/18) open and unmerged.
+Status: integrated; [PR #18](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/18) merged as `b35de66a16df27af4187c0479ed6c8965d3c0239`; [post-merge CI 35144276426](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/35144276426) passed.
 WP-A08 remains partial and Gate A open. This is offline validation, not execution.
 
 ## Baseline and defect
@@ -176,7 +176,7 @@ This increment demonstrates the legal delayed-loop versus instantaneous-loop
 acceptance item. It does not implement deployment execution, delay scheduling or
 buffers. WP-A08 remains partial for separation/enforcement of runtime capabilities
 and physical driver permissions: a Safety label alone must never acquire access.
-That bounded authority separation is the next A08 priority after review/integration.
+The [host permission adapter follow-up](WP-A08-Actuator-Permission-Binding.md) implements a bounded software boundary; embedded/physical enforcement remains separate.
 Physical driver evidence remains necessary for any physical enforcement claim.
 A04/ACC-05 physical evidence, A05/ACC-09 broader resources/platforms, A06/ACC-08
 interchange/scale, A07/ACC-07 closed-loop evidence, A01's inventory and Gate A's

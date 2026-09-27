@@ -151,7 +151,10 @@ impl SafetyGate {
         self.fallback_reason = Some(fault.unwrap_or(RejectReason::NoCommand));
         fault
     }
-    pub(crate) fn check_control_time(&self, now: Timestamp) -> Result<(), neuradix_command_core::ConfigError> {
+    pub(crate) fn check_control_time(
+        &self,
+        now: Timestamp,
+    ) -> Result<(), neuradix_command_core::ConfigError> {
         self.clock.check_control_time(now)
     }
     fn reject(
