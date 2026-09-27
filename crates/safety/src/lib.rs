@@ -41,6 +41,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod actuator;
 pub mod authority;
 pub mod constraint;
 pub mod decision;

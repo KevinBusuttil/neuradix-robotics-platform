@@ -55,17 +55,19 @@ impl Outcome {
     }
 }
 
-/// The immutable, auditable result of evaluating a command through the safety
+/// Informational, auditable result of evaluating a command through the safety
 /// path (§16.7, §25.3). It carries the originating request, the outcome, the
 /// value actually applied, and the identifiers of the rules that acted — enough
-/// to explain the decision and to replay it.
+/// to explain the decision and to replay it. Public fields are diagnostic data,
+/// not an actuator permission or driver acknowledgement. Use the guarded actuator
+/// adapter for dispatch; it evaluates commands internally.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SafetyDecision {
     /// Incoming command, or None on an idle evaluation tick.
     pub request: Option<CommandRequest>,
     /// The outcome classification.
     pub outcome: Outcome,
-    /// The value actually applied (a fail-safe value when rejected).
+    /// Gate-selected value (safe when rejected); not proof of a driver write.
     pub applied: f64,
     /// Identifiers of the constraint rules that modified the value, in order.
     pub acted_rules: Vec<&'static str>,
