@@ -6,8 +6,8 @@
 //! behavior are outside this API guarantee. Driver implementations are trusted.
 
 use crate::{
-    AuthorityLease, Capability, CommandRequest, Constraint, Identity, LeaseTable, RejectReason,
-    SafetyDecision, SafetyGate, SessionError,
+    AuthorityLease, Capability, CommandRequest, Constraint, Generation, Identity, LeaseTable,
+    RejectReason, SafetyDecision, SafetyGate, SessionError,
 };
 use neuradix_time::{ClockDomain, Timestamp};
 
@@ -227,6 +227,10 @@ pub enum PermissionStatus {
 /// `decision.applied` is gate-selected; inspect driver results for acknowledgement.
 #[derive(Debug)]
 pub struct DispatchReport {
+    /// Fixed target/source/mode context, retained as evidence rather than authority.
+    pub binding: ActuatorBinding,
+    /// Current trusted generation, including a revoked watermark; never payload-selected.
+    pub generation: Option<Generation>,
     /// Trusted evaluation timestamp, not the source timestamp.
     pub at: Timestamp,
     /// Why ingress was admitted or inhibited.
@@ -256,6 +260,7 @@ pub struct ActuatorAdapter<D: ActuatorDriver> {
     safe: f64,
     status: PermissionStatus,
     driver_fault: Option<DriverError>,
+    generation: Option<Generation>,
 }
 impl<D: ActuatorDriver> ActuatorAdapter<D> {
     /// Take exclusive driver ownership after validating its endpoint and mode.
@@ -277,6 +282,7 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
             safe: config.safe,
             status: PermissionStatus::Missing,
             driver_fault: None,
+            generation: None,
         })
     }
     /// Trusted installation/replacement only. Fixed binding; same/older generations
@@ -297,10 +303,12 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
         self.gate
             .check_control_time(now)
             .map_err(PermissionError::Session)?;
+        let generation = permission.lease.config().generation();
         self.gate
             .leases_mut()
             .grant(permission.lease)
             .map_err(PermissionError::Session)?;
+        self.generation = Some(generation);
         self.status = PermissionStatus::Granted;
         Ok(self.inhibit(now, PermissionStatus::Initialized))
     }
@@ -424,6 +432,8 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
         output: f64,
     ) -> DispatchReport {
         let mut report = DispatchReport {
+            binding: self.binding.clone(),
+            generation: self.generation,
             at: now,
             permission,
             decision,

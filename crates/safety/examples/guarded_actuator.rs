@@ -18,7 +18,7 @@ impl ActuatorDriver for TestDriver {
     }
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let t = |ms| Timestamp::new(ClockDomain::Monotonic, ms * 1_000_000);
+    let t = |ms: i128| Timestamp::new(ClockDomain::Monotonic, ms * 1_000_000);
     let binding = ActuatorBinding::new(
         "controller",
         "thrust",
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // A fixed generation is valid only for this isolated host example. Real startup
     // must durably reserve a newer generation before enabling ingress.
     let generation = Generation::new(1).unwrap();
-    let command = |sequence, ms| {
+    let command = |sequence: u64, ms: i128| {
         CommandRequest::new(
             Identity::new("controller"),
             Capability::new("thrust"),

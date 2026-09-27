@@ -31,7 +31,8 @@ transport or new dependency. Existing gate and no_std APIs remain compatible.
 Trusted composition constructs an ActuatorBinding (holder/component, capability,
 endpoint, execution mode), ActuatorConfig (hard range, slew rate, safe output),
 and an ActuatorAdapter owning the driver. Configuration/grant state is private.
-Names are nonempty ASCII `[A-Za-z0-9_./:-]` of at most 128 bytes each; no trimming,
+There is no process-wide physical endpoint registry; trusted composition must
+ensure exclusive endpoint ownership across adapters/processes. Names are nonempty ASCII `[A-Za-z0-9_./:-]` of at most 128 bytes each; no trimming,
 case folding or normalization. Numeric configuration is finite, bounds ordered,
 rate nonnegative and safe value inside hard bounds. Initialization checks the
 trusted driver implementation's fixed endpoint/mode descriptor before admitting it.
@@ -124,7 +125,8 @@ responsibility; arbitrary driver Drop code cannot be bounded here.
 
 One binding/lease slot (including revoked watermark), three names of at most 128
 bytes, exactly two scalar constraints, one fixed driver-error latch and no internal
-queue/history. Reports retain at most one admitted request (holder/capability at
+queue/history. Each report copies the fixed binding (three bounded names), current trusted
+generation and at most one admitted request (holder/capability at
 most 128 bytes each), one SafetyDecision and at most two acted-rule IDs. Scalar
 metadata/reasons and two driver results have fixed size. The gate allocates small
 bounded vectors/strings per host evaluation; this is not an allocation-free host

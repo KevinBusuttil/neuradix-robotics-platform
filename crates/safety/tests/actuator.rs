@@ -147,6 +147,8 @@ fn actuator_child() {
             let r = tick(&mut a, 100, Some(req(1, 0, 100, 0.8)));
             assert_eq!(r.decision.unwrap().outcome, Outcome::Accepted);
             assert_eq!(r.write_result, Some(Ok(())));
+            assert_eq!(r.binding, binding());
+            assert_eq!(r.generation, Generation::new(1));
             assert_eq!(trace.borrow().calls.last(), Some(&0.8));
             let mut r = req(1, 1, 110, 0.9);
             r.holder = Identity::new("safety");
