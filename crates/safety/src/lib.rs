@@ -9,6 +9,11 @@
 //! accepted, modified (clamped) or rejected (with a fail-safe value). Evaluation
 //! is deterministic, so safety decisions replay identically (see RFC-0016).
 //!
+//! For guarded host dispatch, [`actuator::ActuatorAdapter`] owns one driver and
+//! requires explicit trusted permission. Its single-use ingress ports capture
+//! runtime time and mode before component submission. Gate decisions remain
+//! informational; existing raw driver integrations must migrate explicitly.
+//!
 //! Both host and embedded gates share allocation-free command validity checks.
 //! FDIR and recorded command-lineage inspection are available; independent
 //! safety-island deployment remains future work (RFC-0005).

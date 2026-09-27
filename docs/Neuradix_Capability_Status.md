@@ -141,7 +141,7 @@ Integrated PR #18 adds explicit validated evaluation-tick delays, required seed-
 
 ## WP-A08 host actuator permission branch
 
-The branch adds a private validated grant/configuration and an owned scalar driver adapter. Single-use command ports fix mode and trusted runtime evaluation time; requests are evaluated internally, while SafetyDecision remains informational. Missing, revoked and mismatched permissions select local safe output. Driver failures latch and expose bounded first/fallback results. See [host permission evidence](implementation/WP-A08-Actuator-Permission-Binding.md). Integration and physical qualification are pending. No embedded, graph-execution, authentication, Manufacturing adapter or hardware support claim is added.
+The branch adds a private validated grant/configuration and an owned scalar driver adapter. Single-use command ports fix mode and trusted runtime evaluation time; requests are evaluated internally, while SafetyDecision remains informational. Missing, revoked and mismatched permissions select local safe output. Driver failures latch and expose bounded first/fallback results. See [host permission evidence](implementation/WP-A08-Actuator-Permission-Binding.md). [PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20) is open and unmerged. Implementation PR CI 36351856315 passed: 378 workspace tests/doctests, 10 actuator tests plus five compile-fail API examples, guarded-driver example and all preserved A04/A05/A06/A07, SDK, no_std, MCAP and AVR gates. Integration and physical qualification remain pending. No embedded, graph-execution, authentication, Manufacturing adapter or hardware support claim is added.
 
 ## Capability inventory
 

@@ -1,7 +1,6 @@
 # WP-A08 — Trusted actuator-driver permission binding
 
-Status: host implementation on `codex/a08-actuator-permission-binding`, pending
-review/integration. WP-A08 remains partial; Gate A remains open.
+Status: host implementation in [PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20), open and unmerged. WP-A08 remains partial; Gate A remains open.
 
 ## Verified baseline and scope
 
@@ -150,7 +149,40 @@ revocation and shutdown on an instrumented host test driver, with no device acce
 
 ## Verification evidence
 
-Exact pinned CI evidence will be recorded after verification. Every actuator test
+Implementation `6ce893933dbbec28ce108ae3ebe72a1bf2d3c951` passed
+[PR CI 36351856315](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36351856315).
+PR #20 links the required final-head checks after this documentation update.
+Rust/Cargo 1.94.1, locked dependencies; all required host and separate AVR jobs
+executed. Focused counts below are workspace subsets, not additional totals.
+
+| Check | Result |
+|---|---|
+| Formatting and workspace/all-target Clippy with warnings denied | Passed |
+| Guarded actuator suite | 10 passed: nine isolated scenarios plus subprocess entry; each scenario has a ten-second deadline |
+| Private-grant, fixed-mode/time, single-use and forged-decision compile-fail examples | Five passed |
+| Workspace tests/doctests | 378 passed |
+| Command/safety/embedded/transport regression group | 103 passed, including the 15 new actuator tests/doctests and 88 preserved checks |
+| Graph/CLI identity and delayed feedback | 39 graph plus six CLI tests/doctests and both examples passed |
+| A07 replay | 20 tests/doctests and executable example passed |
+| A05 workers and Python SDK | 75 Rust tests/doctests; six SDK tests passed |
+| A06 recording | 44 Rust tests/doctests; independently pinned fixtures/export payload/schema/metadata/time/CRC verification passed |
+| MCAP import peak RSS | Stream 4,224/4,376 KiB for 8/128 MiB payloads (64 MiB budget); materialization 135,132 KiB (192 MiB); bounded rejection 11,992 KiB (64 MiB) |
+| MCAP export peak RSS | 3,028/2,988 KiB for 8/128 MiB payloads (64 MiB budget) |
+| Guarded test-driver and existing control/embedded/Python examples | Passed |
+| Independent no-default-features checks | time, command-core, embedded-transport, embedded-core all passed |
+| Actual ATmega328P codec ABI conformance | Two passed in the separate AVR job; not execution of this host adapter on AVR |
+| Workspace documentation generation | Passed |
+| Local SDK; whitespace; changed Markdown links | Six SDK tests passed; whitespace passed; seven documents/325 links and anchors passed |
+| Full Markdown inventory | 56 files/679 local links; 32 pre-existing archived missing-link failures, outside this scope |
+
+Earlier formatting failures (36351310508/36351608429) and example timestamp type
+inference failure (36351728981) were corrected; no checks were waived. The scoped
+port API was strengthened during review to capture runtime time and consume the
+port on submission. Report ownership copies admitted label bytes rather than
+retaining arbitrary caller String capacity. The final implementation passed the
+complete suite above; no physical timing or safety claim follows from it.
+
+ Every actuator test
 scenario runs in a separately timed ten-second subprocess; CI wraps the suite in
 60 seconds and the example in 30 seconds. The broader workspace and existing
 adversarial suites retain their external timeouts. No dependency/lockfile change.
