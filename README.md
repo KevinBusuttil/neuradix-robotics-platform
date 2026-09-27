@@ -8,6 +8,8 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 
 ## Current documentation
 
+- [Pending Neuradix Manufacturing integration](docs/integrations/Neuradix-Manufacturing.md) — requirements, selected-profile dependencies and coordinated milestones; implementation pending
+
 - [Documentation index and precedence](docs/README.md)
 - [Product, Functional and Technical Specification v0.6](docs/Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) — current functional and technical planning baseline
 - [Detailed Implementation Plan v0.4](docs/Neuradix_Implementation_Plan_v0.4.md) — 38 work packages, dependencies, estimates and acceptance evidence
@@ -204,3 +206,4 @@ Run `cargo run --locked -p neuradix-graph --example resolved_identity` to demons
 configuration drift. Graph CLI output distinguishes declared identity from resolved
 schema/layout/configuration identity; old pins require explicit migration. See
 [A08 policy and evidence](docs/implementation/WP-A08-Resolved-Deployment-Identity.md).
+

@@ -199,3 +199,12 @@ retained evidence. Preserve historical findings with their original revisions,
 then record fixes separately. Publish workload limits only after representative
 performance and failure experiments; source presence or a passing unit suite
 does not establish deployment support.
+
+
+## Pending Manufacturing integration
+
+Neuradix Manufacturing is a planned platform consumer. The
+[integration note](integrations/Neuradix-Manufacturing.md) records task/event requirements,
+A08/B07/D03/selected F03 dependencies, conditional E02 and physical M3/M5 qualification.
+No manufacturing adapter, runtime task endpoint or supported device profile is implemented by
+this documentation change. Offline validation and existing host tests do not establish that support.

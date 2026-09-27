@@ -9,6 +9,7 @@ The current direction is a unified robotics development and operations platform 
 | [Functional Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) | Current functional/technical planning requirements; retains detailed domain ambitions with separate release scopes |
 | [Detailed Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md) | Work packages, dependencies, owner roles, engineer-week ranges, 90-day capacity plan, acceptance catalogue and traceability |
 | [Review and Strategy v1.0](Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md) | Repository-native revised research report with pinned code findings and external citations |
+| [Pending Manufacturing integration](integrations/Neuradix-Manufacturing.md) | Incoming product dependency, RI increments and selected-profile qualification; no runtime implementation claim |
 | [Capability Status](Neuradix_Capability_Status.md) | Integrated implementation and evidence; partial work packages and open findings |
 | [A08 delayed-feedback evidence](implementation/WP-A08-Delayed-Feedback-Validation.md) | Explicit tick boundaries, offline instantaneous DAG proof, v3 identity migration and remaining runtime obligations |
 | [A08 resolved deployment identity evidence](implementation/WP-A08-Resolved-Deployment-Identity.md) | Canonical configuration, resolved schema/layout identity, migration and remaining graph acceptance |
@@ -39,3 +40,4 @@ The first supported release is the named cross-target workflow through Gate E. E
 Functional Specifications [v0.4](Neuradix_Robotics_Platform_Functional_Specification_v0.4.md), [v0.5](Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) and its [addendum](Neuradix_Robotics_Platform_Functional_Specification_v0.5_Addendum.md); Implementation Plans [v0.1](Neuradix_Implementation_Plan_v0.1.md), [v0.2](Neuradix_Implementation_Plan_v0.2.md), [v0.3](Neuradix_Implementation_Plan_v0.3.md); earlier [Embedded](Neuradix_Embedded_Profile_Implementation_Plan_v0.1.md), [Studio](Neuradix_Studio_Implementation_Plan_v0.1.md), [CLI](Neuradix_CLI_Command_Specification_v0.1.md), and RFC backlogs [v0.2](Neuradix_RFC_Backlog_v0.2.md)/[v0.3](Neuradix_RFC_Backlog_v0.3.md) are retained for history and are superseded for current scope/sequencing.
 
 The v0.5 generator is historical. It must not rewrite the current README or v0.6. Edit v0.6 directly and keep its contents links and requirement traceability consistent with the implementation plan.
+
