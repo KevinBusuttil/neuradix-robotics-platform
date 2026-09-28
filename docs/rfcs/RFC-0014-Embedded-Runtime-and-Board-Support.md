@@ -82,6 +82,16 @@ safe state; serial/CAN transport with framing/CRC/sequence; generated Rust
 The integrated `embedded-*` crates and `contract generate` will be extended by an `embedded` CLI subtree, reusing the same
 application services and result schemas as the desktop CLI (Studio/CLI parity).
 
+## Actuator driver ownership (A08, proposed)
+
+A proposed, not-yet-merged increment adds an executor-neutral `ActuatorDriver`
+trait and `ActuatorAdapter` to `neuradix-embedded-core`. Board packages implement
+the driver over their HAL; the executor supplies trusted time and schedules single-use
+ports; transports decode `Command`s but never receive the adapter. The component
+`tick` scalar is a gate selection, not actuation. Cross-compilation evidence covers
+thumbv6m, thumbv7em and riscv32imc; no board execution is claimed. See
+[embedded permission evidence](../implementation/WP-A08-Embedded-Actuator-Permission.md).
+
 ## Alternatives considered
 
 - **A common embedded runtime shared with Linux.** Rejected: Arduino compatibility
