@@ -2,7 +2,8 @@
 
 Status: **planned integration; no runtime adapter or physical support added by this document.**
 Owner: Kevin Busuttil (product/architecture); delivery engineering and automation/commissioning
-roles to be assigned for each bounded increment. Recorded 27 September 2026.
+roles to be assigned for each bounded increment. Recorded 27 September 2026; merge status updated
+28 September 2026.
 
 ## Purpose and product boundary
 
@@ -19,7 +20,10 @@ Repositories:
   Frappe application and self-contained [implementation plan](https://github.com/KevinBusuttil/neuradix-manufacturing-erpnext/blob/main/docs/implementation-plan.md).
 - This repository: qualified local execution, authority, device adapters and equipment evidence.
 
-Cross-repository links target main after the coordinated foundation PRs merge. This note contains
+Cross-repository links target main. The coordinated foundation PRs
+([Manufacturing #1](https://github.com/KevinBusuttil/neuradix-manufacturing/pull/1),
+[ERPNext companion #1](https://github.com/KevinBusuttil/neuradix-manufacturing-erpnext/pull/1) and
+this repository's [#19](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/19)) merged on 27 September 2026. This note contains
 the requirements needed by platform contributors even without access to the private application.
 
 Manufacturing decides approved production intent, including work order, lot, quality and maintenance
@@ -30,11 +34,18 @@ local protective behavior cannot depend on cloud/ERP availability or subscriptio
 
 ## Current evidence and limits
 
-The inspected default branch is `b35de66a16df27af4187c0479ed6c8965d3c0239`. It contains the PR #18
-merge and delayed-feedback graph validation, although historical capability/plan entries still say
-integration pending. This is offline validation, not deployed graph supervision, trusted physical
-driver binding or a qualified manufacturing device adapter. This documentation increment does not
-change those implementation claims or close Gate A.
+Recorded 27 September 2026: the inspected default branch was
+`b35de66a16df27af4187c0479ed6c8965d3c0239`, containing the PR #18 merge and offline delayed-feedback
+graph validation.
+
+Updated 28 September 2026: [PR #19](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/19) merged this note on 27 September 2026 as
+`d4911fa38c9c7efa2cf006c4ae1a4c4694f92cb4`; [main CI 36310554902](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36310554902) passed.
+[PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20) then merged a host scalar actuator-permission adapter as
+`7b2be979f94c9fdf7c9192c4a85f11cef1993340`; [post-merge CI 36361418592](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36361418592)
+passed. Capability and plan entries record PR #18 and PR #20 as integrated. Offline graph validation
+and that host adapter are not deployed graph supervision, embedded or physical driver enforcement,
+authentication or a qualified manufacturing device adapter. WP-A08 remains partial. This
+documentation increment does not change those implementation claims or close Gate A.
 
 Consult [Capability Status](../Neuradix_Capability_Status.md) and actual current code before implementation.
 A source file, graph acceptance, host test, simulated command or compiler check cannot establish

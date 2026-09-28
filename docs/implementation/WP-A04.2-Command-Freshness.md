@@ -191,8 +191,8 @@ Verified implementation commit:
 [PR CI run 34287037280](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287037280)
 and [branch CI run 34287035067](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34287035067)
 passed. [PR #9](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/9)
-tracks this unmerged increment; subsequent evidence-only edits do not change the
-tested implementation.
+tracked this increment and later merged as `c127c7d`; subsequent evidence-only edits do not
+change the tested implementation.
 
 | Check | Observed result |
 |---|---|
