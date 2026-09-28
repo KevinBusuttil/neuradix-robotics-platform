@@ -151,3 +151,18 @@ trust assumptions, API migration and evidence are normative in
 This host boundary neither isolates native code nor authenticates sources. Existing
 raw drivers must migrate explicitly. Embedded driver binding, actual hardware/OS
 permission enforcement and independent protections remain required acceptance.
+
+## A08 embedded actuator boundary (proposed)
+
+`neuradix_embedded_core::actuator` (proposed, PR-tested, not merged) applies the
+same ownership model without heap or std: the adapter owns the driver and the
+unchanged `CommandGate`; permissions bind numeric holder/capability/endpoint IDs
+and a shared `ExecutionMode` (moved to `neuradix-command-core`, re-exported by the
+host module). Ports fix trusted mode and time and accept only `Option<Command>`.
+Reports separate gate selection, driver acknowledgement and (unobserved) physical
+state. Failure handling matches the host: first fault latched, one immediate safe
+fallback, no retry of the requested value, at most two driver calls per operation,
+terminal shutdown and no I/O in Drop. See
+[embedded permission evidence](../implementation/WP-A08-Embedded-Actuator-Permission.md).
+Board integration, durable generation allocation and physical qualification remain
+required acceptance.

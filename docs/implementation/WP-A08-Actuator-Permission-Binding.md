@@ -201,11 +201,13 @@ compiler/host tests do not constitute physical hardware validation.
 ## Remaining acceptance and Manufacturing
 
 This demonstrates software permission separation for one selected host adapter.
-WP-A08 remains partial: the embedded PropulsionNode still returns a scalar, physical
-driver permissions require target/OS integration and qualification, and graph
-execution/delay buffers/scheduling remain deferred. The next bounded A08 increment
-is the corresponding allocation-free embedded permission/driver boundary, now that
-this host PR is merged, preserving command-core semantics.
+WP-A08 remains partial: physical driver permissions require target/OS integration
+and qualification, and graph execution/delay buffers/scheduling remain deferred.
+The embedded PropulsionNode still returns a gate-selected scalar (now documented as
+such); the corresponding allocation-free embedded owned-driver boundary is proposed
+in [embedded permission evidence](WP-A08-Embedded-Actuator-Permission.md) and is
+not integrated until its PR merges. `ExecutionMode` moves to command-core in that
+change and remains re-exported from this module.
 
 Manufacturing's integration note is a consumer requirement, not a live task API.
 This does not implement its task authentication, durable outcomes, networking,

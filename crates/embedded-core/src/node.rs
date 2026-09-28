@@ -19,8 +19,12 @@ pub trait EmbeddedComponent {
     fn health(&self) -> HealthState;
 
     /// Advance one control tick at `now`, given the latest command `request`
-    /// (`None` if no decodable command arrived this tick), and return the value
-    /// applied to the actuator.
+    /// (`None` if no decodable command arrived this tick), and return the
+    /// gate-selected output.
+    ///
+    /// The returned scalar is not permission to operate a driver, not a driver
+    /// acknowledgement and not physical equipment state. Hardware output belongs
+    /// behind [`crate::ActuatorAdapter`], which owns the driver.
     fn tick(&mut self, now: Timestamp, request: Option<Command>) -> f32;
 }
 
@@ -28,9 +32,14 @@ pub trait EmbeddedComponent {
 /// demonstration").
 ///
 /// It validates authority and command metadata, tracks accepted-command liveness,
-/// enforces the thrust envelope (range + slew), applies the output, reports
-/// health, and enters its **local safe state** on lease expiry or link loss —
+/// enforces the thrust envelope (range + slew), selects the output, reports
+/// health, and selects its **local safe output** on lease expiry or link loss —
 /// all through the [`CommandGate`], with no dependency on the host.
+///
+/// This node owns no driver and performs no I/O; its health reflects gate
+/// decisions only. Deployments that drive equipment should use
+/// [`crate::ActuatorAdapter`], whose reports separate the gate selection, the
+/// driver call and its acknowledgement from actual equipment state.
 #[derive(Debug, Clone, Copy)]
 pub struct PropulsionNode {
     id: NodeId,
@@ -53,7 +62,7 @@ impl PropulsionNode {
         self.last
     }
 
-    /// Whether the node is currently applying its local safe output.
+    /// Whether the latest gate decision selected the local safe output.
     pub fn in_safe_state(&self) -> bool {
         matches!(self.last, Some(d) if matches!(d.outcome, Outcome::SafeState(_)))
     }

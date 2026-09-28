@@ -30,6 +30,7 @@ members = [
     "examples/python-worker",
     "examples/auv-depth-sim",
     "examples/embedded-propulsion",
+    "examples/embedded-actuator-target",
 ]
 
 [workspace.package]
