@@ -79,7 +79,9 @@ There is one fixed binding for an adapter's lifetime. Replacement requires a
 strictly greater lease Generation, including after revocation; duplicate/older
 installation fails without changing state or writing. Rebinding endpoint, holder,
 capability or mode requires a new adapter. Restart must durably reserve a newer
-non-reused generation before ingress; no storage allocator is supplied. Renewal
+non-reused generation before ingress: use `ActuatorAdapter::new_reserved` with a
+token from `neuradix_safety::reservation` and the Linux file store ([WP-A04.4](WP-A04.4-Generation-Reservation.md), proposed,
+not merged). Renewal
 extends a currently active lease without resetting source age, sequence, watchdog,
 slew or evaluation-clock state. Replacement establishes safe output while retaining
 the gate-wide clock and updates its slew reference to the actual safe selection.
@@ -121,6 +123,12 @@ Drop. Explicit shutdown and external independent protections are the owner's
 responsibility; arbitrary driver Drop code cannot be bounded here.
 
 ## Bounds and migration
+
+WP-A04.4 (proposed) adds `DriverPermission::reserved`/`is_reserved`,
+`ActuatorAdapter::new_reserved`/`requires_reserved_generations`,
+`ActuatorBinding::reservation_key` and `PermissionError::{ReservationMismatch,
+ReservationRequired}` (breaking only for exhaustive matches). A legacy adapter that
+accepted a reserved grant refuses later unreserved grants. See [WP-A04.4](WP-A04.4-Generation-Reservation.md).
 
 One binding/lease slot (including revoked watermark), three names of at most 128
 bytes, exactly two scalar constraints, one fixed driver-error latch and no internal
@@ -207,7 +215,8 @@ The embedded PropulsionNode still returns a gate-selected scalar (now documented
 such); the corresponding allocation-free embedded owned-driver boundary is now
 integrated through PR #22 (see [embedded permission evidence](WP-A08-Embedded-Actuator-Permission.md)).
 `ExecutionMode` moved to command-core in that change and remains re-exported from
-this module.
+this module. Durable generation reservation for both boundaries is proposed in
+[WP-A04.4](WP-A04.4-Generation-Reservation.md); a qualified board store remains open.
 
 Manufacturing's integration note is a consumer requirement, not a live task API.
 This does not implement its task authentication, durable outcomes, networking,

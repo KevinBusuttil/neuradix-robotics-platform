@@ -1,6 +1,6 @@
 [package]
 name = "neuradix-command-core"
-description = "Bounded no_std command freshness, lease generation and sequence validation."
+description = "Bounded no_std command freshness, lease generation and sequence validation, and a durable generation-reservation interface."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,3 +10,12 @@ authors.workspace = true
 
 [dependencies]
 neuradix-time = { path = "../time", version = "0.0.1", default-features = false }
+
+[features]
+# Trusted factory/maintenance provisioning of reservation epochs. Never enabled in
+# actuator firmware (checked by tools/ci/mcu_actuator.sh).
+provisioning = []
+
+[dev-dependencies]
+# Self dev-dependency so tests and doctests always build the provisioning API.
+neuradix-command-core = { path = ".", features = ["provisioning"] }

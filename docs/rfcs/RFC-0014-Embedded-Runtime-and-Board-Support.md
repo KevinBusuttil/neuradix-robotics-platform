@@ -26,7 +26,10 @@ A04.2 adds a shared `neuradix-command-core` validator and an 87-byte versioned
 command payload inside the existing serial frame. Both endpoints must preserve
 original source time, deadline, holder/capability, sequence, timeline and generation;
 legacy scalar command payloads cannot enter the new gate. Trusted provisioning
-must establish the shared timeline and durably reserve generations before ingress.
+must establish the shared timeline and durably reserve generations before ingress,
+via `neuradix_embedded_core::reservation` (proposed in [WP-A04.4](../implementation/WP-A04.4-Generation-Reservation.md)); a board package must supply a
+`ReservationStore` meeting contract C1–C8 and pass its fault-injection qualification,
+and actuator firmware is built without the `provisioning` feature.
 Periodic idle ticks enforce local expiry without incoming packets. See
 [A04.2 design, compatibility and evidence](../implementation/WP-A04.2-Command-Freshness.md).
 These are host-tested native Rust semantics, not generated AVR gate firmware or

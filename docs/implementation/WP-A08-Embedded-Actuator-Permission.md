@@ -217,8 +217,10 @@ and embedded software boundaries. Remaining A08 work:
 1. Connect graph-level roles to trusted binding in the executable graph path
    (B02/B07 dependency), so resolved deployments produce `ActuatorBinding`s and
    grants only through trusted setup; add graph-to-adapter conformance tests.
-2. Durable, non-reused generation allocation at startup (trusted storage) for
-   host and board; currently a caller obligation.
+2. Durable, non-reused generation allocation at startup — **partial**: the
+   portable allocator, strict reserved-permission hooks and a Linux host store are
+   proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md); a board `ReservationStore` meeting contract C1–C8, with
+   fault-suite qualification, remains (B04/B05).
 3. Board-level qualification of one driver on the chosen board (B04/B05):
    exclusive peripheral ownership, bounded write latency, reset/watchdog
    behaviour and measured stack — with the rig documenting its actual safe
@@ -246,3 +248,4 @@ reservation interface with host fault-injection tests (power loss between
 reserve and use, duplicate/rolled-back storage), used by both actuator
 boundaries' setup. Board qualification follows once a board package exists;
 Manufacturing remains a future consumer and does not reorder this plan.
+That increment is now proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md).

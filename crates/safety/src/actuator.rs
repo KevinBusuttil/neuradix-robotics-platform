@@ -5,6 +5,7 @@
 //! precomputed decision or access the driver. Native code/OS isolation and physical
 //! behavior are outside this API guarantee. Driver implementations are trusted.
 
+use crate::reservation::{BindingKey, ReservedGeneration};
 use crate::{
     AuthorityLease, Capability, CommandRequest, Constraint, Generation, Identity, LeaseTable,
     RejectReason, SafetyDecision, SafetyGate, SessionError,
@@ -68,6 +69,16 @@ impl ActuatorBinding {
     pub fn mode(&self) -> ExecutionMode {
         self.mode
     }
+    /// Reservation binding key: `BindingKey::named(holder, capability, driver,
+    /// mode)`. An accidental mix-up detector, not a credential.
+    pub fn reservation_key(&self) -> BindingKey {
+        BindingKey::named(
+            self.holder.as_str(),
+            self.capability.as_str(),
+            &self.driver,
+            self.mode,
+        )
+    }
 }
 
 /// Private validated output configuration; exactly two constraints are retained.
@@ -116,14 +127,48 @@ impl ActuatorConfig {
 /// use neuradix_safety::actuator::DriverPermission;
 /// let permission = DriverPermission {};
 /// ```
+///
+/// A reservation token backs at most one permission, and a plain generation
+/// cannot stand in for one:
+///
+/// ```compile_fail
+/// use neuradix_safety::AuthorityLease;
+/// use neuradix_safety::actuator::{ActuatorBinding, DriverPermission};
+/// use neuradix_safety::reservation::ReservedGeneration;
+/// fn twice(b: ActuatorBinding, l1: AuthorityLease, l2: AuthorityLease, t: ReservedGeneration) {
+///     let _first = DriverPermission::reserved(b.clone(), l1, t);
+///     let _second = DriverPermission::reserved(b, l2, t);
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use neuradix_safety::{AuthorityLease, Generation};
+/// use neuradix_safety::actuator::{ActuatorBinding, DriverPermission};
+/// fn plain(b: ActuatorBinding, l: AuthorityLease, g: Generation) {
+///     let _forged = DriverPermission::reserved(b, l, g);
+/// }
+/// ```
+///
+/// ```
+/// use neuradix_safety::AuthorityLease;
+/// use neuradix_safety::actuator::{ActuatorBinding, DriverPermission};
+/// use neuradix_safety::reservation::ReservedGeneration;
+/// fn once(b: ActuatorBinding, l1: AuthorityLease, l2: AuthorityLease, t: ReservedGeneration) {
+///     let _first = DriverPermission::reserved(b.clone(), l1, t);
+///     let _unreserved = DriverPermission::new(b, l2);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct DriverPermission {
     binding: ActuatorBinding,
     lease: AuthorityLease,
+    reserved: bool,
 }
 impl DriverPermission {
     /// Trusted setup only: verify lease holder/capability and the mode's timeline.
-    /// Live generation allocation must be durable and non-reused across restarts.
+    /// The generation is NOT proven reserved: use [`DriverPermission::reserved`]
+    /// for live startup. Adapters built with [`ActuatorAdapter::new_reserved`], or
+    /// that already accepted a reserved grant, refuse permissions made here.
     pub fn new(binding: ActuatorBinding, lease: AuthorityLease) -> Result<Self, PermissionError> {
         if lease.holder() != binding.holder() || lease.capability() != binding.capability() {
             return Err(PermissionError::BindingMismatch);
@@ -131,7 +176,35 @@ impl DriverPermission {
         if lease.config().policy().timeline().domain() != binding.mode.clock_domain() {
             return Err(PermissionError::ModeMismatch);
         }
-        Ok(Self { binding, lease })
+        Ok(Self {
+            binding,
+            lease,
+            reserved: false,
+        })
+    }
+    /// Trusted setup only: every [`new`](Self::new) check, then require the token
+    /// to belong to this binding's reservation key and to carry exactly the
+    /// lease's generation (`ReservationMismatch` otherwise). The token is consumed
+    /// even on error, which burns its value harmlessly. The adapter holds no
+    /// receiver identity: trusted setup must open the reserver for its own receiver.
+    pub fn reserved(
+        binding: ActuatorBinding,
+        lease: AuthorityLease,
+        reservation: ReservedGeneration,
+    ) -> Result<Self, PermissionError> {
+        let key = binding.reservation_key();
+        let mut permission = Self::new(binding, lease)?;
+        if reservation.key().binding() != key
+            || reservation.generation() != permission.lease.config().generation()
+        {
+            return Err(PermissionError::ReservationMismatch);
+        }
+        permission.reserved = true;
+        Ok(permission)
+    }
+    /// Whether this permission consumed a durable reservation token.
+    pub fn is_reserved(&self) -> bool {
+        self.reserved
     }
 }
 
@@ -154,6 +227,11 @@ pub enum PermissionError {
     Shutdown,
     /// Renewal cannot install a missing or revoked permission.
     NotGranted,
+    /// The reservation token belongs to another binding key or carries a
+    /// generation different from the lease's.
+    ReservationMismatch,
+    /// This adapter accepts only permissions backed by a reservation token.
+    ReservationRequired,
 }
 impl std::fmt::Display for PermissionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -244,11 +322,15 @@ pub struct ActuatorAdapter<D: ActuatorDriver> {
     status: PermissionStatus,
     driver_fault: Option<DriverError>,
     generation: Option<Generation>,
+    /// Set by `new_reserved` or by the first successful reserved grant; never cleared.
+    reservations_required: bool,
 }
 impl<D: ActuatorDriver> ActuatorAdapter<D> {
     /// Take exclusive driver ownership after validating its endpoint and mode.
     /// No I/O occurs here; setup must grant or tick to establish the safe output
-    /// before enabling ingress. Reconstruction needs a durably newer generation.
+    /// before enabling ingress. Reconstruction needs a durably newer generation:
+    /// live startup uses [`ActuatorAdapter::new_reserved`] with a token from
+    /// `neuradix_safety::reservation`.
     pub fn new(config: ActuatorConfig, driver: D) -> Result<Self, PermissionError> {
         if driver.endpoint() != config.binding.driver {
             return Err(PermissionError::BindingMismatch);
@@ -266,11 +348,28 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
             status: PermissionStatus::Missing,
             driver_fault: None,
             generation: None,
+            reservations_required: false,
         })
+    }
+    /// Like [`new`](Self::new) (same checks, no I/O), but every grant must carry
+    /// a permission made by [`DriverPermission::reserved`]. No API relaxes this.
+    /// Use it for live startup.
+    pub fn new_reserved(config: ActuatorConfig, driver: D) -> Result<Self, PermissionError> {
+        let mut adapter = Self::new(config, driver)?;
+        adapter.reservations_required = true;
+        Ok(adapter)
+    }
+    /// Whether unreserved permissions are refused: true for `new_reserved`, or
+    /// after the first successful reserved grant (a one-way latch).
+    pub fn requires_reserved_generations(&self) -> bool {
+        self.reservations_required
     }
     /// Trusted installation/replacement only. Fixed binding; same/older generations
     /// reject, including after revocation. Always establish safe output immediately.
     /// Driver failure is in the returned report and latches, even if fallback works.
+    /// Check order: shutdown/driver fault, binding, mode, reservation requirement,
+    /// control time, generation. A failure changes no state (including the
+    /// reservation latch) and makes no driver call.
     pub fn grant(
         &mut self,
         permission: DriverPermission,
@@ -283,14 +382,19 @@ impl<D: ActuatorDriver> ActuatorAdapter<D> {
         if now.domain() != self.binding.mode.clock_domain() {
             return Err(PermissionError::ModeMismatch);
         }
+        if self.reservations_required && !permission.reserved {
+            return Err(PermissionError::ReservationRequired);
+        }
         self.gate
             .check_control_time(now)
             .map_err(PermissionError::Session)?;
         let generation = permission.lease.config().generation();
+        let reserved = permission.reserved;
         self.gate
             .leases_mut()
             .grant(permission.lease)
             .map_err(PermissionError::Session)?;
+        self.reservations_required |= reserved;
         self.generation = Some(generation);
         self.status = PermissionStatus::Granted;
         Ok(self.inhibit(now, PermissionStatus::Initialized))
