@@ -29,8 +29,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ActuatorConfig::new(binding.clone(), -1.0, 1.0, 10.0, 0.0)?,
         TestDriver,
     )?;
-    // A fixed generation is valid only for this isolated host example. Real startup
-    // must durably reserve a newer generation before enabling ingress.
+    // A fixed generation is valid only for this isolated host example. Live startup
+    // must durably reserve a newer generation before enabling ingress: see the
+    // `reserved_startup` example (`neuradix_command_core::reservation`, re-exported
+    // as `neuradix_safety::reservation`, with `ActuatorAdapter::new_reserved`).
+    // A board reservation store remains open.
     let generation = Generation::new(1).unwrap();
     let command = |sequence: u64, ms: i128| {
         CommandRequest::new(

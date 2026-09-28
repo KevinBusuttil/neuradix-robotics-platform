@@ -67,18 +67,35 @@ mod file_store {
         SyncDir,
     }
 
+    /// Test-only action run after a write step: the step and a function of the
+    /// state directory path.
+    #[cfg(test)]
+    pub(crate) type StepAction = (Step, fn(&Path));
+
     #[cfg(test)]
     thread_local! {
         /// Perform the named step, then fail it with an injected error.
         pub(crate) static FAIL_AFTER: std::cell::Cell<Option<Step>> =
             const { std::cell::Cell::new(None) };
+        /// Perform the named step, then run an action on the state directory
+        /// path (for example replacing it) and continue normally.
+        pub(crate) static ACT_AFTER: std::cell::Cell<Option<StepAction>> =
+            const { std::cell::Cell::new(None) };
     }
 
-    fn injected(_step: Step) -> io::Result<()> {
+    fn injected(_step: Step, _dir: &Path) -> io::Result<()> {
         #[cfg(test)]
-        if FAIL_AFTER.with(|hook| hook.get() == Some(_step)) {
-            FAIL_AFTER.with(|hook| hook.set(None));
-            return Err(io::Error::other("injected reservation store fault"));
+        {
+            if let Some((step, action)) = ACT_AFTER.with(|hook| hook.get())
+                && step == _step
+            {
+                ACT_AFTER.with(|hook| hook.set(None));
+                action(_dir);
+            }
+            if FAIL_AFTER.with(|hook| hook.get() == Some(_step)) {
+                FAIL_AFTER.with(|hook| hook.set(None));
+                return Err(io::Error::other("injected reservation store fault"));
+            }
         }
         Ok(())
     }
@@ -235,19 +252,19 @@ mod file_store {
                 .truncate(true)
                 .mode(0o600)
                 .open(&tmp)?;
-            injected(Step::CreateTemp)?;
+            injected(Step::CreateTemp, &self.dir_path)?;
             file.write_all(record)?;
-            injected(Step::WriteTemp)?;
+            injected(Step::WriteTemp, &self.dir_path)?;
             file.sync_all()?;
-            injected(Step::SyncTemp)?;
+            injected(Step::SyncTemp, &self.dir_path)?;
             drop(file);
             fs::rename(&tmp, self.dir_path.join(name))?;
-            injected(Step::Rename)?;
+            injected(Step::Rename, &self.dir_path)?;
             if !self.same_directory() {
                 return Err(io::Error::other("reservation directory replaced"));
             }
             self.dir.sync_all()?;
-            injected(Step::SyncDir)
+            injected(Step::SyncDir, &self.dir_path)
         }
     }
 
@@ -283,5 +300,555 @@ mod file_store {
                 StoreError::Io
             })
         }
+    }
+}
+
+/// S1–S5: host store unit tests. Each test uses its own owner-only scratch root
+/// under the system temporary directory; the state directory sits inside it, so
+/// its parent is never group- or world-writable. The step hook is thread-local.
+#[cfg(all(test, unix))]
+mod tests {
+    use std::fs;
+    use std::io::ErrorKind;
+    use std::num::NonZeroU32;
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt, symlink};
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    use super::file_store::{ACT_AFTER, FAIL_AFTER, Step};
+    use super::record::{self, RecordFields, SlotView};
+    use super::*;
+    use crate::actuator::ExecutionMode;
+
+    /// The fixed pattern a wrongly sized slot file reads as.
+    const DAMAGED_HEAD: u8 = 0xDA;
+
+    /// Unique scratch root (mode 0700) holding the state directory `state` (0700).
+    struct Scratch {
+        root: PathBuf,
+    }
+    impl Scratch {
+        fn new(test: &str) -> Self {
+            static NEXT: AtomicU32 = AtomicU32::new(0);
+            let root = std::env::temp_dir().join(format!(
+                "neuradix-reservation-{test}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            let _ = fs::remove_dir_all(&root);
+            owner_only_dir(&root);
+            let scratch = Self { root };
+            owner_only_dir(&scratch.state());
+            scratch
+        }
+        fn state(&self) -> PathBuf {
+            self.root.join("state")
+        }
+    }
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn owner_only_dir(path: &Path) {
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(path)
+            .expect("create directory");
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).expect("chmod 0700");
+    }
+
+    fn key() -> ReservationKey {
+        ReservationKey::new(
+            ReceiverId::new(*b"neuradix-host-01").expect("receiver"),
+            BindingKey::named("controller", "thrust", "driver/one", ExecutionMode::Live),
+        )
+    }
+
+    fn epoch(value: u64) -> NamespaceEpoch {
+        NamespaceEpoch::new(value).expect("nonzero epoch")
+    }
+
+    fn config(window: u32) -> ReserverConfig {
+        ReserverConfig::new(
+            NonZeroU32::new(window).expect("window"),
+            RollbackDefense::Unprotected,
+        )
+    }
+
+    const fn value(epoch: u64, counter: u64) -> u128 {
+        ((epoch as u128) << 64) | counter as u128
+    }
+
+    fn slot_path(dir: &Path, slot: Slot) -> PathBuf {
+        dir.join(match slot {
+            Slot::A => "slot-a",
+            Slot::B => "slot-b",
+        })
+    }
+
+    fn tmp_path(dir: &Path, slot: Slot) -> PathBuf {
+        dir.join(match slot {
+            Slot::A => "slot-a.tmp",
+            Slot::B => "slot-b.tmp",
+        })
+    }
+
+    fn record_for(slot: Slot, high_water: u64, commits: u32) -> [u8; RECORD_BYTES] {
+        record::encode(&RecordFields {
+            slot,
+            key: key(),
+            epoch: epoch(1),
+            high_water,
+            commits,
+        })
+    }
+
+    /// Open the directory and provision epoch 1 through a handle that is dropped.
+    fn provisioned(dir: &Path) {
+        let mut store = FileReservationStore::open(dir).expect("open");
+        provision(&mut store, key(), epoch(1), ProvisionGuards::default()).expect("provision");
+    }
+
+    fn read_slot(store: &mut FileReservationStore, slot: Slot) -> [u8; RECORD_BYTES] {
+        let mut buf = [0u8; RECORD_BYTES];
+        store.read(slot, &mut buf).expect("slot read");
+        buf
+    }
+
+    fn is_damaged_pattern(buf: &[u8; RECORD_BYTES]) -> bool {
+        buf[0] == DAMAGED_HEAD && buf[1..].iter().all(|&b| b == 0)
+    }
+
+    fn dir_entries(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .expect("read_dir")
+            .map(|entry| {
+                entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn s1_fail_after_every_write_step() {
+        for step in [
+            Step::CreateTemp,
+            Step::WriteTemp,
+            Step::SyncTemp,
+            Step::Rename,
+            Step::SyncDir,
+        ] {
+            let scratch = Scratch::new("s1");
+            let dir = scratch.state();
+            provisioned(&dir);
+            let mut store = FileReservationStore::open(&dir).expect("open");
+            let mut returned = Vec::new();
+            let (old_a, old_b) = {
+                let mut reserver = GenerationReserver::open(&mut store, key(), config(4))
+                    .map_err(|f| f.error)
+                    .expect("open reserver");
+                // First reserve commits ceiling 4 (commits 2); three more from the window.
+                for _ in 0..4 {
+                    returned.push(reserver.reserve().expect("reserve").generation().get());
+                }
+                assert_eq!(reserver.status().window_remaining, 0);
+                let old_a = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+                let old_b = fs::read(slot_path(&dir, Slot::B)).expect("slot-b");
+                assert_eq!(old_a, record_for(Slot::A, 4, 2));
+                assert_eq!(old_b, record_for(Slot::B, 4, 2));
+
+                // The next reserve commits ceiling 8; both slots are current, so A
+                // is written first and the hook fails it after `step` took effect.
+                FAIL_AFTER.with(|hook| hook.set(Some(step)));
+                assert_eq!(
+                    reserver.reserve().map(|t| t.generation()).unwrap_err(),
+                    ReserveError::Uncertain(PoisonCause::WriteFailed(Slot::A)),
+                    "{step:?}"
+                );
+                assert_eq!(FAIL_AFTER.with(|hook| hook.get()), None, "{step:?} fired");
+                let poisoned = ReserveError::Poisoned(PoisonCause::WriteFailed(Slot::A));
+                assert_eq!(reserver.reserve().map(|t| t.generation()), Err(poisoned));
+                assert_eq!(
+                    reserver.reserve_from_window().map(|t| t.generation()),
+                    Err(poisoned)
+                );
+                assert_eq!(poisoned.remedy(), Remedy::ReopenStore);
+                (old_a, old_b)
+            };
+
+            // The handle is poisoned permanently: reads are Unavailable.
+            assert!(store.is_poisoned(), "{step:?}");
+            assert_eq!(store.last_io_error(), Some(ErrorKind::Other), "{step:?}");
+            let mut buf = [0u8; RECORD_BYTES];
+            assert_eq!(store.read(Slot::A, &mut buf), Err(StoreError::Unavailable));
+            assert_eq!(store.read(Slot::B, &mut buf), Err(StoreError::Unavailable));
+            let probe = record_for(Slot::B, 99, 9);
+            assert_eq!(store.write(Slot::B, &probe), Err(StoreError::Unavailable));
+            let refused = GenerationReserver::open(&mut store, key(), config(4))
+                .map(|_| ())
+                .unwrap_err();
+            assert_eq!(refused.error, OpenError::StoreUnavailable);
+            assert_eq!(refused.error.remedy(), Remedy::ReopenStore);
+
+            // On-disk state after the step (host_store table).
+            let new_a = record_for(Slot::A, 8, 3);
+            let slot_a = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+            let tmp_a = fs::read(tmp_path(&dir, Slot::A));
+            match step {
+                Step::CreateTemp => {
+                    assert_eq!(tmp_a.expect("empty tmp"), Vec::<u8>::new());
+                    assert_eq!(slot_a, old_a);
+                }
+                Step::WriteTemp | Step::SyncTemp => {
+                    assert_eq!(tmp_a.expect("tmp holds the new record"), new_a);
+                    assert_eq!(slot_a, old_a);
+                }
+                Step::Rename | Step::SyncDir => {
+                    assert_eq!(
+                        tmp_a.map(|_| ()).unwrap_err().kind(),
+                        ErrorKind::NotFound,
+                        "{step:?}: no tmp"
+                    );
+                    assert_eq!(slot_a, new_a);
+                }
+            }
+            assert_eq!(fs::read(slot_path(&dir, Slot::B)).expect("slot-b"), old_b);
+            assert!(!tmp_path(&dir, Slot::B).exists());
+            drop(store);
+
+            // A fresh handle (which clears the stale tmp) and reserver never reuse.
+            let mut fresh = FileReservationStore::open(&dir).expect("fresh handle");
+            assert!(
+                !tmp_path(&dir, Slot::A).exists(),
+                "{step:?}: stale tmp removed"
+            );
+            let mut reserver = GenerationReserver::open(&mut fresh, key(), config(4))
+                .map_err(|f| f.error)
+                .expect("reopen");
+            let max = *returned.iter().max().expect("returned values");
+            let expected_first = match step {
+                Step::Rename | Step::SyncDir => value(1, 9),
+                _ => value(1, 5),
+            };
+            let mut last = max;
+            for i in 0..6 {
+                let g = reserver.reserve().expect("reserve").generation().get();
+                if i == 0 {
+                    assert_eq!(g, expected_first, "{step:?}");
+                }
+                assert!(g > last, "{step:?}: {g:#x} after {last:#x}");
+                last = g;
+            }
+        }
+    }
+
+    /// S1 at the trait level: the store's own `write` returns exactly `Err(Io)`
+    /// for every step (on slot B, the second-written slot of a commit), poisons the
+    /// handle, and leaves the host_store table's on-disk state; a fresh handle
+    /// clears the tmp file and reads the slot the step left behind.
+    #[test]
+    fn s1_store_write_err_io_after_every_step() {
+        for step in [
+            Step::CreateTemp,
+            Step::WriteTemp,
+            Step::SyncTemp,
+            Step::Rename,
+            Step::SyncDir,
+        ] {
+            let scratch = Scratch::new("s1-store");
+            let dir = scratch.state();
+            provisioned(&dir);
+            let old_a = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+            let old_b = fs::read(slot_path(&dir, Slot::B)).expect("slot-b");
+            assert_eq!(old_b, record_for(Slot::B, 0, 1));
+            let new_b = record_for(Slot::B, 7, 2);
+
+            let mut store = FileReservationStore::open(&dir).expect("open");
+            FAIL_AFTER.with(|hook| hook.set(Some(step)));
+            assert_eq!(
+                store.write(Slot::B, &new_b),
+                Err(StoreError::Io),
+                "{step:?}"
+            );
+            assert_eq!(FAIL_AFTER.with(|hook| hook.get()), None, "{step:?} fired");
+            assert!(store.is_poisoned(), "{step:?}");
+            assert_eq!(store.last_io_error(), Some(ErrorKind::Other), "{step:?}");
+            let mut buf = [0u8; RECORD_BYTES];
+            for slot in [Slot::A, Slot::B] {
+                assert_eq!(
+                    store.read(slot, &mut buf),
+                    Err(StoreError::Unavailable),
+                    "{step:?} {slot:?}"
+                );
+            }
+            assert_eq!(
+                store.write(Slot::A, &record_for(Slot::A, 7, 2)),
+                Err(StoreError::Unavailable),
+                "{step:?}: a poisoned handle never writes again"
+            );
+
+            let slot_b = fs::read(slot_path(&dir, Slot::B)).expect("slot-b");
+            let tmp_b = fs::read(tmp_path(&dir, Slot::B));
+            let expected_b: Vec<u8> = match step {
+                Step::CreateTemp => {
+                    assert_eq!(tmp_b.expect("empty tmp"), Vec::<u8>::new());
+                    old_b.clone()
+                }
+                Step::WriteTemp | Step::SyncTemp => {
+                    assert_eq!(tmp_b.expect("tmp holds the new record"), new_b);
+                    old_b.clone()
+                }
+                Step::Rename | Step::SyncDir => {
+                    assert_eq!(
+                        tmp_b.map(|_| ()).unwrap_err().kind(),
+                        ErrorKind::NotFound,
+                        "{step:?}: no tmp"
+                    );
+                    new_b.to_vec()
+                }
+            };
+            assert_eq!(slot_b, expected_b, "{step:?}");
+            assert_eq!(fs::read(slot_path(&dir, Slot::A)).expect("slot-a"), old_a);
+            assert!(!tmp_path(&dir, Slot::A).exists(), "{step:?}");
+            drop(store);
+
+            let mut fresh = FileReservationStore::open(&dir).expect("fresh handle");
+            assert_eq!(dir_entries(&dir), ["lock", "slot-a", "slot-b"], "{step:?}");
+            assert_eq!(read_slot(&mut fresh, Slot::B).to_vec(), expected_b);
+            assert!(!fresh.is_poisoned());
+        }
+    }
+
+    #[test]
+    fn s2_one_mebibyte_slot_file_is_bounded_and_corrupt() {
+        let scratch = Scratch::new("s2");
+        let dir = scratch.state();
+        provisioned(&dir);
+        // A valid record followed by 1 MiB of padding: only the length matters.
+        let mut big = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+        big.resize(1 << 20, 0);
+        fs::write(slot_path(&dir, Slot::A), &big).expect("write 1 MiB");
+
+        let mut store = FileReservationStore::open(&dir).expect("open");
+        let buf = read_slot(&mut store, Slot::A);
+        assert!(is_damaged_pattern(&buf));
+        assert_eq!(record::decode(&buf), SlotView::Corrupt);
+        assert_eq!(
+            fs::metadata(slot_path(&dir, Slot::A)).expect("meta").len(),
+            1 << 20,
+            "reads never modify the file"
+        );
+        {
+            // Tolerated beside a valid B; the next commit replaces it with 64 bytes.
+            let mut reserver = GenerationReserver::open(&mut store, key(), config(2))
+                .map_err(|f| f.error)
+                .expect("open reserver");
+            assert_eq!(
+                reserver.status().slots,
+                [SlotCondition::Corrupt, SlotCondition::Current]
+            );
+            let token = reserver.reserve().expect("reserve");
+            assert_eq!(token.generation().get(), value(1, 1));
+        }
+        assert_eq!(
+            fs::read(slot_path(&dir, Slot::A)).expect("a"),
+            record_for(Slot::A, 2, 2)
+        );
+
+        // Both slots oversized: Corrupt, no writes.
+        fs::write(slot_path(&dir, Slot::A), &big).expect("write 1 MiB");
+        fs::write(slot_path(&dir, Slot::B), &big).expect("write 1 MiB");
+        let refused = GenerationReserver::open(&mut store, key(), config(2))
+            .map(|_| ())
+            .unwrap_err();
+        assert_eq!(refused.error, OpenError::Corrupt);
+        for slot in [Slot::A, Slot::B] {
+            assert_eq!(
+                fs::metadata(slot_path(&dir, slot)).expect("m").len(),
+                1 << 20
+            );
+        }
+    }
+
+    #[test]
+    fn s3_truncated_or_long_files_corrupt_missing_file_blank() {
+        let scratch = Scratch::new("s3");
+        let dir = scratch.state();
+        provisioned(&dir);
+        let valid = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+        assert_eq!(valid.len(), RECORD_BYTES);
+        fs::remove_file(slot_path(&dir, Slot::B)).expect("remove slot-b");
+        let mut store = FileReservationStore::open(&dir).expect("open");
+
+        for len in [0usize, 40, 63, 65] {
+            let mut bytes = valid.clone();
+            bytes.resize(len, 0x00);
+            fs::write(slot_path(&dir, Slot::A), &bytes).expect("write");
+            let buf = read_slot(&mut store, Slot::A);
+            assert!(is_damaged_pattern(&buf), "len {len}");
+            assert_eq!(record::decode(&buf), SlotView::Corrupt, "len {len}");
+            // Beside a missing B: Corrupt (not Blank), and nothing is written.
+            let refused = GenerationReserver::open(&mut store, key(), config(1))
+                .map(|_| ())
+                .unwrap_err();
+            assert_eq!(refused.error, OpenError::Corrupt, "len {len}");
+            assert_eq!(fs::read(slot_path(&dir, Slot::A)).expect("a"), bytes);
+            assert!(!slot_path(&dir, Slot::B).exists());
+        }
+
+        // A missing file reads as erased (Blank); both missing → Blank.
+        let buf = read_slot(&mut store, Slot::B);
+        assert_eq!(buf, [0xFF; RECORD_BYTES]);
+        assert_eq!(record::decode(&buf), SlotView::Blank);
+        fs::remove_file(slot_path(&dir, Slot::A)).expect("remove slot-a");
+        let refused = GenerationReserver::open(&mut store, key(), config(1))
+            .map(|_| ())
+            .unwrap_err();
+        assert_eq!(refused.error, OpenError::Blank);
+        assert_eq!(dir_entries(&dir), ["lock"]);
+        assert!(!store.is_poisoned());
+    }
+
+    #[test]
+    fn s4_symlinked_slot_file_is_io() {
+        let scratch = Scratch::new("s4");
+        let dir = scratch.state();
+        provisioned(&dir);
+        let elsewhere = scratch.root.join("elsewhere");
+        let valid_a = fs::read(slot_path(&dir, Slot::A)).expect("slot-a");
+        fs::write(&elsewhere, &valid_a).expect("write target");
+        fs::remove_file(slot_path(&dir, Slot::A)).expect("remove slot-a");
+        symlink(&elsewhere, slot_path(&dir, Slot::A)).expect("symlink");
+
+        let mut store = FileReservationStore::open(&dir).expect("open");
+        let mut buf = [0u8; RECORD_BYTES];
+        assert_eq!(store.read(Slot::A, &mut buf), Err(StoreError::Io));
+        assert_eq!(store.last_io_error(), Some(ErrorKind::Other));
+        assert!(
+            !store.is_poisoned(),
+            "a read error does not poison the handle"
+        );
+        {
+            // A is Unreadable beside a valid B; the commit writes A first and
+            // replaces the link itself, never following it.
+            let mut reserver = GenerationReserver::open(&mut store, key(), config(1))
+                .map_err(|f| f.error)
+                .expect("open reserver");
+            assert_eq!(
+                reserver.status().slots,
+                [SlotCondition::Unreadable, SlotCondition::Current]
+            );
+            let token = reserver.reserve().expect("reserve");
+            assert_eq!(token.generation().get(), value(1, 1));
+        }
+        let meta = fs::symlink_metadata(slot_path(&dir, Slot::A)).expect("meta");
+        assert!(
+            meta.file_type().is_file(),
+            "link replaced by a regular file"
+        );
+        assert_eq!(
+            fs::read(&elsewhere).expect("target"),
+            valid_a,
+            "target untouched"
+        );
+
+        // A symlinked slot beside a missing slot: Unreadable (RetryOpen), no writes.
+        fs::remove_file(slot_path(&dir, Slot::A)).expect("remove");
+        symlink(&elsewhere, slot_path(&dir, Slot::A)).expect("symlink");
+        fs::remove_file(slot_path(&dir, Slot::B)).expect("remove slot-b");
+        let refused = GenerationReserver::open(&mut store, key(), config(1))
+            .map(|_| ())
+            .unwrap_err();
+        assert_eq!(refused.error, OpenError::Unreadable);
+        assert_eq!(refused.error.remedy(), Remedy::RetryOpen);
+        assert!(!slot_path(&dir, Slot::B).exists());
+    }
+
+    #[test]
+    fn s5_directory_renamed_and_replaced_after_open() {
+        // (a) the next call is a read; (b) the next call is a write.
+        for read_first in [true, false] {
+            let scratch = Scratch::new("s5");
+            let dir = scratch.state();
+            provisioned(&dir);
+            let before = [
+                fs::read(slot_path(&dir, Slot::A)).expect("a"),
+                fs::read(slot_path(&dir, Slot::B)).expect("b"),
+            ];
+            let mut store = FileReservationStore::open(&dir).expect("open");
+            let moved = scratch.root.join("state-moved");
+            fs::rename(&dir, &moved).expect("rename directory");
+            owner_only_dir(&dir);
+
+            let mut buf = [0u8; RECORD_BYTES];
+            let probe = record_for(Slot::A, 50, 5);
+            if read_first {
+                assert_eq!(store.read(Slot::A, &mut buf), Err(StoreError::Unavailable));
+                assert!(store.is_poisoned());
+                assert_eq!(store.write(Slot::A, &probe), Err(StoreError::Unavailable));
+            } else {
+                assert_eq!(store.write(Slot::A, &probe), Err(StoreError::Io));
+                assert!(store.is_poisoned());
+                assert_eq!(store.last_io_error(), Some(ErrorKind::Other));
+                assert_eq!(store.read(Slot::A, &mut buf), Err(StoreError::Unavailable));
+            }
+            let refused = GenerationReserver::open(&mut store, key(), config(1))
+                .map(|_| ())
+                .unwrap_err();
+            assert_eq!(refused.error, OpenError::StoreUnavailable);
+
+            // Nothing was created in the replacement; the original is unchanged.
+            assert!(dir_entries(&dir).is_empty(), "replacement untouched");
+            assert_eq!(dir_entries(&moved), ["lock", "slot-a", "slot-b"]);
+            assert_eq!(fs::read(slot_path(&moved, Slot::A)).expect("a"), before[0]);
+            assert_eq!(fs::read(slot_path(&moved, Slot::B)).expect("b"), before[1]);
+        }
+    }
+
+    /// Replace the state directory in place: move it aside, create a fresh
+    /// owner-only directory at the same path.
+    fn replace_dir(dir: &Path) {
+        let aside = dir.with_file_name("state-moved");
+        fs::rename(dir, &aside).expect("move state aside");
+        owner_only_dir(dir);
+    }
+
+    /// S6: the directory is replaced after the rename, before the post-rename
+    /// identity check. The write fails with `Io`, the handle is poisoned, the
+    /// replacement directory receives nothing, and the directory sync never runs
+    /// on the replacement.
+    #[test]
+    fn s6_directory_replaced_between_rename_and_identity_check() {
+        let scratch = Scratch::new("s6");
+        let mut store = FileReservationStore::open(&scratch.state()).expect("open");
+        let record = record::encode(&RecordFields {
+            slot: Slot::A,
+            key: key(),
+            epoch: epoch(1),
+            high_water: 0,
+            commits: 1,
+        });
+        ACT_AFTER.with(|hook| hook.set(Some((Step::Rename, replace_dir))));
+        assert_eq!(store.write(Slot::A, &record), Err(StoreError::Io));
+        assert!(ACT_AFTER.with(|hook| hook.get()).is_none(), "hook fired");
+        assert!(store.is_poisoned());
+        let mut buf = [0u8; RECORD_BYTES];
+        assert_eq!(store.read(Slot::A, &mut buf), Err(StoreError::Unavailable));
+        let replacement: Vec<_> = fs::read_dir(scratch.state())
+            .expect("list replacement")
+            .collect();
+        assert!(replacement.is_empty(), "nothing written to the replacement");
+        let moved = scratch.root.join("state-moved");
+        assert_eq!(
+            fs::read(slot_path(&moved, Slot::A)).expect("renamed slot"),
+            record.to_vec()
+        );
     }
 }

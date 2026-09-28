@@ -211,7 +211,9 @@ impl FaultStore {
 
     /// Order in which slots were written, oldest first, from the log.
     pub fn write_order(&self) -> impl Iterator<Item = Slot> + '_ {
-        self.log().filter(|op| op.kind == OpKind::Write).map(|op| op.slot)
+        self.log()
+            .filter(|op| op.kind == OpKind::Write)
+            .map(|op| op.slot)
     }
 
     /// Current durable bytes of a slot (ignores cache and marginal resolution).
@@ -283,11 +285,11 @@ impl FaultStore {
         match self.policy {
             WeakPolicy::AlwaysErased => false,
             WeakPolicy::AlwaysNew => true,
-            WeakPolicy::AlternateEven => self.boot % 2 == 0,
-            WeakPolicy::AlternateOdd => self.boot % 2 == 1,
+            WeakPolicy::AlternateEven => self.boot.is_multiple_of(2),
+            WeakPolicy::AlternateOdd => !self.boot.is_multiple_of(2),
             WeakPolicy::PerRead => {
                 self.per_read += 1;
-                self.per_read % 2 == 0
+                self.per_read.is_multiple_of(2)
             }
         }
     }

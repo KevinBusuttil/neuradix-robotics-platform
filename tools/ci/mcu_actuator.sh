@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # WP-A08 embedded actuator MCU cross-compilation evidence.
 #
-# Builds the no_std embedded core and a monomorphized actuator adapter for
-# bare-metal targets, reports the 32-bit type footprint and fails if any object
-# references a heap allocator. This is compilation evidence only; it does not
-# execute the adapter on a board. AVR Rust is not covered (nightly-only target).
+# Builds the no_std embedded core and a monomorphized actuator adapter (plus the
+# WP-A04.4 reserved startup path) for bare-metal targets, reports the 32-bit type
+# footprint, fails if any object references a heap allocator, and fails if the
+# trusted `provisioning` feature or its code reaches the firmware graph. This is
+# compilation evidence only; it does not execute the adapter on a board. AVR Rust
+# is not covered (nightly-only target).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 targets=(thumbv6m-none-eabi thumbv7em-none-eabihf riscv32imc-unknown-none-elf)
@@ -13,6 +15,17 @@ nm="$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bi
 [[ -x "$nm" ]] || nm=$(command -v llvm-nm || true)
 for target in "${targets[@]}"; do
   echo "== $target"
+  # Provisioning-absence gate, feature graph: firmware (normal) edges must never
+  # enable `provisioning`; only dev-dependency edges (tests) may. The graph is
+  # captured first so a failing `cargo tree` aborts (set -e) instead of passing.
+  graph=$(cargo tree --locked -e normal,features --target "$target" \
+    -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target)
+  grep -qF 'neuradix-command-core v' <<<"$graph" \
+    || { echo "$target firmware graph lacks neuradix-command-core; gate is blind" >&2; exit 1; }
+  if grep -F 'feature "provisioning"' <<<"$graph"; then
+    echo "provisioning feature enabled in the $target firmware graph" >&2; exit 1
+  fi
+  echo "no provisioning feature in the firmware graph"
   # time and command-core are built as no-default-features dependencies.
   cargo build --locked --release --target "$target" \
     -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target
@@ -32,11 +45,25 @@ for target in "${targets[@]}"; do
     exit 1
   fi
   echo "no heap allocator references"
+  # Provisioning-absence gate, symbols: no provisioning code in any object.
+  # llvm-nm -C leaves legacy-mangled impl paths escaped ("..", not "::"), e.g.
+  # `_$LT$neuradix_command_core..reservation..provisioning..ProvisionError...`,
+  # which is the symbol a feature-enabled build always emits; match both forms.
+  # Symbols are captured first so an llvm-nm failure aborts (set -e) instead of
+  # passing, and the always-present reservation symbols prove the pattern's
+  # prefix still matches this toolchain's demangled output.
+  syms=$("$nm" -C "$dir"/*/*.o)
+  reservation='neuradix_command_core(::|\.\.)reservation(::|\.\.)'
+  grep -qE "$reservation" <<<"$syms" \
+    || { echo "no reservation symbols for $target; provisioning gate is blind" >&2; exit 1; }
+  if grep -E "${reservation}provision" <<<"$syms"; then
+    echo "provisioning code linked for $target" >&2; exit 1
+  fi
+  echo "no provisioning symbols"
   size_of=$("$nm" -S "$dir"/neuradix_example_embedded_actuator_target/*.o | grep -c FOOTPRINT || true)
   [[ "$size_of" -ge 1 ]] || { echo "footprint symbol missing" >&2; exit 1; }
   "$nm" -S --size-sort -C "$dir"/neuradix_example_embedded_actuator_target/*.o \
-    | grep -E 'embedded_actuator_target::(setup|install|control_step|revoke|shutdown)' || true
+    | grep -E 'embedded_actuator_target::(setup|install|control_step|revoke|shutdown|setup_reserved|open_reserver|reserve_and_install|replace_from_window)|GenerationReserver.*(open|reserve)' || true
   rm -rf "$dir"
 done
 echo "MCU actuator compilation evidence complete (no hardware execution)."
-

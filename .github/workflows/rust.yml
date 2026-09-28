@@ -60,8 +60,18 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target
           timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-example-embedded-propulsion
 
+      # The self dev-dependency and dev-dependency features enable `provisioning`
+      # for these test builds without `--features`.
+      - name: Generation reservation regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 90s cargo test --locked -p neuradix-command-core --lib --test reservation --test reservation_faults --test reservation_alloc
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-core --test reservation --test actuator_alloc
+          timeout --signal=TERM --kill-after=5s 90s cargo test --locked -p neuradix-safety --lib --test reservation
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-safety --example reserved_startup
+
+      # Hard cap: also runs the default reservation sweeps and the host subprocess suite.
       - name: Trusted command regressions
-        run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
+        run: timeout --signal=TERM --kill-after=5s 300s cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
       - name: Independent MCAP fixtures and bounded import
         run: |
@@ -97,6 +107,8 @@ jobs:
         run: |
           cargo check --locked -p neuradix-time --no-default-features
           cargo check --locked -p neuradix-command-core --no-default-features
+          # The trusted provisioning build is warning-free under no_std too.
+          cargo check --locked -p neuradix-command-core --no-default-features --features provisioning
           cargo check --locked -p neuradix-embedded-transport --no-default-features
           cargo check --locked -p neuradix-embedded-core --no-default-features
           cargo check --locked -p neuradix-example-embedded-actuator-target --no-default-features
@@ -110,6 +122,20 @@ jobs:
           cargo fmt --all
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
           git diff -- Cargo.lock crates examples
+
+  # Parallel release fault campaign, off the serial build-test critical path.
+  # Target: F6-F8 under 120 s; 420 s is a hard cap that includes compilation.
+  reservation-faults:
+    name: Generation reservation fault campaign (release)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain (triggers pinned install)
+        run: |
+          rustup show active-toolchain || rustup show
+          rustc --version
+      - name: Release fault sweeps F6-F8 (exact case counts asserted and printed)
+        run: timeout --signal=TERM --kill-after=5s 420s cargo test --locked --release -p neuradix-command-core --test reservation_faults -- --ignored --nocapture
 
   mcu-actuator:
     name: MCU actuator cross-compilation
