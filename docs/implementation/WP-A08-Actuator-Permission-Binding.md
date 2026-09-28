@@ -1,6 +1,6 @@
 # WP-A08 — Trusted actuator-driver permission binding
 
-Status: host implementation in [PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20), open and unmerged. WP-A08 remains partial; Gate A remains open.
+Status: host implementation integrated; [PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20) merged as `7b2be979f94c9fdf7c9192c4a85f11cef1993340` on 28 September 2026; [post-merge CI 36361418592](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36361418592) passed. WP-A08 remains partial; Gate A remains open.
 
 ## Verified baseline and scope
 
@@ -151,8 +151,13 @@ revocation and shutdown on an instrumented host test driver, with no device acce
 
 Implementation `6ce893933dbbec28ce108ae3ebe72a1bf2d3c951` passed
 [PR CI 36351856315](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36351856315).
-PR #20 links the required final-head checks after this documentation update.
-Rust/Cargo 1.94.1, locked dependencies; all required host and separate AVR jobs
+Final head `6db84fba1921c8bc022aff9465b315061b68dfc4` passed
+[PR CI 36352078681](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36352078681)
+and [push CI 36352075505](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36352075505);
+both host and AVR jobs passed in each run. PR #20 merged that head as
+`7b2be979f94c9fdf7c9192c4a85f11cef1993340` with an identical tree;
+[post-merge main CI 36361418592](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36361418592)
+passed. Rust/Cargo 1.94.1, locked dependencies; all required host and separate AVR jobs
 executed. Focused counts below are workspace subsets, not additional totals.
 
 | Check | Result |
@@ -199,8 +204,8 @@ This demonstrates software permission separation for one selected host adapter.
 WP-A08 remains partial: the embedded PropulsionNode still returns a scalar, physical
 driver permissions require target/OS integration and qualification, and graph
 execution/delay buffers/scheduling remain deferred. The next bounded A08 increment
-is the corresponding allocation-free embedded permission/driver boundary after
-this host PR is reviewed and integrated, preserving command-core semantics.
+is the corresponding allocation-free embedded permission/driver boundary, now that
+this host PR is merged, preserving command-core semantics.
 
 Manufacturing's integration note is a consumer requirement, not a live task API.
 This does not implement its task authentication, durable outcomes, networking,

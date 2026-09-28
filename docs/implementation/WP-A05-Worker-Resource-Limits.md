@@ -3,8 +3,11 @@
 This bounded increment belongs to **WP-A05: Bounded extension processes**.
 It adds actual Linux kernel enforcement to the integrated
 [I/O](WP-A05-Bounded-Worker-IO.md) and [heartbeat](WP-A05-Worker-Heartbeat.md)
-increments. WP-A05/ACC-09 remain **partial**. The resource PR is unmerged until
-review and integration; opening it does not complete integration.
+increments. WP-A05/ACC-09 remain **partial**. Integration update:
+[PR #13](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/13) merged as
+`741b5bc53ddf293c7d809497018dbc36f8a60b78`;
+[post-merge main CI 34327790906](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34327790906)
+passed.
 
 ## Prerequisite review
 
@@ -164,7 +167,7 @@ Implementation `4742a1ce21400798d5eee8fed8f39c94dc9c9c3f` passed
 [PR CI 34324405885](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34324405885)
 and [push CI 34324402352](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/34324402352).
 [PR #13](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/13)
-records current-revision checks after this evidence update and remains unmerged.
+recorded current-revision checks after this evidence update and later merged as `741b5bc`.
 CI used pinned Rust/Cargo **1.94.1**, locked dependencies, warnings denied,
 Linux GNU x86_64, Python 3.12.3, G++ 13.3.0 and AVR GCC 7.3.0.
 

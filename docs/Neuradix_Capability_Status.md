@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the WP-A08 host actuator-permission branch.** This register is the current
+**Updated for the integrated WP-A08 host actuator-permission increment.** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -139,9 +139,9 @@ remains partial. A04/A05/A06 and Gate A retain their open criteria.
 
 Integrated PR #18 adds explicit validated evaluation-tick delays, required seed-history obligations, bounded deterministic instantaneous-cycle rejection and v3 identities for delayed graphs. Existing all-instantaneous v2 pins survive. [PR #18](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/18) merged as `b35de66a16df27af4187c0479ed6c8965d3c0239`; [post-merge CI 35144276426](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/35144276426) passed. Implementation PR CI 34403559830 passed: 363 workspace tests/doctests, 39 graph and six CLI graph tests, examples and preserved conformance suites. See [delayed-feedback evidence](implementation/WP-A08-Delayed-Feedback-Validation.md). No graph execution, runtime delay enforcement or actuator authority is supplied. WP-A08 stays partial for runtime capability/physical driver permission separation. All other package and acceptance gaps remain.
 
-## WP-A08 host actuator permission branch
+## WP-A08 integrated host actuator permission
 
-The branch adds a private validated grant/configuration and an owned scalar driver adapter. Single-use command ports fix mode and trusted runtime evaluation time; requests are evaluated internally, while SafetyDecision remains informational. Missing, revoked and mismatched permissions select local safe output. Driver failures latch and expose bounded first/fallback results. See [host permission evidence](implementation/WP-A08-Actuator-Permission-Binding.md). [PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20) is open and unmerged. Implementation PR CI 36351856315 passed: 378 workspace tests/doctests, 10 actuator tests plus five compile-fail API examples, guarded-driver example and all preserved A04/A05/A06/A07, SDK, no_std, MCAP and AVR gates. Integration and physical qualification remain pending. No embedded, graph-execution, authentication, Manufacturing adapter or hardware support claim is added.
+[PR #20](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/20) merged as `7b2be979f94c9fdf7c9192c4a85f11cef1993340` on 28 September 2026; [post-merge CI 36361418592](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36361418592) passed. It adds a private validated grant/configuration and an owned scalar driver adapter. Single-use command ports fix mode and trusted runtime evaluation time; requests are evaluated internally, while SafetyDecision remains informational. Missing, revoked and mismatched permissions select local safe output. Driver failures latch and expose bounded first/fallback results. See [host permission evidence](implementation/WP-A08-Actuator-Permission-Binding.md). Implementation PR CI 36351856315 passed: 378 workspace tests/doctests, 10 actuator tests plus five compile-fail API examples, guarded-driver example and all preserved A04/A05/A06/A07, SDK, no_std, MCAP and AVR gates; final-head PR CI 36352078681 and push CI 36352075505 passed. Embedded and physical driver qualification remains pending. No embedded, graph-execution, authentication, Manufacturing adapter or hardware support claim is added.
 
 ## Capability inventory
 
@@ -149,7 +149,7 @@ The branch adds a private validated grant/configuration and an owned scalar driv
 |---|---|---|
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
-| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation | Host permission adapter on current branch; embedded/physical authority and deployed supervisor: A08/B02/B07 |
+| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation; host scalar actuator-permission adapter (PR #20) | Embedded/physical authority and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
 | Recording/replay | Native recording/digest and integrated bounded MCAP import; reusable single-processor re-execution with pinned cases and exact comparisons | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
@@ -190,7 +190,7 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
 | MCAP subset | PR #14 integrates bounded maintained import; PR #15 integrates bounded uncompressed output and independent export checks | A06 | Partial: bounded import/writer integrated; broader interchange/scale qualification remains |
 | Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner integrated; graph execution and ACC-07 closed-loop evidence remain open |
-| Deployment resolution/feedback | PR #17/#18 integrated identity/delayed topology; current branch adds a host permission adapter | A08 | Partial: host adapter integration pending; embedded/physical driver qualification and runtime graph execution remain open |
+| Deployment resolution/feedback | PR #17/#18 integrated identity/delayed topology; PR #20 integrated a host permission adapter | A08 | Partial: host adapter integrated; embedded/physical driver qualification and runtime graph execution remain open |
 
 WP-A01 has an integrated source baseline and compiler evidence. The broader evidence
 inventory and optional-tool audit remain. WP-A02 and WP-A03 are partial; their

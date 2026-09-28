@@ -51,7 +51,7 @@ Current limits:
 - `replay run` verifies recorded-data integrity. The separate `neuradix-runtime::replay` API executes one selected processor over a pinned case and compares exact outputs; arbitrary graph and closed-loop replay remain deferred.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
-- PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. This A05 branch adds [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
+- PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. PR #13 integrates [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
 - MCAP has bounded uncompressed/LZ4 import and bounded uncompressed streaming output with independent Python container checks. Broader interoperability remains unqualified; no ROS payload decoding is claimed. Serial wire negotiation and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
@@ -201,7 +201,7 @@ cargo run --locked -p neuradix-runtime --example program_replay
 See [A07 implementation evidence](docs/implementation/WP-A07-Program-Replay-Runner.md)
 for identity, clock, comparison and supervision limits.
 
-The bounded resolved-deployment identity increment is available on the A08 branch.
+The bounded resolved-deployment identity increment is integrated through PR #17.
 Run `cargo run --locked -p neuradix-graph --example resolved_identity` to demonstrate
 configuration drift. Graph CLI output distinguishes declared identity from resolved
 schema/layout/configuration identity; old pins require explicit migration. See
