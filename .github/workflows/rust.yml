@@ -50,6 +50,11 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-runtime
           timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-runtime --example program_replay
 
+      - name: Guarded actuator regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-safety --test actuator
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-safety --example guarded_actuator
+
       - name: Trusted command regressions
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 

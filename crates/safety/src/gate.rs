@@ -142,6 +142,21 @@ impl SafetyGate {
             at: now,
         }
     }
+    // Adapter-only interlock. Never consume sequence/feed liveness. Clearing the
+    // held output requires a fresh valid command, but preserves lease watermarks.
+    pub(crate) fn inhibit(&mut self, now: Timestamp) -> Option<RejectReason> {
+        let fault = self.clock.observe(now).err();
+        self.last_applied = Some(self.safe_value);
+        self.active = None;
+        self.fallback_reason = Some(fault.unwrap_or(RejectReason::NoCommand));
+        fault
+    }
+    pub(crate) fn check_control_time(
+        &self,
+        now: Timestamp,
+    ) -> Result<(), neuradix_command_core::ConfigError> {
+        self.clock.check_control_time(now)
+    }
     fn reject(
         &mut self,
         request: Option<CommandRequest>,

@@ -185,3 +185,13 @@ Normative canonicalization, API migration, limits, bounded diagnostics, initiali
 and verification: [A08 delayed-feedback evidence](../implementation/WP-A08-Delayed-Feedback-Validation.md).
 Runtime capabilities and physical driver permissions remain separate acceptance;
 labels and delay declarations confer no authority.
+
+
+## Runtime permission separation follow-up
+
+The [A08 host permission adapter](../implementation/WP-A08-Actuator-Permission-Binding.md)
+requires an explicit trusted grant bound to holder, capability, endpoint and mode.
+Graph roles and deployment hashes do not install that grant. Graph output is not
+fed into the control loop as authority; trusted composition must provision and
+own the guarded endpoint separately. This does not add graph execution, embedded
+or physical driver qualification, or change declared/resolved identity preimages.
