@@ -34,7 +34,7 @@ RP2040 is a planning default, not a claim of support. A recorded target change m
 
 ## Actuator permission boundary status
 
-A08 proposes (not merged) `neuradix_embedded_core::actuator`: an allocation-free, executor/HAL/transport-neutral adapter that owns the board driver; trusted setup installs permissions and issues single-use ports with trusted mode and time. Cross-compilation for thumbv6m/thumbv7em/riscv32imc is CI evidence only. A board package (B04/B05) must implement `ActuatorDriver` over its HAL, hold the only handle to the output, and measure write latency, stack and the physical safe response. Rust AVR is not targeted; the Uno path remains generated C/C++. See [evidence](implementation/WP-A08-Embedded-Actuator-Permission.md).
+A08 integrated (PR #22) `neuradix_embedded_core::actuator`: an allocation-free, executor/HAL/transport-neutral adapter that owns the board driver; trusted setup installs permissions and issues single-use ports with trusted mode and time. Cross-compilation for thumbv6m/thumbv7em/riscv32imc is CI evidence only. A board package (B04/B05) must implement `ActuatorDriver` over its HAL, hold the only handle to the output, and measure write latency, stack and the physical safe response. Rust AVR is not targeted; the Uno path remains generated C/C++. See [evidence](implementation/WP-A08-Embedded-Actuator-Permission.md).
 
 # 4. Work package sequence
 

@@ -204,10 +204,10 @@ This demonstrates software permission separation for one selected host adapter.
 WP-A08 remains partial: physical driver permissions require target/OS integration
 and qualification, and graph execution/delay buffers/scheduling remain deferred.
 The embedded PropulsionNode still returns a gate-selected scalar (now documented as
-such); the corresponding allocation-free embedded owned-driver boundary is proposed
-in [embedded permission evidence](WP-A08-Embedded-Actuator-Permission.md) and is
-not integrated until its PR merges. `ExecutionMode` moves to command-core in that
-change and remains re-exported from this module.
+such); the corresponding allocation-free embedded owned-driver boundary is now
+integrated through PR #22 (see [embedded permission evidence](WP-A08-Embedded-Actuator-Permission.md)).
+`ExecutionMode` moved to command-core in that change and remains re-exported from
+this module.
 
 Manufacturing's integration note is a consumer requirement, not a live task API.
 This does not implement its task authentication, durable outcomes, networking,

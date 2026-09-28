@@ -1,6 +1,7 @@
 # WP-A08 — Embedded actuator-driver permission boundary
 
-Status: **proposed and PR-tested; not merged.** Branch `claude/vigilant-newton-y1knsi`.
+Status: **integrated.** [PR #22](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/22) merged as `ecc510e4f2581bd82ee551bf1e3a802c009b00ed` on 28 September 2026 with a tree
+identical to reviewed head `31f0300`; [post-merge main CI 36478100811](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36478100811) passed.
 WP-A08 remains partial; Gate A remains open. This increment makes no hardware
 support, physical safety qualification or Gate A completion claim.
 
@@ -185,7 +186,17 @@ limit, not a code result. CI runs as a non-root user with passwordless sudo.
 
 CI adds an "Embedded actuator permission regressions and example" step, the
 target crate to the no_std checks, and a separate **MCU actuator
-cross-compilation** job. PR CI results are recorded in the pull request.
+cross-compilation** job. Remote results, all three jobs (host, Arduino Uno codec
+ABI, MCU actuator cross-compilation) passing in each run:
+
+| Commit | Run | Result |
+|---|---|---|
+| `42f16e8` implementation | [push CI 36467944830](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36467944830) | Passed; MCU job built all three targets from clean and found no allocator references |
+| `31f0300` reviewed head | [push CI 36468133448](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36468133448) and [PR CI 36468189893](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36468189893) | Passed |
+| `ecc510e` merge on main | [post-merge main CI 36478100811](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36478100811) | Passed |
+
+The Codex review of `31f0300` completed with no findings; no review threads
+were opened.
 
 ### Not established
 

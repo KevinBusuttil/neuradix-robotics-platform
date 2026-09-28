@@ -152,9 +152,9 @@ This host boundary neither isolates native code nor authenticates sources. Exist
 raw drivers must migrate explicitly. Embedded driver binding, actual hardware/OS
 permission enforcement and independent protections remain required acceptance.
 
-## A08 embedded actuator boundary (proposed)
+## A08 embedded actuator boundary
 
-`neuradix_embedded_core::actuator` (proposed, PR-tested, not merged) applies the
+`neuradix_embedded_core::actuator` (integrated through PR #22) applies the
 same ownership model without heap or std: the adapter owns the driver and the
 unchanged `CommandGate`; permissions bind numeric holder/capability/endpoint IDs
 and a shared `ExecutionMode` (moved to `neuradix-command-core`, re-exported by the
