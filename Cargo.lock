@@ -487,6 +487,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-example-embedded-actuator-target"
+version = "0.0.1"
+dependencies = [
+ "neuradix-embedded-core",
+ "neuradix-time",
+]
+
+[[package]]
 name = "neuradix-example-embedded-propulsion"
 version = "0.0.1"
 dependencies = [

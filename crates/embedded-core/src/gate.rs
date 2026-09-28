@@ -92,22 +92,27 @@ pub struct Command {
 /// The disposition of a gate evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
-    /// Applied unchanged, or a still-valid output held during an idle tick.
+    /// Selected unchanged, or a still-valid output held during an idle tick.
     Accepted,
-    /// Applied after range or elapsed-time slew limiting.
+    /// Selected after range or elapsed-time slew limiting.
     Modified,
-    /// Local safe output with an auditable reason.
+    /// Local safe output selected with an auditable reason.
     SafeState(SafeReason),
 }
 
 /// Result of one evaluation, including idle expiry and source provenance.
+///
+/// A decision is constructible diagnostic data. It is not a credential, is never
+/// accepted by [`crate::ActuatorPort`], and does not prove that any driver was
+/// called or that physical equipment reached `applied`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GateDecision {
     /// Incoming source command; None for a runtime idle tick.
     pub request: Option<Command>,
     /// Runtime evaluation time, never a source timestamp substitution.
     pub at: Timestamp,
-    /// Finite applied output inside the configured hard bounds.
+    /// Finite gate-selected output inside the configured hard bounds. The field
+    /// name is historical: it is not a driver acknowledgement or physical state.
     pub applied: f32,
     /// Disposition and rejection reason.
     pub outcome: Outcome,
@@ -172,7 +177,7 @@ impl CommandGate {
     pub fn safe_output(&self) -> f32 {
         self.safe_output
     }
-    /// Last applied value, if evaluated.
+    /// Last gate-selected value (slew reference), if evaluated; not physical state.
     pub fn last_applied(&self) -> Option<f32> {
         self.last_applied
     }
@@ -250,6 +255,19 @@ impl CommandGate {
             range_clamped,
             slew_limited,
         }
+    }
+    /// Adapter-only: select safe output while observing runtime time, without
+    /// consuming a sequence or refreshing accepted-command liveness.
+    pub(crate) fn inhibit(&mut self, now: Timestamp) -> Option<SafeReason> {
+        let fault = self.clock.observe(now).err();
+        self.last_applied = Some(self.safe_output);
+        self.active_generation = None;
+        self.fallback_reason = Some(fault.unwrap_or(SafeReason::NoCommand));
+        fault
+    }
+    /// Adapter-only: gate-wide clock shared across permission installation.
+    pub(crate) fn clock_mut(&mut self) -> &mut EvaluationClock {
+        &mut self.clock
     }
     fn enter_safe(
         &mut self,

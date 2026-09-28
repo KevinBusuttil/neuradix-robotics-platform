@@ -1,0 +1,14 @@
+[package]
+name = "neuradix-example-embedded-actuator-target"
+description = "no_std, allocation-free monomorphization of the embedded actuator adapter for MCU cross-compilation evidence."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+neuradix-embedded-core = { path = "../../crates/embedded-core", version = "0.0.1", default-features = false }
+neuradix-time = { path = "../../crates/time", version = "0.0.1", default-features = false }

@@ -9,31 +9,14 @@ use crate::{
     AuthorityLease, Capability, CommandRequest, Constraint, Generation, Identity, LeaseTable,
     RejectReason, SafetyDecision, SafetyGate, SessionError,
 };
-use neuradix_time::{ClockDomain, Timestamp};
+use neuradix_time::Timestamp;
 
 /// Maximum UTF-8 bytes in each admitted component, capability or driver name.
 pub const MAX_BINDING_NAME_BYTES: usize = 128;
 
 /// Mode assigned by trusted composition, never decoded from a command payload.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExecutionMode {
-    /// Local monotonic execution on a live-designated driver.
-    Live,
-    /// Simulation clock and simulation-designated driver.
-    Simulation,
-    /// Replay clock and replay-designated driver.
-    Replay,
-}
-impl ExecutionMode {
-    /// Required evaluation and lease clock domain for this selected adapter.
-    pub const fn clock_domain(self) -> ClockDomain {
-        match self {
-            Self::Live => ClockDomain::Monotonic,
-            Self::Simulation => ClockDomain::Simulation,
-            Self::Replay => ClockDomain::Replay,
-        }
-    }
-}
+/// Shared with the embedded boundary through `neuradix-command-core`.
+pub use neuradix_command_core::ExecutionMode;
 
 /// Immutable names/mode. Describes a binding but does not itself grant permission.
 #[derive(Debug, Clone, PartialEq, Eq)]

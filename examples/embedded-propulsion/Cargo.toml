@@ -1,6 +1,6 @@
 [package]
 name = "neuradix-example-embedded-propulsion"
-description = "Host simulation of the embedded AUV propulsion node: command, link loss -> safe state, lease expiry -> safe state."
+description = "Host simulation of the embedded AUV propulsion node behind the guarded actuator adapter: permission, link loss and lease expiry -> safe output, mode refusal, shutdown."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

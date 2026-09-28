@@ -33,6 +33,30 @@ impl Generation {
     }
 }
 
+/// Execution mode assigned by trusted composition, never decoded from a payload.
+///
+/// Shared by the host and embedded actuator boundaries so a simulated or replayed
+/// operation cannot be relabelled as live by selecting a different vocabulary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ExecutionMode {
+    /// Local monotonic execution on a live-designated driver.
+    Live,
+    /// Simulation clock and simulation-designated driver.
+    Simulation,
+    /// Replay clock and replay-designated driver.
+    Replay,
+}
+impl ExecutionMode {
+    /// Required evaluation and lease clock domain for this selected adapter.
+    pub const fn clock_domain(self) -> ClockDomain {
+        match self {
+            Self::Live => ClockDomain::Monotonic,
+            Self::Simulation => ClockDomain::Simulation,
+            Self::Replay => ClockDomain::Replay,
+        }
+    }
+}
+
 /// Trusted declaration of a shared reference clock and epoch.
 ///
 /// Equal domain labels alone do not prove a shared timeline. Provision this

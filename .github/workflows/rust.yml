@@ -55,6 +55,11 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-safety --test actuator
           timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-safety --example guarded_actuator
 
+      - name: Embedded actuator permission regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target
+          timeout --signal=TERM --kill-after=5s 30s cargo run --locked -p neuradix-example-embedded-propulsion
+
       - name: Trusted command regressions
         run: cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
@@ -94,6 +99,7 @@ jobs:
           cargo check --locked -p neuradix-command-core --no-default-features
           cargo check --locked -p neuradix-embedded-transport --no-default-features
           cargo check --locked -p neuradix-embedded-core --no-default-features
+          cargo check --locked -p neuradix-example-embedded-actuator-target --no-default-features
 
       - name: Docs (no deps)
         run: cargo doc --locked --workspace --no-deps
@@ -104,6 +110,19 @@ jobs:
           cargo fmt --all
           UPDATE_GOLDEN=1 cargo test --locked -p neuradix-embedded-codegen --test golden || true
           git diff -- Cargo.lock crates examples
+
+  mcu-actuator:
+    name: MCU actuator cross-compilation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned bare-metal targets and LLVM tools
+        run: |
+          rustup show active-toolchain || rustup show
+          rustup target add thumbv6m-none-eabi thumbv7em-none-eabihf riscv32imc-unknown-none-elf
+          rustup component add llvm-tools
+      - name: Build no_std actuator boundary and scan for heap allocator references
+        run: timeout --signal=TERM --kill-after=5s 300s ./tools/ci/mcu_actuator.sh
 
   avr-codegen:
     name: Arduino Uno codec ABI

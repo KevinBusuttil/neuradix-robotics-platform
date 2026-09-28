@@ -18,6 +18,12 @@
 //!   the link is lost (§16.1, NRX-EMB-004). A wireless/serial link is never a
 //!   safety channel; the safe response is local and time-driven.
 //! - [`PropulsionNode`] — the reference AUV actuator node built from the above.
+//!   It returns a gate-selected scalar and owns no driver.
+//! - [`ActuatorAdapter`] — the trusted, allocation-free driver-ownership
+//!   boundary: setup installs [`DriverPermission`]s; components receive only a
+//!   single-use [`ActuatorPort`] with trusted mode and time. Reports separate the
+//!   gate selection, the driver call/acknowledgement and physical state (never
+//!   claimed). See [`actuator`].
 //!
 //! # Example — link loss drives the local safe state
 //!
@@ -44,6 +50,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod actuator;
 pub mod gate;
 pub mod health;
 pub mod identity;
@@ -51,6 +58,10 @@ pub mod lease;
 pub mod node;
 pub mod watchdog;
 
+pub use actuator::{
+    ActuatorAdapter, ActuatorBinding, ActuatorDriver, ActuatorPort, DispatchReport, DriverError,
+    DriverPermission, PermissionError, PermissionStatus,
+};
 pub use gate::{Command, CommandGate, GateConfigError, GateDecision, Limits, Outcome, SafeReason};
 pub use health::HealthState;
 pub use identity::{DeploymentId, NodeId};
@@ -60,6 +71,6 @@ pub use watchdog::Watchdog;
 
 /// Shared command validity configuration and metadata.
 pub use neuradix_command_core::{
-    CommandMeta, CommandPolicy, ConfigError as SessionError, Generation, SessionConfig,
-    SharedTimeline,
+    CommandMeta, CommandPolicy, ConfigError as SessionError, ExecutionMode, Generation,
+    SessionConfig, SharedTimeline,
 };
