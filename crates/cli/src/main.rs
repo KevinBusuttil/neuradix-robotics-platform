@@ -16,8 +16,8 @@ use clap::Parser;
 
 use app::{AppError, Outcome};
 use cli::{
-    Cli, Command, ContractCommand, ExplainCommand, GraphCommand, RecordCommand, ReplayCommand,
-    StudioCommand,
+    ChannelCommand, Cli, Command, ContractCommand, ExplainCommand, GraphCommand, RecordCommand,
+    ReplayCommand, StudioCommand,
 };
 use envelope::CommandResult;
 use exit::ExitCode;
@@ -91,6 +91,20 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
                 neuradix_record::NativeReadLimits::new(max_input_bytes, max_records as usize)
                     .map_err(|e| app::AppError::message(exit::ExitCode::InvalidUse, e.to_string()))
                     .and_then(|limits| app::migrate::migrate(&file, &provenance, &out, limits)),
+            ),
+        },
+        Command::Channel { command } => match command {
+            ChannelCommand::Manifest { bindings, out } => (
+                "channel.manifest".to_owned(),
+                app::channel::manifest(&bindings, &out),
+            ),
+            ChannelCommand::Verify { manifest, bindings } => (
+                "channel.verify".to_owned(),
+                app::channel::verify(&manifest, bindings.as_deref()),
+            ),
+            ChannelCommand::Table { bindings, out } => (
+                "channel.table".to_owned(),
+                app::channel::table(&bindings, &out),
             ),
         },
         Command::Replay { command } => match command {

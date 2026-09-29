@@ -1,0 +1,23 @@
+# A 16-byte contract with the same field types and length as vehicle-depth but
+# a different identity: an equal-width foreign layout.
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.test
+  name: range
+  version: 1.0.0
+spec:
+  description: Equal-width foreign layout for channel verification tests
+  payload:
+    type: object
+    fields:
+      altitude: { type: float64, unit: m }
+      range: { type: float64, unit: m }
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 100ms
+  delivery:
+    capacity: 8
+    overflow: keep-latest

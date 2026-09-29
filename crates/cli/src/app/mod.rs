@@ -5,11 +5,13 @@
 //! keeps the command semantics independent of both the `clap` parser and the
 //! terminal presentation layer.
 
+pub mod channel;
 pub mod contract;
 pub mod doctor;
 pub mod explain;
 pub mod graph;
 pub mod migrate;
+pub mod publish;
 pub mod record;
 pub mod studio;
 pub mod version;

@@ -51,6 +51,12 @@ pub enum Command {
         command: RecordCommand,
     },
 
+    /// Generate and verify compact-channel manifests and board tables.
+    Channel {
+        #[command(subcommand)]
+        command: ChannelCommand,
+    },
+
     /// Replay recordings.
     Replay {
         /// The replay subcommand.
@@ -245,5 +251,41 @@ pub enum ContractCommand {
         /// machine-readable result format (see RFC-0013).
         #[arg(long = "out-dir")]
         out_dir: PathBuf,
+    },
+}
+
+/// `neuradix channel ...` subcommands (WP-A02 compact-channel tooling).
+#[derive(Debug, Subcommand)]
+pub enum ChannelCommand {
+    /// Generate a deterministic channel manifest from a binding specification.
+    Manifest {
+        /// The binding specification (`ChannelBindings` YAML).
+        bindings: PathBuf,
+
+        /// The manifest file to create (must not exist). Named `--out`
+        /// because the global `--output` selects the report format.
+        #[arg(long = "out")]
+        out: PathBuf,
+    },
+
+    /// Verify a manifest's self-consistency (format, rules and digest) and,
+    /// with `--bindings`, exact agreement with the expected bindings and contracts.
+    Verify {
+        /// The manifest to verify.
+        manifest: PathBuf,
+
+        /// Binding specification the manifest must match exactly.
+        #[arg(long = "bindings")]
+        bindings: Option<PathBuf>,
+    },
+
+    /// Emit the Rust board-table source (`MANIFEST_DIGEST`, `CHANNELS`).
+    Table {
+        /// The binding specification (`ChannelBindings` YAML).
+        bindings: PathBuf,
+
+        /// The Rust source file to create (must not exist).
+        #[arg(long = "out")]
+        out: PathBuf,
     },
 }
