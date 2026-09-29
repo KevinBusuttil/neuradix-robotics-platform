@@ -81,6 +81,17 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --test channel
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --bin neuradix publish
 
+      # The example checks its own outcomes (exit 1 on any unexpected result).
+      # A self-consistent manifest that disagrees with the expected routes must
+      # be refused before any traffic (exit 2).
+      - name: Reference gateway regressions and example
+        run: |
+          timeout --signal=TERM --kill-after=5s 90s cargo test --locked -p neuradix-gateway
+          timeout --signal=TERM --kill-after=5s 60s cargo run --locked -p neuradix-gateway --example reference_gateway
+          code=0
+          timeout --signal=TERM --kill-after=5s 60s cargo run --locked -p neuradix-gateway --example reference_gateway -- crates/gateway/fixtures/foreign-manifest.json || code=$?
+          test "$code" -eq 2
+
       - name: Legacy scalar recording migration regressions and bounded CLI
         run: |
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-record --test legacy_migration

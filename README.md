@@ -53,7 +53,7 @@ Current limits:
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
 - A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. A portable generation allocator and Linux host store are integrated (A04.4); a board store, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
 - PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. PR #13 integrates [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
-- MCAP has bounded uncompressed/LZ4 import and bounded uncompressed streaming output with independent Python container checks. Broader interoperability remains unqualified; no ROS payload decoding is claimed. A verified channel manifest and collision-checked compact-channel envelope are integrated (WP-A02.1, PR #26), with a post-merge digest-verification correction integrated (PR #27); an explicit, provenance-checked migration of legacy (c8aa467) scalar recordings is integrated (WP-A02.2, PR #31), with a bounded `neuradix record migrate` command integrated (WP-A02.3, PR #32); `neuradix channel manifest|verify|table` tooling is proposed (WP-A02.4, not merged); serial link sessions and gateway integration remain open. Native recording reads in `record inspect`, `replay run` and `record export` are not size-bounded.
+- MCAP has bounded uncompressed/LZ4 import and bounded uncompressed streaming output with independent Python container checks. Broader interoperability remains unqualified; no ROS payload decoding is claimed. A verified channel manifest and collision-checked compact-channel envelope are integrated (WP-A02.1, PR #26), with a post-merge digest-verification correction integrated (PR #27); an explicit, provenance-checked migration of legacy (c8aa467) scalar recordings is integrated (WP-A02.2, PR #31), with a bounded `neuradix record migrate` command integrated (WP-A02.3, PR #32); `neuradix channel manifest|verify|table` tooling is integrated (WP-A02.4, PR #33); a reference host gateway that verifies the complete compact-channel mapping and routes framed telemetry to generated decoders is proposed (WP-A02.5, `neuradix-gateway`, not merged); serial link sessions remain open (WP-B06). Native recording reads in `record inspect`, `replay run` and `record export` are not size-bounded.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.
 - Graphical Studio, general simulator integration, networking/shared memory, ROS/MAVLink bridges, worker clusters and fleet/AI/XR integrations remain planned.
 
@@ -104,6 +104,10 @@ cargo run -p neuradix-cli -- contract generate contracts/standard/navigation/veh
 # Generate an Uno-compatible scalar conformance fixture (not complete firmware):
 cargo run -p neuradix-cli -- contract generate crates/embedded-codegen/tests/fixtures/tiny-telemetry.yaml \
     --language cpp --cpp-target avr-uno --out-dir target/tiny-codegen
+
+# Reference gateway (host simulation): framed telemetry through a verified
+# compact-channel mapping to generated decoders and typed handlers:
+cargo run -p neuradix-gateway --example reference_gateway
 
 # Environment diagnostics:
 cargo run -p neuradix-cli -- doctor
@@ -177,6 +181,7 @@ crates/
   embedded-core/    # no_std identity, health, authority and watchdog primitives
   embedded-transport/ # no_std serial framing, CRC and command metadata binding
   embedded-codegen/ # canonical scalar Rust/C++ codec and target ABI checks
+  gateway/          # neuradix-gateway: reference host gateway, verified compact-channel routing
   cli/              # neuradix-cli: the `neuradix` binary
   testkit/          # neuradix-testkit: reusable test utilities
 python/             # neuradix_worker.py: the Python-side worker library

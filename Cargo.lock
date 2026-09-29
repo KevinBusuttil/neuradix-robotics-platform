@@ -531,6 +531,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "neuradix-gateway"
+version = "0.0.1"
+dependencies = [
+ "neuradix-contracts",
+ "neuradix-embedded-codegen",
+ "neuradix-embedded-core",
+ "neuradix-embedded-transport",
+ "thiserror",
+]
+
+[[package]]
 name = "neuradix-graph"
 version = "0.0.1"
 dependencies = [

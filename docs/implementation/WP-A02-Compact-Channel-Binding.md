@@ -177,8 +177,17 @@ The MCAP fixture steps were not rerun locally; this change does not touch
 
 ## Channel-manifest tooling (WP-A02.4)
 
-**Status:** proposed for review, not merged. It builds on `main` at
-`520c8e9`, which integrates PR #32.
+**Status:** integrated through
+[PR #33](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/33),
+merge [`981e750`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/981e7509efa1bc2801aaef5d125fdda914bdc422)
+(reviewed head `5766f23`). CI passed on the head:
+[PR run 36571324713](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36571324713)
+and [push run 36571315761](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36571315761).
+Post-merge main CI also passed all four jobs:
+[run 36572617715](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36572617715).
+The automated review's P2 finding was fixed on the head: a failure to check a
+destination (for example a non-directory path component) now exits 1 rather
+than 2. Its review of the final head reported no major issues.
 
 ```sh
 neuradix [-o json] channel manifest <bindings.yaml> --out <manifest.json>
@@ -259,14 +268,17 @@ WP-A02 is **not complete**:
    decoder, conversion and recording wire metadata are integrated in
    [WP-A02.2](WP-A02-Legacy-Recording-Migration.md) (PR #31), and the bounded
    `record migrate` CLI in WP-A02.3 (PR #32).
-2. **Tooling.** Manifest generation, verification and board-table emission
-   from an explicit binding specification are proposed in
-   [WP-A02.4](#channel-manifest-tooling-wp-a024) (not merged). Deriving the
+2. **Tooling: done.** Manifest generation, verification and board-table
+   emission from an explicit binding specification are integrated in
+   [WP-A02.4](#channel-manifest-tooling-wp-a024) (PR #33). Deriving the
    binding specification from a deployment graph, including compact-ID
    allocation, is not included.
-3. **Gateway integration.** An example or runtime gateway that routes opened
-   envelopes to generated decoders. It must also report the manifest digest
-   alongside firmware identity (NRX-EMB-005).
+3. **Gateway integration.** A reference gateway that verifies the complete
+   mapping before traffic, routes framed bytes to generated decoders and
+   typed handlers, and reports the manifest digest with sourced identities is
+   proposed in [WP-A02.5](WP-A02-Reference-Gateway.md) (not merged).
+   Board-reported identity for NRX-EMB-005 still needs WP-B06 sessions and
+   board execution.
 4. **Session binding** (full digest exchange, reconnect and reboot), in WP-B06.
 5. **RFC-0024**, recording the compact-ID, collision and migration rules
    normatively.

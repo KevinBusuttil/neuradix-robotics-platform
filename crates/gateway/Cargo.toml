@@ -1,0 +1,25 @@
+[package]
+name = "neuradix-gateway"
+description = "Reference host gateway: verified compact-channel routing from CRC-framed bytes to generated decoders and typed telemetry handlers."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+# The reference instance embeds contracts and generated sources from elsewhere
+# in the workspace, so the crate is not packaged on its own.
+publish = false
+
+[dependencies]
+neuradix-contracts = { workspace = true }
+neuradix-embedded-core = { workspace = true }
+neuradix-embedded-transport = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+neuradix-embedded-codegen = { workspace = true }
+
+[[example]]
+name = "reference_gateway"
+path = "examples/reference_gateway.rs"
