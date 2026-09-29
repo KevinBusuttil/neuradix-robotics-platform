@@ -12,8 +12,16 @@ Post-merge main CI also passed:
 **Post-merge defect (P1):** after the merge, an
 [automated review finding](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/26#discussion_r4129868135)
 showed that the merged `ChannelTable::new` accepted any digest with any valid
-bindings. A [correction](#correction-digest-verified-tables) is proposed for
-review and **not merged**. Until it is integrated, `main` carries the defect.
+bindings. The [correction](#correction-digest-verified-tables) is integrated
+through [PR #27](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/27),
+merge [`df37afc`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/df37afc670f5f7d7e88f5f8ca96466b122254651)
+(reviewed head `3fab90e`). CI passed on the head:
+[PR run 36526605711](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36526605711)
+and [push run 36526577509](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36526577509).
+Post-merge main CI also passed:
+[run 36528239753](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36528239753).
+The automated review of the head left no findings. The defect was present on
+`main` from `d25344c` until `df37afc`.
 
 This is host and cross-compilation evidence only. It does not claim board
 execution, a link session or Gate A closure.
@@ -53,6 +61,8 @@ Compact IDs only select an entry. Identity is still enforced in two places:
    an equal-length foreign layout on a correctly resolved channel.
 
 ## Correction: digest-verified tables
+
+*Integrated in PR #27 (`df37afc`).*
 
 **Root cause.** In PR #26, `ChannelTable::new(manifest_digest, bindings)`
 validated each binding but stored the digest without checking it. A board

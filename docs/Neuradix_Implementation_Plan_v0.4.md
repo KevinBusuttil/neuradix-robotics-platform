@@ -105,7 +105,7 @@ For each package: open a bounded implementation PR referencing the WP ID, preser
 
 **Primary risk:** Fixing a hash without versioning existing encoded data.
 
-**Progress:** Canonical v2 scalar layout, full wire identity, manifests and identity-aware decoders are integrated. Reordered independent endpoints and codec mismatch rejection pass. A verified channel manifest and a collision-checked no_std compact-channel envelope are integrated in [WP-A02.1](implementation/WP-A02-Compact-Channel-Binding.md) (PR #26). A post-merge P1 finding showed that a table could pair one manifest's digest with another's bindings. A correction that recomputes and verifies the digest on the board, with a generated board table, is proposed and not merged. Existing-recording migration, manifest tooling and gateway integration remain open.
+**Progress:** Canonical v2 scalar layout, full wire identity, manifests and identity-aware decoders are integrated. Reordered independent endpoints and codec mismatch rejection pass. A verified channel manifest and a collision-checked no_std compact-channel envelope are integrated in [WP-A02.1](implementation/WP-A02-Compact-Channel-Binding.md) (PR #26). A post-merge P1 finding showed that a table could pair one manifest's digest with another's bindings. A correction that recomputes and verifies the digest on the board, with a generated board table, is integrated (PR #27). Existing-recording migration, manifest tooling and gateway integration remain open.
 
 <a name="wp-a03"></a>
 
