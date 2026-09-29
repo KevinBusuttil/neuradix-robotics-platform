@@ -196,10 +196,11 @@ Evidence:
 
 ## Remaining WP-A02 work
 
-1. Channel-manifest emission and verification tooling: proposed in
+1. Channel-manifest emission and verification tooling: integrated in
    [WP-A02.4](WP-A02-Compact-Channel-Binding.md#channel-manifest-tooling-wp-a024)
-   (not merged).
-2. Gateway integration of the compact-channel table (WP-A02.1).
+   (PR #33).
+2. Gateway integration of the compact-channel table: proposed in
+   [WP-A02.5](WP-A02-Reference-Gateway.md) (not merged).
 3. RFC-0024, recording the compact-ID, collision and migration rules
    normatively.
 4. Link session binding (full manifest digest exchange, reconnect and reboot)

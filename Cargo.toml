@@ -2,7 +2,8 @@
 #
 # Experimental integrated foundations: contracts/time, bounded local transport,
 # lifecycle/control, recording, Python workers, graph validation, the AUV fixture,
-# headless Studio, embedded core/framing/codegen, CLI and testkit.
+# headless Studio, embedded core/framing/codegen, a reference host gateway, CLI
+# and testkit.
 # Physical board execution, graphical Studio, general simulator integration,
 # networking and enterprise/domain packs remain gated work. See docs/README.md,
 # docs/Neuradix_Capability_Status.md and docs/Neuradix_Implementation_Plan_v0.4.md.
@@ -24,6 +25,7 @@ members = [
     "crates/embedded-core",
     "crates/embedded-transport",
     "crates/embedded-codegen",
+    "crates/gateway",
     "crates/cli",
     "crates/testkit",
     "examples/minimal-depth-stream",

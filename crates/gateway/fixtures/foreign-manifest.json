@@ -1,0 +1,22 @@
+{
+  "manifest_version": "neuradix.channel-manifest.v2",
+  "channels": [
+    {
+      "compact_id": 1,
+      "name": "vehicle-depth",
+      "codec_id": "neuradix.scalar-le.v2",
+      "schema_id": "sha256:78e717e431fd552e32b10d22f615ae9f3d943fe4e5b3cc5025fa68b33fbb3a58",
+      "wire_id": "sha256:12adfc09fd06670e5aed5ce37d0d87b89593d6e56803d17ff49fc0aac7b0e4e2",
+      "wire_len": 16
+    },
+    {
+      "compact_id": 2,
+      "name": "tiny-telemetry",
+      "codec_id": "neuradix.scalar-le.v2",
+      "schema_id": "sha256:f247e1c86fd8b6361352e9d14a303ee75e578214ffbc98c1442e13be6ff560f3",
+      "wire_id": "sha256:886b194151a1034392cdfbb37692f44a756ad9841dae889a5c84b23de39e207a",
+      "wire_len": 29
+    }
+  ],
+  "digest": "sha256:83b6d5a09dea300fe263fa9f8ce8d6e879e50c91450473d85dad9c6d10a97a9a"
+}

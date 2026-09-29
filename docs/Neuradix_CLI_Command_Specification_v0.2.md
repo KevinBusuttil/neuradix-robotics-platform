@@ -36,7 +36,7 @@ the provenance or payloads are rejected; 1 for I/O, foreign or truncated input,
 exceeded limits and publication failures. See the
 [migration evidence](implementation/WP-A02-Legacy-Recording-Migration.md#cli-record-migrate-wp-a023).
 
-Proposed (WP-A02.4, not merged): `channel manifest <bindings.yaml> --out
+Integrated (WP-A02.4, PR #33): `channel manifest <bindings.yaml> --out
 <manifest.json>`, `channel verify <manifest.json> [--bindings <bindings.yaml>]`
 and `channel table <bindings.yaml> --out <board_table.rs>`. The binding
 specification (`channels.neuradix.io/v1alpha1`, `ChannelBindings`) lists
