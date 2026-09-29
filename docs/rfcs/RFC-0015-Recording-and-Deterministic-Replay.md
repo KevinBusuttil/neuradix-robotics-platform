@@ -97,7 +97,7 @@ and readers reject unknown versions cleanly. Clock-domain codes are part of the
 wire format and are fixed. Manifest fields may be added additively (serde
 tolerates unknown/missing optional fields).
 
-WP-A02.2 (proposed, not merged) adds the first such field: an optional
+WP-A02.2 (integrated, PR #31) adds the first such field: an optional
 per-channel `wire` object (`codec_id`, `wire_id`). It is omitted when absent, so
 earlier manifests serialize unchanged and `FORMAT_VERSION` stays 1. Its absence
 means the payload codec is not recorded; it never implies the legacy

@@ -152,6 +152,43 @@ pub enum RecordCommand {
         #[arg(long = "out")]
         out: PathBuf,
     },
+
+    /// Migrate legacy (c8aa467) declaration-order scalar payloads in a native
+    /// recording to `neuradix.scalar-le.v2`, using explicit provenance.
+    ///
+    /// Native to native only. The source is never modified; the destination
+    /// must not exist. Channels not named in the provenance stay opaque.
+    Migrate {
+        /// The source native recording (`.nrec`).
+        file: PathBuf,
+
+        /// The legacy provenance document (`neuradix.legacy-scalar-provenance.v1`).
+        #[arg(long = "provenance")]
+        provenance: PathBuf,
+
+        /// The new native recording to create (must not exist). Named `--out`
+        /// because the global `--output` selects the report format.
+        #[arg(long = "out")]
+        out: PathBuf,
+
+        /// Lower the container byte cap (default and maximum 256 MiB).
+        #[arg(
+            long = "max-input-bytes",
+            default_value_t = neuradix_record::NativeReadLimits::DEFAULT_MAX_BYTES,
+            value_parser = clap::value_parser!(u64)
+                .range(1..=neuradix_record::NativeReadLimits::DEFAULT_MAX_BYTES)
+        )]
+        max_input_bytes: u64,
+
+        /// Lower the record-count cap (default and maximum 1048576).
+        #[arg(
+            long = "max-records",
+            default_value_t = neuradix_record::NativeReadLimits::DEFAULT_MAX_RECORDS as u64,
+            value_parser = clap::value_parser!(u64)
+                .range(1..=neuradix_record::NativeReadLimits::DEFAULT_MAX_RECORDS as u64)
+        )]
+        max_records: u64,
+    },
 }
 
 /// `neuradix replay ...` subcommands.

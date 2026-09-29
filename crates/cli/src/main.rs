@@ -80,6 +80,18 @@ fn dispatch(command: Command) -> (String, Result<Outcome, AppError>) {
             RecordCommand::Export { file, out } => {
                 ("record.export".to_owned(), app::record::export(&file, &out))
             }
+            RecordCommand::Migrate {
+                file,
+                provenance,
+                out,
+                max_input_bytes,
+                max_records,
+            } => (
+                "record.migrate".to_owned(),
+                neuradix_record::NativeReadLimits::new(max_input_bytes, max_records as usize)
+                    .map_err(|e| app::AppError::message(exit::ExitCode::InvalidUse, e.to_string()))
+                    .and_then(|limits| app::migrate::migrate(&file, &provenance, &out, limits)),
+            ),
         },
         Command::Replay { command } => match command {
             ReplayCommand::Run {

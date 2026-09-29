@@ -46,6 +46,19 @@ pub enum RecordError {
     /// The requested interpretation/conversion cannot preserve the data.
     #[error("unsupported MCAP data: {0}")]
     UnsupportedMcap(&'static str),
+    /// A native read limit is zero or unrepresentable.
+    #[error("invalid native read limit: {0}")]
+    InvalidReadLimit(&'static str),
+
+    /// A native read exceeded its configured limit; nothing was returned.
+    #[error("native recording {kind} limit exceeded ({limit})")]
+    ReadLimit {
+        /// Which bound was exceeded.
+        kind: &'static str,
+        /// The configured bound.
+        limit: u64,
+    },
+
     /// An I/O error while writing or reading a recording.
     #[error("recording i/o error: {0}")]
     Io(#[from] std::io::Error),
