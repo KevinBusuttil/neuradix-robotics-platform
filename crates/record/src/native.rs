@@ -92,9 +92,13 @@ impl NativeReadLimits {
     /// Default record cap: 1 Mi records.
     pub const DEFAULT_MAX_RECORDS: usize = 1 << 20;
 
-    /// Validated limits; both must be non-zero and `max_bytes` must fit `usize`.
+    /// Validated limits; both must be non-zero, and `max_bytes + 1` (the
+    /// one-byte overflow sentinel) must fit `usize`.
     pub fn new(max_bytes: u64, max_records: usize) -> Result<Self> {
-        if max_bytes == 0 || usize::try_from(max_bytes).is_err() {
+        let sentinel = max_bytes
+            .checked_add(1)
+            .and_then(|n| usize::try_from(n).ok());
+        if max_bytes == 0 || sentinel.is_none() {
             return Err(RecordError::InvalidReadLimit("max_bytes"));
         }
         if max_records == 0 {

@@ -111,6 +111,20 @@ fn invalid_limits_and_defaults() {
         NativeReadLimits::new(0, 1),
         Err(RecordError::InvalidReadLimit("max_bytes"))
     ));
+    // The sentinel `max_bytes + 1` must be representable (review finding).
+    for max in [u64::MAX, usize::MAX as u64] {
+        assert!(matches!(
+            NativeReadLimits::new(max, 1),
+            Err(RecordError::InvalidReadLimit("max_bytes"))
+        ));
+    }
+    let largest = NativeReadLimits::new(usize::MAX as u64 - 1, 1).unwrap();
+    let empty = NativeRecording::from_reader(&b""[..], largest);
+    assert!(matches!(empty, Err(RecordError::Truncated(0))));
+    assert!(matches!(
+        NativeRecording::from_reader(&b""[..], NativeReadLimits::new(1, 1).unwrap()),
+        Err(RecordError::Truncated(0))
+    ));
     assert!(matches!(
         NativeReadLimits::new(1, 0),
         Err(RecordError::InvalidReadLimit("max_records"))
