@@ -77,6 +77,7 @@ fn recorded_run_replays_to_identical_outputs() {
             name: "test/i64".to_owned(),
             schema_id: "sha256:test".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .build();
     let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();

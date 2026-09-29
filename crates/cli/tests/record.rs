@@ -52,6 +52,7 @@ fn write_recording(name: &str) -> (std::path::PathBuf, String) {
             name: "test/channel".to_owned(),
             schema_id: "sha256:abc".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .note("cli record test")
         .build();
@@ -207,4 +208,46 @@ fn failed_export_preserves_destination_and_removes_partial_file() {
     assert_eq!(std::fs::read(&dest).unwrap(), b"preserve me");
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn record_inspect_reports_wire_metadata_only_when_recorded() {
+    use neuradix_record::{LegacyProvenance, migrate_legacy_scalar};
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../record/tests/fixtures/legacy-scalar-c8aa467");
+    let hex: String = std::fs::read_to_string(dir.join("recording.nrec.hex"))
+        .unwrap()
+        .split_whitespace()
+        .collect();
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+        .collect();
+    let provenance =
+        LegacyProvenance::from_json(&std::fs::read(dir.join("provenance.json")).unwrap()).unwrap();
+    let migrated =
+        migrate_legacy_scalar(&NativeRecording::from_bytes(&bytes).unwrap(), &provenance).unwrap();
+    for (name, contents, wired) in [
+        ("neuradix-cli-legacy.nrec", bytes.clone(), false),
+        (
+            "neuradix-cli-migrated.nrec",
+            migrated.to_native_bytes().unwrap(),
+            true,
+        ),
+    ] {
+        let path = std::env::temp_dir().join(name);
+        std::fs::write(&path, contents).unwrap();
+        let (stdout, code) = run(&["-o", "json", "record", "inspect", path.to_str().unwrap()]);
+        assert_eq!(code, 0, "{stdout}");
+        let env = ParsedEnvelope::parse(&stdout).unwrap();
+        let channels = env.data_field("channels").unwrap();
+        let probe = &channels[0];
+        assert_eq!(probe.get("wireId").is_some(), wired, "{probe}");
+        assert_eq!(probe.get("codecId").is_some(), wired, "{probe}");
+        assert!(channels[1].get("wireId").is_none(), "opaque channel");
+        if wired {
+            assert_eq!(probe["codecId"], "neuradix.scalar-le.v2");
+        }
+        let _ = std::fs::remove_file(&path);
+    }
 }

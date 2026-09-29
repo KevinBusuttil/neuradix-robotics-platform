@@ -431,6 +431,7 @@ fn manifest() -> RecordingManifest {
             name: "channel".into(),
             schema_id: "identity".into(),
             clock_domain: "monotonic".into(),
+            wire: None,
         })
         .build()
 }

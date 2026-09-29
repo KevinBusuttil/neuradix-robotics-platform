@@ -137,13 +137,19 @@ pub fn inspect(file: &Path) -> Result<Outcome, AppError> {
         .channels
         .iter()
         .map(|c| {
-            json!({
+            let mut channel = json!({
                 "id": c.id,
                 "name": c.name,
                 "schemaId": c.schema_id,
                 "clockDomain": c.clock_domain,
                 "records": recording.count_for(c.id),
-            })
+            });
+            // Additive: present only when the recording records a wire binding.
+            if let Some(wire) = &c.wire {
+                channel["codecId"] = json!(wire.codec_id);
+                channel["wireId"] = json!(wire.wire_id);
+            }
+            channel
         })
         .collect();
     let software: Vec<Value> = manifest

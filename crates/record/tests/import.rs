@@ -354,6 +354,7 @@ fn import_child() {
                     name: "channel".to_owned(),
                     schema_id: "identity".to_owned(),
                     clock_domain: "monotonic".to_owned(),
+                    wire: None,
                 })
                 .build();
             let mut writer = McapWriter::new(Vec::new(), &manifest).unwrap();

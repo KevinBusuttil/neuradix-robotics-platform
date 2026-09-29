@@ -30,6 +30,7 @@
 //!         name: "depth".to_owned(),
 //!         schema_id: "sha256:abc".to_owned(),
 //!         clock_domain: "simulation".to_owned(),
+//!         wire: None,
 //!     })
 //!     .build();
 //! let mut w = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();

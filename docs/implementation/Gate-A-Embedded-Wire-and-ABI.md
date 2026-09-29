@@ -99,9 +99,11 @@ as v2. Old decoders cannot enforce these new checks.
 For legacy recordings, retain the original ordered source/layout and codec
 provenance, decode with that pinned legacy implementation, then explicitly
 re-encode and record the new wire identity. If that provenance is missing,
-reject automatic migration. A recording migration utility and recording-level
-wire metadata are still open work under WP-A02/WP-A06; this change does not
-rewrite existing recordings or their semantic schema IDs.
+reject automatic migration. This change does not rewrite existing recordings
+or their semantic schema IDs. [WP-A02.2](WP-A02-Legacy-Recording-Migration.md)
+(proposed, not merged) implements this rule: a fixture produced by the
+historical code, a pinned decoder, a provenance-checked conversion and
+optional recording wire metadata. A CLI migration command remains open.
 
 The serial framing crate is unchanged: its CRC and sequence number are not a
 wire-identity handshake. Transport-level binding, collision-checked compact
@@ -134,7 +136,7 @@ firmware image, real serial communication or physical board execution.
 | Work package | This increment | Remaining acceptance work |
 | --- | --- | --- |
 | WP-A01 | Pins an existing development baseline; requires host C++ and a separate AVR compiler gate. | Complete evidence inventory and audit all optional-tool skips; the six development commits are integrated through PR #7. |
-| WP-A02 | Canonical scalar layout, versioned full wire identity, required decoder identity and cross-language regression tests. | Existing-recording migration fixture and tooling; manifest tooling and gateway integration. Compact-ID manifest and envelope binding are integrated in [WP-A02.1](WP-A02-Compact-Channel-Binding.md) (PR #26); its post-merge digest-verification correction is integrated (PR #27). |
+| WP-A02 | Canonical scalar layout, versioned full wire identity, required decoder identity and cross-language regression tests. | Migration and manifest CLI tooling; gateway integration; RFC-0024. The existing-recording migration fixture, pinned decoder and conversion are proposed in [WP-A02.2](WP-A02-Legacy-Recording-Migration.md) (not merged). Compact-ID manifest and envelope binding are integrated in [WP-A02.1](WP-A02-Compact-Channel-Binding.md) (PR #26); its post-merge digest-verification correction is integrated (PR #27). |
 | WP-A03 | Explicit AVR numeric profile, generated ABI guards, host scalar boundary tests and real AVR compile/link checks. | Execute golden vectors on a physical Uno, measure stack/runtime memory and timing, then add the selected MCU board profile. |
 
 Gate A remains open. WP-A04 safety time/finite bounds, WP-A05 Python process

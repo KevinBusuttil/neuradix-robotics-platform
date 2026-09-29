@@ -1,0 +1,63 @@
+{
+  "provenance_version": "neuradix.legacy-scalar-provenance.v1",
+  "producer": {
+    "revision": "c8aa4671bcee8739354beb7880551db7f64314fa",
+    "generator": "nostd-rust"
+  },
+  "channels": [
+    {
+      "channel_id": 1,
+      "schema_id": "sha256:27a575894cff9930868f7ec3c7a3ac8218b756eea36516b2b06e81f5c73445ef",
+      "contract": "# Legacy scalar migration fixture contract. The authored field order below is\n# the legacy wire order at c8aa467; canonical v2 order sorts by name. `yaw` and\n# `pitch` are equal-width float64 fields whose legacy and v2 offsets are swapped.\napiVersion: contracts.neuradix.io/v1alpha1\nkind: StreamContract\nmetadata:\n  namespace: io.neuradix.fixtures\n  name: legacy-probe\n  version: 1.0.0\n\nspec:\n  description: Mixed-width scalar probe recorded by the pre-v2 codec\n  payload:\n    type: object\n    fields:\n      yaw:\n        type: float64\n        unit: rad\n      pitch:\n        type: float64\n        unit: rad\n      count:\n        type: int32\n      armed:\n        type: bool\n      rate:\n        type: float32\n        unit: Hz\n      ticks:\n        type: uint64\n      offset:\n        type: int64\n      flags:\n        type: uint32\n\n  semantics:\n    frame: vehicle/base\n    clockDomain: monotonic\n    authoritativeTimestamp: measurement\n    maximumAge: 100ms\n\n  delivery:\n    capacity: 8\n    overflow: keep-latest\n",
+      "field_order": [
+        {
+          "name": "yaw",
+          "type": "float64"
+        },
+        {
+          "name": "pitch",
+          "type": "float64"
+        },
+        {
+          "name": "count",
+          "type": "int32"
+        },
+        {
+          "name": "armed",
+          "type": "bool"
+        },
+        {
+          "name": "rate",
+          "type": "float32"
+        },
+        {
+          "name": "ticks",
+          "type": "uint64"
+        },
+        {
+          "name": "offset",
+          "type": "int64"
+        },
+        {
+          "name": "flags",
+          "type": "uint32"
+        }
+      ]
+    },
+    {
+      "channel_id": 3,
+      "schema_id": "sha256:4c9c5d9381658f7779ef0d3ef11eda3f29006f7e751d06dba40a12d6f4ce2a73",
+      "contract": "# The standard vehicle-depth contract with its two float64 fields authored in\n# reverse. Schema identity is order-independent, so it equals the standard\n# contract's; the c8aa467 codec nevertheless wrote `uncertainty` first.\napiVersion: contracts.neuradix.io/v1alpha1\nkind: StreamContract\nmetadata:\n  namespace: io.neuradix.navigation\n  name: vehicle-depth\n  version: 1.0.0\n\nspec:\n  description: Vehicle depth below the configured water reference\n  payload:\n    type: object\n    fields:\n      uncertainty:\n        type: float64\n        unit: m\n      depth:\n        type: float64\n        unit: m\n\n  semantics:\n    frame: vehicle/base\n    clockDomain: monotonic\n    authoritativeTimestamp: measurement\n    maximumAge: 100ms\n\n  delivery:\n    capacity: 8\n    overflow: keep-latest\n",
+      "field_order": [
+        {
+          "name": "uncertainty",
+          "type": "float64"
+        },
+        {
+          "name": "depth",
+          "type": "float64"
+        }
+      ]
+    }
+  ]
+}

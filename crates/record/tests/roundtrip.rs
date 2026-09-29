@@ -39,6 +39,7 @@ fn sample_manifest() -> RecordingManifest {
             name: "test/pair".to_owned(),
             schema_id: "sha256:deadbeef".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .software(SoftwareId::new("test", "0.0.1"))
         .seed(42)
