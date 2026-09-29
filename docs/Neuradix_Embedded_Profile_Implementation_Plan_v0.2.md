@@ -36,7 +36,7 @@ RP2040 is a planning default, not a claim of support. A recorded target change m
 
 A08 integrated (PR #22) `neuradix_embedded_core::actuator`: an allocation-free, executor/HAL/transport-neutral adapter that owns the board driver; trusted setup installs permissions and issues single-use ports with trusted mode and time. Cross-compilation for thumbv6m/thumbv7em/riscv32imc is CI evidence only. A board package (B04/B05) must implement `ActuatorDriver` over its HAL, hold the only handle to the output, and measure write latency, stack and the physical safe response. Rust AVR is not targeted; the Uno path remains generated C/C++. See [evidence](implementation/WP-A08-Embedded-Actuator-Permission.md).
 
-A04.4 (proposed, not merged) adds `neuradix_embedded_core::reservation`: B04/B05 must also supply a qualified `ReservationStore` (contract C1–C8, independent erase units, region outside every image and erase range), keep actuator firmware free of the `provisioning` feature, and measure commit latency against the WP-A04.4 scheduling rule. See [WP-A04.4](implementation/WP-A04.4-Generation-Reservation.md).
+A04.4 (integrated, PR #24) adds `neuradix_embedded_core::reservation`: B04/B05 must also supply a qualified `ReservationStore` (contract C1–C8, independent erase units, region outside every image and erase range), keep actuator firmware free of the `provisioning` feature, and measure commit latency against the WP-A04.4 scheduling rule. See [WP-A04.4](implementation/WP-A04.4-Generation-Reservation.md).
 
 # 4. Work package sequence
 

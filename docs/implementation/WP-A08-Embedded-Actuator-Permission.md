@@ -136,7 +136,7 @@ no queue or history. Measured `size_of` (driver included in the adapter):
 A compile-time assertion bounds them at 640/320 bytes. Stack use and timing on a
 real board are not measured.
 
-WP-A04.4 (proposed, not merged) adds one `bool` to the adapter and to
+WP-A04.4 (integrated, PR #24) adds one `bool` to the adapter and to
 `DriverPermission`; the 32-bit adapter stays at 464 B. Its reservation types
 measure, on thumbv6m, thumbv7em and riscv32imc: `GenerationReserver` with a
 zero-sized store 72 B and `ReservedGeneration` 48 B (asserted ≤ 128 B / ≤ 64 B).
@@ -147,7 +147,7 @@ startup stack from measurements, not estimates.
 
 ## Migration
 
-WP-A04.4 (proposed, not merged) changes this boundary: `PermissionError` gains
+WP-A04.4 (integrated, PR #24) changes this boundary: `PermissionError` gains
 `ReservationMismatch` and `ReservationRequired` (breaking for exhaustive matches);
 `reservation` is re-exported at the crate root; `ActuatorAdapter::new_reserved`,
 `requires_reserved_generations`, `DriverPermission::reserved`/`is_reserved` and
@@ -238,7 +238,7 @@ and embedded software boundaries. Remaining A08 work:
    grants only through trusted setup; add graph-to-adapter conformance tests.
 2. Durable, non-reused generation allocation at startup — **partial**: the
    portable allocator, strict reserved-permission hooks and a Linux host store are
-   proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md); a board `ReservationStore` meeting contract C1–C8, with
+   integrated in [WP-A04.4](WP-A04.4-Generation-Reservation.md); a board `ReservationStore` meeting contract C1–C8, with
    fault-suite qualification, remains (B04/B05).
 3. Board-level qualification of one driver on the chosen board (B04/B05):
    exclusive peripheral ownership, bounded write latency, reset/watchdog
@@ -267,7 +267,7 @@ reservation interface with host fault-injection tests (power loss between
 reserve and use, duplicate/rolled-back storage), used by both actuator
 boundaries' setup. Board qualification follows once a board package exists;
 Manufacturing remains a future consumer and does not reorder this plan.
-That increment is now proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md).
+That increment is now integrated (PR #24) in [WP-A04.4](WP-A04.4-Generation-Reservation.md).
 After it, the remaining A08 items are the graph-to-binding path (with B02/B07), a
 qualified board `ReservationStore` (B04/B05), board driver qualification, and a
 follow-up that makes reserved permissions mandatory for `ExecutionMode::Live`.

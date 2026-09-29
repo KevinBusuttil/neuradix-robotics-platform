@@ -27,7 +27,7 @@ command payload inside the existing serial frame. Both endpoints must preserve
 original source time, deadline, holder/capability, sequence, timeline and generation;
 legacy scalar command payloads cannot enter the new gate. Trusted provisioning
 must establish the shared timeline and durably reserve generations before ingress,
-via `neuradix_embedded_core::reservation` (proposed in [WP-A04.4](../implementation/WP-A04.4-Generation-Reservation.md)); a board package must supply a
+via `neuradix_embedded_core::reservation` (integrated in [WP-A04.4](../implementation/WP-A04.4-Generation-Reservation.md)); a board package must supply a
 `ReservationStore` meeting contract C1–C8 and pass its fault-injection qualification,
 and actuator firmware is built without the `provisioning` feature.
 Periodic idle ticks enforce local expiry without incoming packets. See
