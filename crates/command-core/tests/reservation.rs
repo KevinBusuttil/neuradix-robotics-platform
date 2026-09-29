@@ -1670,6 +1670,62 @@ fn r14_setup(before: Before, erased: u8) -> FaultStore {
     store
 }
 
+/// R14b (review finding): the only valid record is a lone FOREIGN record beside a
+/// blank or damaged slot. Provisioning must write the other slot first, so an
+/// interrupted provision leaves the old state (the foreign record, failing
+/// closed) or the new one, never a store with no valid record.
+#[test]
+fn r14b_provision_preserves_lone_foreign_record() {
+    let mut cases = 0u32;
+    for foreign_slot in [Slot::A, Slot::B] {
+        for other in [[0xFF; RECORD_BYTES], [0x00; RECORD_BYTES], JUNK] {
+            let setup = || {
+                let mut store = FaultStore::erased(0xFF);
+                store.set_raw(
+                    foreign_slot,
+                    record_bytes(foreign_slot, foreign_receiver_key(), 3, 7, 8),
+                );
+                store.set_raw(foreign_slot.other(), other);
+                store
+            };
+            // Clean run: the non-foreign slot is written first.
+            let mut store = setup();
+            provision(&mut store, key(), epoch(4), ProvisionGuards::default()).unwrap();
+            let order: Vec<Slot> = store.write_order().collect();
+            assert_eq!(order, vec![foreign_slot.other(), foreign_slot]);
+
+            // Power loss or write error at either write, with every tear.
+            for offset in [2u64, 4] {
+                for tear in every_tear() {
+                    for fault in [Fault::Crash(tear), Fault::WriteErr(tear)] {
+                        let what = format!("foreign in {foreign_slot:?}, op {offset}, {fault:?}");
+                        let foreign_bytes = setup().raw(foreign_slot);
+                        let mut store = faulted(setup(), &[(offset, fault)]);
+                        assert!(
+                            provision(&mut store, key(), epoch(4), ProvisionGuards::default())
+                                .is_err(),
+                            "{what}"
+                        );
+                        store.clear_faults();
+                        store.reboot();
+                        match open(&mut store, unprotected(1)) {
+                            Ok(reserver) => {
+                                assert_eq!(reserver.status().epoch, epoch(4), "{what}");
+                            }
+                            Err(OpenError::ForeignReceiver) => {
+                                assert_eq!(store.raw(foreign_slot), foreign_bytes, "{what}");
+                            }
+                            Err(other) => panic!("{what}: old record lost, open {other:?}"),
+                        }
+                        cases += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(cases, 2 * 3 * 2 * (3 + 3 * (RECORD_BYTES as u32 + 1)) * 2);
+}
+
 #[test]
 fn r14_provision_crash_every_byte() {
     let old_ceiling = value(1, 7);

@@ -335,13 +335,13 @@ oracle.
 
 Local environment: Rust/Cargo 1.94.1 (pinned), `RUSTFLAGS=-D warnings`, locked
 dependencies, AVR GCC from Ubuntu packages, Linux container running as root
-(host-store tests also passed as an unprivileged user). Figures are at head
-`beba2cc`; remote CI results are recorded in the pull request.
+(host-store tests also passed as an unprivileged user). Figures are at the
+pull request's head; remote CI results are recorded in the pull request.
 
 | Check | Result |
 |---|---|
 | fmt; workspace all-target Clippy (warnings denied) | Passed |
-| command-core unit U1–U6; deterministic R1–R29 (+R28b); allocation | 6; 36; 1 passed (0 allocations on every reservation path) |
+| command-core unit U1–U6; deterministic R1–R29 (+R14b, R28b); allocation | 6; 37; 1 passed (0 allocations on every reservation path) |
 | Default fault sweeps F1–F5 (debug) | 6 passed; with R and allocation ≈2.3 s wall once built |
 | Release sweeps F6–F8 (`--ignored`, separate CI job) | 3 passed in 7.7 s: F6 344,736 single-fault cases (73,728 lose availability under ECC-refuse, never reuse); F7 4,273 double-fault cases; F8 100,000 boots, 49,927 of 49,927 planned faults took effect, 18,459 weak tails left, 598 epochs |
 | Embedded E1–E23; reserved allocation scenario | 23; 1 passed |
@@ -349,8 +349,8 @@ dependencies, AVR GCC from Ubuntu packages, Linux container running as root
 | Host H1–H14 (subprocess harness, exit at every store call) | 15 passed (also as an unprivileged user) |
 | Doctests incl. compile-fail ownership checks with passing twins | command-core 14, embedded-core 19, safety 12 |
 | MCU target T1 and footprint asserts | 3 passed |
-| Command/safety/embedded/transport regression group | 258 passed (3 release sweeps ignored) |
-| Workspace tests/doctests excluding `neuradix-python` (root container) | 501 passed, 5 ignored (2 AVR, 3 release sweeps); 379 before this increment |
+| Command/safety/embedded/transport regression group | 259 passed (3 release sweeps ignored) |
+| Workspace tests/doctests excluding `neuradix-python` (root container) | 503 passed, 5 ignored (2 AVR, 3 release sweeps); 379 before this increment |
 | `neuradix-python` as an unprivileged user | All passed except `privileged_launcher_rejected`, which needs passwordless sudo (CI provides it); SDK 6 passed |
 | Examples: reserved_startup, guarded_actuator, embedded-propulsion, minimal-depth-stream, auv-depth-sim; graph/replay examples | Passed |
 | no_std checks: time, command-core (with and without `provisioning`), embedded-transport, embedded-core, embedded-actuator-target | Passed |
@@ -381,6 +381,10 @@ refuses non-canonical paths and never follows planted `lock`/temporary-file
 symlinks; the F5/F8 campaign's faults now always apply to the op kind they hit
 (previously about a third were silent no-ops counted as fired); H11 now pins the
 host grant check order; the single-slot-rollback residual was widened (R28b).
+After the pull request opened, Codex review found that provisioning over a lone
+foreign record beside an empty slot wrote the foreign slot first, so a torn first
+write could leave no valid record (still failing closed); provisioning now writes
+first to a slot holding nothing worth keeping (R14b).
 H14 observes `Uncertain(ReadFailed(A))` for a directory replaced before a commit
 (the pre-commit read sees the replacement first) and `WriteFailed(A)` when it is
 replaced between that read and the write; both poison the handle and write

@@ -69,8 +69,9 @@ impl core::error::Error for ProvisionError {}
 /// `open` or `reserve` failure.
 ///
 /// Refusals cost exactly 2 reads and 0 writes. On success it writes
-/// `{epoch, high_water: 0}` with verified writes, first to the slot not holding
-/// this key's best record, then to the other. It never erases, so an interrupted
+/// `{epoch, high_water: 0}` with verified writes, first to a slot holding
+/// nothing worth keeping (not this key's best record, nor, when the key has no
+/// record, a lone foreign record), then to the other. It never erases, so an interrupted
 /// provision leaves the old state or the new one. A write or verify failure burns
 /// the epoch. Nothing is issued: the next `open` + `reserve` commits before any
 /// value is returned.
@@ -132,8 +133,15 @@ pub fn provision<S: ReservationStore + ?Sized>(
         .max()
         .unwrap_or(0)
         .saturating_add(1);
-    let holds_best = |slot: Slot| matches!((mine[slot.index()], best), (Some(f), Some(b)) if rank(&f) == rank(&b));
-    let first = match (holds_best(Slot::A), holds_best(Slot::B)) {
+    // Write first a slot that holds nothing worth keeping, so an interrupted
+    // provision leaves the old state or the new one: this key's best record, or,
+    // when the key has none, a valid foreign record (the only old state).
+    let keeps = |slot: Slot| match (views[slot.index()], best) {
+        (View::Mine(f), Some(b)) => rank(&f) == rank(&b),
+        (View::Foreign(_), None) => true,
+        _ => false,
+    };
+    let first = match (keeps(Slot::A), keeps(Slot::B)) {
         (true, false) => Slot::B,
         _ => Slot::A,
     };
