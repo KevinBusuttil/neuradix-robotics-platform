@@ -1,6 +1,6 @@
 # Neuradix capability and evidence status
 
-**Updated for the integrated WP-A08 host (PR #20) and embedded (PR #22) actuator-permission increments, and the proposed (not integrated) A04.4 generation-reservation increment.** This register is the current
+**Updated for the integrated WP-A08 host (PR #20) and embedded (PR #22) actuator-permission increments, and the integrated A04.4 generation-reservation increment (PR #24).** This register is the current
 implementation record. Requirements and future work live in the
 [Specification v0.6](Neuradix_Robotics_Platform_Functional_Specification_v0.6.md)
 and [Implementation Plan v0.4](Neuradix_Implementation_Plan_v0.4.md).
@@ -50,12 +50,12 @@ distinguishes corrected CI failures, unavailable hardware and archived link debt
 No physical hardware, durable-storage or board timing/resource validation is
 claimed. WP-A04 remains partial, ACC-05 incomplete and Gate A open.
 
-**A04.4 proposed (not integrated).** Branch `claude/vigilant-newton-y1knsi` proposes
+**A04.4 integrated.** [PR #24](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/24) merged as `afe056d30d90254bb741f90b53f3efd42c772564`; [post-merge main CI 36523583284](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36523583284) passed. It adds
 `neuradix_command_core::reservation`: a portable, `no_std`, allocation-free generation
 allocator over a two-slot store contract (C1–C8), trusted-only provisioning behind a
 non-default feature, strict reserved grants on both actuator boundaries and a Linux
 host store, with fault-injection, subprocess-exit, allocation and MCU cross-compilation
-evidence. It is PR-tested only until merged. A board store, physical power-cut
+evidence. A board store, physical power-cut
 evidence, an epoch registry and a provisioning tool remain open; no hardware claim.
 See [A04.4 evidence](implementation/WP-A04.4-Generation-Reservation.md).
 
@@ -162,7 +162,7 @@ Integrated PR #18 adds explicit validated evaluation-tick delays, required seed-
 |---|---|---|
 | Contracts/time/local queues | Scalar schemas, semantic hash, Rust generation, tagged clocks, no_std time and bounded local transport | A02/B01/B03 |
 | Embedded codecs | Canonical name-sorted `neuradix.scalar-le.v2`, full wire identity, Rust/C++ generation, required decoder identity, wire manifests and explicit AVR ABI checks | Complete transport binding, compact-ID collisions, recording migration and physical vectors: A02/A03/B05/B06 |
-| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation; host scalar actuator-permission adapter (PR #20); embedded no_std owned-driver adapter (PR #22) | Graph-to-binding path, board generation store and Live enforcement (portable allocator proposed in A04.4), board/physical authority and deployed supervisor: A08/B02/B07 |
+| Execution/control | Lifecycle and input-driven lockstep processor; offline graph validation; host scalar actuator-permission adapter (PR #20); embedded no_std owned-driver adapter (PR #22) | Graph-to-binding path, board generation store and Live enforcement (portable allocator integrated in A04.4), board/physical authority and deployed supervisor: A08/B02/B07 |
 | Authority/health | Host scalar gate, lineage and FDIR; embedded gate/watchdog primitives; A04.1 numeric invariants, A04.2 command validity and A04.3 physical-unit slew | Board integration and rig evidence: A04/B03/C05 |
 | Python | Bounded Linux I/O, cleanup, admission/reaper, heartbeat/recovery and per-process CPU/AS through PRs #11–#13 | Aggregate resources, OS qualification and deployment remain: A05/B07 |
 | Recording/replay | Native recording/digest and integrated bounded MCAP import; reusable single-processor re-execution with pinned cases and exact comparisons | A06 writer integrated; A07 single-processor runner integrated; broader interchange/scale and graph/closed-loop replay remain: A06/A07/C06 |
@@ -199,11 +199,11 @@ hard-real-time profile, fleet scale or enterprise HA claim follows from these te
 |---|---|---|---|
 | Semantic hash / authored wire order | Canonical v2 layout and separate wire identity implemented; independent reordered-endpoint regression passes | A02 | Generator defect fixed; transport binding, collisions and recording migration remain open |
 | AVR binary64 projection | Explicit Uno generation rejects binary64; portable header fails the real AVR compiler ABI guard | A03 | Unsafe projection fixed; physical board vectors, stack and timing remain open |
-| Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: board generation store (portable allocator and host store proposed in A04.4), board integration, physical safe response and timing/resource evidence remain open |
+| Host authority/finite values | A04.1 integrated trusted evaluation time, private validated configuration, safe/final outputs; A04.2 integrated bounded command validity; A04.3 integrated physical-unit slew | A04 | Partial: board generation store (portable allocator and host store integrated in A04.4), board integration, physical safe response and timing/resource evidence remain open |
 | Worker bounds | PRs #11/#12 integrate bounded Linux I/O/cleanup and heartbeat/recovery; PR #13 adds per-process CPU/AS limits | A05 | Partial: PR #13 integrated; aggregate resources and additional OS/deployment work remain |
 | MCAP subset | PR #14 integrates bounded maintained import; PR #15 integrates bounded uncompressed output and independent export checks | A06 | Partial: bounded import/writer integrated; broader interchange/scale qualification remains |
 | Replay CLI scope | `replay run` verifies the record digest; separate A07 runner invokes one selected Processor with exact comparison | A07 | Runner integrated; graph execution and ACC-07 closed-loop evidence remain open |
-| Deployment resolution/feedback | PR #17/#18 integrated identity/delayed topology; PR #20 integrated a host permission adapter; PR #22 integrated the embedded owned-driver adapter | A08 | Partial: graph-to-binding path, board generation store (A04.4 proposed), board/physical driver qualification and runtime graph execution remain open |
+| Deployment resolution/feedback | PR #17/#18 integrated identity/delayed topology; PR #20 integrated a host permission adapter; PR #22 integrated the embedded owned-driver adapter | A08 | Partial: graph-to-binding path, board generation store (A04.4 integrated the portable allocator), board/physical driver qualification and runtime graph execution remain open |
 
 WP-A01 has an integrated source baseline and compiler evidence. The broader evidence
 inventory and optional-tool audit remain. WP-A02 and WP-A03 are partial; their

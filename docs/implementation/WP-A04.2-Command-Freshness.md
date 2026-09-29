@@ -101,15 +101,15 @@ a fresh store handle selects a ceiling at or above every issued value under the
 provisioning a new namespace after any uncertain commit. No command can supply that
 decision.
 
-> **Amendment (proposed with WP-A04.4, pending explicit reviewer acceptance):** the
-> two sentences defining uncertain allocation above were added by WP-A04.4. If they
-> are rejected, `remedy()` must map `Uncertain`, `Poisoned`, `StoreUnavailable` and
+> **Amendment (integrated with WP-A04.4, PR #24):** the two sentences defining
+> uncertain allocation above were added by WP-A04.4 and merged with it. If they are
+> later reversed, `remedy()` must map `Uncertain`, `Poisoned`, `StoreUnavailable` and
 > `Unreadable` to `Provision` for live deployments.
 
 The library enforces strictly increasing replacement within retained state.
 `neuradix_command_core::reservation` provides a portable allocator and
 `neuradix_safety::reservation::FileReservationStore` a Linux host store ([WP-A04.4](WP-A04.4-Generation-Reservation.md),
-proposed, not merged); non-reuse across process reconstruction holds only under store
+integrated through PR #24); non-reuse across process reconstruction holds only under store
 contract C1–C8, a declared rollback defense and the provisioner protocol. Board
 storage, physical power-cut evidence, the epoch registry and rollback detection
 under `RollbackDefense::Unprotected` (or within an epoch under a floor alone) remain

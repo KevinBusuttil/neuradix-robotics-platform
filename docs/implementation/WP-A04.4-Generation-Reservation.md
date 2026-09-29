@@ -1,7 +1,9 @@
 # WP-A04.4 — Durable generation reservation for trusted startup
 
-Status: **proposed; PR-tested only after its pull request's CI passes; not merged.**
-Branch `claude/vigilant-newton-y1knsi`. WP-A04, WP-A08, ACC-05 and Gate A remain
+Status: **integrated.** [PR #24](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/24) merged as `afe056d30d90254bb741f90b53f3efd42c772564` on 29 September 2026 with a tree
+identical to reviewed head `86cd1af`; PR CI 36504330905, push CI 36504325736 and
+[post-merge main CI 36523583284](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36523583284) passed all four jobs (host, Arduino Uno codec ABI, MCU cross-compilation,
+release fault campaign). WP-A04, WP-A08, ACC-05 and Gate A remain
 open. This increment makes no hardware support, board storage, physical safety or
 Gate A completion claim.
 
@@ -336,7 +338,7 @@ oracle.
 Local environment: Rust/Cargo 1.94.1 (pinned), `RUSTFLAGS=-D warnings`, locked
 dependencies, AVR GCC from Ubuntu packages, Linux container running as root
 (host-store tests also passed as an unprivileged user). Figures are at the
-pull request's head; remote CI results are recorded in the pull request.
+pull request's head `86cd1af`; remote CI results are in the status line above.
 
 | Check | Result |
 |---|---|
