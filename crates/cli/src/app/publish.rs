@@ -144,14 +144,36 @@ pub(crate) fn publish_new(
     Ok(Published { bytes, leftover })
 }
 
+/// Why a destination was not accepted.
+#[derive(Debug)]
+pub(crate) enum DestinationError {
+    /// The destination is unusable as given: it exists (possibly as one of the
+    /// inputs) or has no file name. Callers report this as invalid use.
+    Refused(String),
+    /// Checking the destination failed (permission denied, a symlink loop, a
+    /// path component that is not a directory, ...). An operational failure.
+    Io(String),
+}
+
+impl std::fmt::Display for DestinationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DestinationError::Refused(m) | DestinationError::Io(m) => f.write_str(m),
+        }
+    }
+}
+
 /// Refuse any existing path at `out` (file, directory, symlink or dangling
-/// symlink) and require its directory to exist. `inputs` are paths this
-/// command reads; an existing `out` naming one of them is reported as an
-/// attempt to overwrite an input.
-pub(crate) fn check_new_destination(out: &Path, inputs: &[&Path]) -> Result<(), String> {
+/// symlink). `inputs` are paths this command reads; an existing `out` naming
+/// one of them is reported as an attempt to overwrite an input. Errors other
+/// than `NotFound` while checking are [`DestinationError::Io`].
+pub(crate) fn check_new_destination(out: &Path, inputs: &[&Path]) -> Result<(), DestinationError> {
     use std::os::unix::fs::MetadataExt;
     if out.file_name().is_none() {
-        return Err(format!("destination `{}` has no file name", out.display()));
+        return Err(DestinationError::Refused(format!(
+            "destination `{}` has no file name",
+            out.display()
+        )));
     }
     match std::fs::symlink_metadata(out) {
         Ok(_) => {
@@ -161,17 +183,17 @@ pub(crate) fn check_new_destination(out: &Path, inputs: &[&Path]) -> Result<(), 
                     std::fs::metadata(i).is_ok_and(|m| m.dev() == t.dev() && m.ino() == t.ino())
                 })
             });
-            Err(if is_input {
+            Err(DestinationError::Refused(if is_input {
                 format!("refusing to overwrite input `{}`", out.display())
             } else {
                 format!("refusing to overwrite existing `{}`", out.display())
-            })
+            }))
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(format!(
+        Err(e) => Err(DestinationError::Io(format!(
             "could not check destination `{}`: {e}",
             out.display()
-        )),
+        ))),
     }
 }
 
@@ -266,20 +288,27 @@ mod tests {
         assert!(
             check_new_destination(&input, &[&input])
                 .unwrap_err()
+                .to_string()
                 .contains("overwrite input")
         );
         std::os::unix::fs::symlink(&input, dir.join("link")).unwrap();
         assert!(
             check_new_destination(&dir.join("link"), &[&input])
                 .unwrap_err()
+                .to_string()
                 .contains("overwrite input")
         );
         std::os::unix::fs::symlink(dir.join("nowhere"), dir.join("dangling")).unwrap();
         assert!(
             check_new_destination(&dir.join("dangling"), &[&input])
                 .unwrap_err()
+                .to_string()
                 .contains("existing")
         );
+        assert!(matches!(
+            check_new_destination(&input.join("child"), &[&input]),
+            Err(DestinationError::Io(_))
+        ));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

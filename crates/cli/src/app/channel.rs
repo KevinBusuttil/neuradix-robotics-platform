@@ -44,7 +44,8 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::app::publish::{
-    Published, ReadError, check_new_destination, leftover_warning, publish_new, read_bounded,
+    DestinationError, Published, ReadError, check_new_destination, leftover_warning, publish_new,
+    read_bounded,
 };
 use crate::app::{AppError, Outcome};
 use crate::exit::ExitCode;
@@ -219,7 +220,11 @@ fn publish(out: &Path, contents: &str, tag: &str) -> Result<Published, AppError>
 }
 
 fn destination(out: &Path, inputs: &[&Path]) -> Result<(), AppError> {
-    check_new_destination(out, inputs).map_err(|e| fail(ExitCode::InvalidUse, e))?;
+    check_new_destination(out, inputs).map_err(|e| match e {
+        DestinationError::Refused(m) => fail(ExitCode::InvalidUse, m),
+        // Permission denied, a non-directory path component, ...: operational.
+        DestinationError::Io(m) => fail(ExitCode::GeneralFailure, m),
+    })?;
     let dir = crate::app::publish::parent(out);
     if !std::fs::metadata(&dir).is_ok_and(|m| m.is_dir()) {
         return Err(fail(

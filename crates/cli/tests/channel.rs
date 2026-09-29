@@ -455,6 +455,10 @@ fn c7_outputs_never_replace_existing_files_or_inputs() {
     let (v, code) = manifest(&spec, &sc.path("absent/m.json"));
     assert_eq!(code, 1, "{v}");
     assert!(errors(&v).contains("does not exist"));
+    // Failing to check the destination is operational (exit 1), not a refusal.
+    let (v, code) = manifest(&spec, &sc.path("taken.json").join("m.json"));
+    assert_eq!(code, 1, "{v}");
+    assert!(errors(&v).contains("could not check destination"), "{v}");
     assert_eq!(sc.entries(), ["b.yaml", "contract-link.yaml", "taken.json"]);
     // Text output uses the same envelope.
     let out = Command::new(env!("CARGO_BIN_EXE_neuradix"))
