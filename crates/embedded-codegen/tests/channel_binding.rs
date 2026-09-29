@@ -9,8 +9,8 @@ use std::path::Path;
 use neuradix_contracts::layout::WireLayout;
 use neuradix_contracts::{ChannelEntry, ChannelManifest, ChannelManifestError, validate};
 use neuradix_embedded_transport::{
-    ChannelBinding, ChannelTable, ENVELOPE_HEADER, EnvelopeError, FrameDecoder, FrameEvent,
-    OVERHEAD, encode,
+    BindError, ChannelBinding, ChannelTable, ENVELOPE_HEADER, EnvelopeError, FrameDecoder,
+    FrameEvent, OVERHEAD, encode,
 };
 
 include!("golden/vehicle_depth.rs");
@@ -46,19 +46,31 @@ fn depth() -> WireLayout {
     WireLayout::for_contract(&common::depth()).unwrap()
 }
 
-/// What a board build would compile in from the verified manifest.
-fn table(json: &str) -> ChannelTable<4> {
-    let m = ChannelManifest::parse(json).unwrap();
-    let bindings: Vec<_> = m
-        .channels()
+/// The board table generated from one verified manifest.
+mod generated {
+    include!("golden/channel_table.rs");
+}
+
+/// What a board build compiles in from a verified manifest (the same fields
+/// `generate_channel_table` emits).
+fn bindings(m: &ChannelManifest) -> Vec<ChannelBinding> {
+    let leak = |s: &str| -> &'static str { Box::leak(s.to_owned().into_boxed_str()) };
+    m.channels()
         .iter()
         .map(|c| ChannelBinding {
             compact_id: c.compact_id,
-            wire_id: Box::leak(c.wire_id.clone().into_boxed_str()),
             wire_len: u16::try_from(c.wire_len).unwrap(),
+            name: leak(&c.name),
+            codec_id: leak(&c.codec_id),
+            schema_id: leak(&c.schema_id),
+            wire_id: leak(&c.wire_id),
         })
-        .collect();
-    ChannelTable::new(m.digest_bytes(), &bindings).unwrap()
+        .collect()
+}
+
+fn table(json: &str) -> ChannelTable<4> {
+    let m = ChannelManifest::parse(json).unwrap();
+    ChannelTable::new(m.digest_bytes(), &bindings(&m)).unwrap()
 }
 
 fn transmit(t: &ChannelTable<4>, id: u16, body: &[u8]) -> Vec<u8> {
@@ -166,4 +178,56 @@ fn e5_unenveloped_legacy_frame_is_rejected() {
     encode(1, &body, &mut wire).unwrap();
     assert_eq!(body[0], 0);
     assert_eq!(receive(&t, &wire), Err(EnvelopeError::BadMagic));
+}
+
+/// P1 regression (PR #26 review, discussion_r4129868135): manifest A's digest
+/// combined with manifest B's bindings must not form a table. A (the sender's
+/// manifest) puts `range` on compact 1; B puts `depth` there; both are 16
+/// bytes. Before the fix the mixed table was accepted, and the A sender's range
+/// bytes decoded as `VehicleDepth` (A's tag matched, B's wire ID matched the
+/// decoder). Now construction fails, so no frame reaches the decoder.
+#[test]
+fn e6_mismatched_digest_and_bindings_are_rejected() {
+    let a = ChannelManifest::parse(&manifest(2, 1)).unwrap();
+    let b = ChannelManifest::parse(&manifest(1, 2)).unwrap();
+    assert_eq!(a.channels().len(), b.channels().len());
+    assert_eq!(
+        ChannelTable::<4>::new(a.digest_bytes(), &bindings(&b)).map(|_| ()),
+        Err(BindError::DigestMismatch)
+    );
+    // The consistent B table still refuses the A sender by manifest tag.
+    let sender = table(&manifest(2, 1));
+    let receiver = table(&manifest(1, 2));
+    assert_eq!(
+        receive(&receiver, &transmit(&sender, 1, &[0x3F; 16])),
+        Err(EnvelopeError::ManifestMismatch)
+    );
+}
+
+#[test]
+fn e7_generated_board_table_verifies_and_decodes() {
+    let t = ChannelTable::<4>::new(generated::MANIFEST_DIGEST, &generated::CHANNELS).unwrap();
+    assert_eq!(t.resolve(1).unwrap().wire_id, VehicleDepth::WIRE_ID);
+    let v = VehicleDepth {
+        depth: 3.5,
+        uncertainty: 0.125,
+    };
+    let mut body = [0; VehicleDepth::WIRE_LEN];
+    v.encode(&mut body).unwrap();
+    assert_eq!(receive(&t, &transmit(&t, 1, &body)), Ok(Some(v)));
+    // The tiny-telemetry channel resolves but never decodes as vehicle depth.
+    assert_eq!(receive(&t, &transmit(&t, 2, &[0; 29])), Ok(None));
+    // Hand-editing either generated constant is refused.
+    let mut edited = generated::CHANNELS;
+    edited[0].wire_id = edited[1].wire_id;
+    assert_eq!(
+        ChannelTable::<4>::new(generated::MANIFEST_DIGEST, &edited).map(|_| ()),
+        Err(BindError::DigestMismatch)
+    );
+    let mut digest = generated::MANIFEST_DIGEST;
+    digest[31] ^= 1;
+    assert_eq!(
+        ChannelTable::<4>::new(digest, &generated::CHANNELS).map(|_| ()),
+        Err(BindError::DigestMismatch)
+    );
 }

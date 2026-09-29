@@ -31,8 +31,9 @@ for target in "${targets[@]}"; do
   fi
   echo "no provisioning feature in the firmware graph"
   # time and command-core are built as no-default-features dependencies.
-  # The WP-A02 transport (frames, commands, compact channel envelopes) is built
-  # for the same targets; it has no `alloc` crate, so it cannot allocate.
+  # The WP-A02 transport (frames, commands, compact channel envelopes and the
+  # no_std manifest digest check) is built for the same targets; it has no
+  # `alloc` crate, so it cannot allocate. Its SHA-256 dependency is scanned too.
   cargo build --locked --release --target "$target" \
     -p neuradix-embedded-core -p neuradix-embedded-transport \
     -p neuradix-example-embedded-actuator-target
@@ -42,7 +43,7 @@ for target in "${targets[@]}"; do
   fi
   dir=$(mktemp -d)
   for lib in neuradix_time neuradix_command_core neuradix_embedded_core \
-             neuradix_embedded_transport neuradix_example_embedded_actuator_target; do
+             neuradix_embedded_transport sha2 neuradix_example_embedded_actuator_target; do
     mkdir -p "$dir/$lib"
     rlib=$(ls -t "$target_dir/$target/release/deps/lib$lib"-*.rlib | head -n 1)
     rlib=$(readlink -f "$rlib")
@@ -53,6 +54,8 @@ for target in "${targets[@]}"; do
     exit 1
   fi
   echo "no heap allocator references"
+  "$nm" -C "$dir"/neuradix_embedded_transport/*.o | grep -q 'channel..manifest_digest\|channel::manifest_digest' \
+    || { echo "manifest digest check not compiled for $target; scan is blind" >&2; exit 1; }
   # Provisioning-absence gate, symbols: no provisioning code in any object.
   # llvm-nm -C leaves legacy-mangled impl paths escaped ("..", not "::"), e.g.
   # `_$LT$neuradix_command_core..reservation..provisioning..ProvisionError...`,

@@ -1,7 +1,9 @@
 //! WP-A02 verified channel manifest: compact IDs resolve to full wire identity.
 use std::path::Path;
 
-use neuradix_contracts::channel::{CHANNEL_MANIFEST_VERSION, MAX_CHANNEL_WIRE_LEN};
+use neuradix_contracts::channel::{
+    CHANNEL_MANIFEST_VERSION, MAX_CHANNEL_NAME_LEN, MAX_CHANNEL_WIRE_LEN,
+};
 use neuradix_contracts::layout::WireLayout;
 use neuradix_contracts::{ChannelEntry, ChannelManifest, ChannelManifestError, validate};
 
@@ -158,6 +160,10 @@ fn m3_entry_rules() {
         ChannelManifestError::InvalidName(_)
     ));
     assert!(matches!(
+        bad(&|e| e.name = "n".repeat(MAX_CHANNEL_NAME_LEN + 1)),
+        ChannelManifestError::InvalidName(_)
+    ));
+    assert!(matches!(
         bad(&|e| e.name = "a\nb".into()),
         ChannelManifestError::InvalidName(_)
     ));
@@ -237,17 +243,50 @@ fn m5_receiver_layout_must_match_bound_entry() {
 }
 
 #[test]
-fn m6_digest_is_pinned() {
-    // Hash input: compact JSON {"manifest_version":..,"channels":[entries by compact_id]}.
+fn m6_digest_preimage_is_pinned() {
+    // Binary preimage (v2): str(version) | count u16 | per entry, by compact ID:
+    // compact_id u16 | wire_len u16 | str(name) | str(codec) | str(schema) | str(wire),
+    // where str(s) = u16 LE byte length ++ bytes. The no_std board table
+    // recomputes exactly these bytes.
     let m = ChannelManifest::new(vec![ChannelEntry::for_layout(1, "depth", &depth())]).unwrap();
     let e = &m.channels()[0];
-    let input = format!(
-        "{{\"manifest_version\":\"{CHANNEL_MANIFEST_VERSION}\",\"channels\":[{{\"compact_id\":1,\"name\":\"depth\",\"codec_id\":\"{}\",\"schema_id\":\"{}\",\"wire_id\":\"{}\",\"wire_len\":16}}]}}",
-        e.codec_id, e.schema_id, e.wire_id
-    );
+    let mut expected = Vec::new();
+    let put = |out: &mut Vec<u8>, s: &str| {
+        out.extend_from_slice(&(s.len() as u16).to_le_bytes());
+        out.extend_from_slice(s.as_bytes());
+    };
+    put(&mut expected, "neuradix.channel-manifest.v2");
+    expected.extend_from_slice(&[1, 0, 1, 0, 16, 0]);
+    for s in ["depth", "neuradix.scalar-le.v2", &e.schema_id, &e.wire_id] {
+        put(&mut expected, s);
+    }
+    assert_eq!(m.digest_preimage(), expected);
     use sha2::Digest;
-    let expected: [u8; 32] = sha2::Sha256::digest(input.as_bytes()).into();
-    assert_eq!(m.digest_bytes(), expected);
+    let digest: [u8; 32] = sha2::Sha256::digest(&expected).into();
+    assert_eq!(m.digest_bytes(), digest);
+    assert_eq!(m.digest(), PINNED_DEPTH_DIGEST);
+}
+
+/// Digest of the single-entry `depth` manifest above; changes only with a
+/// deliberate format or layout change.
+const PINNED_DEPTH_DIGEST: &str =
+    "sha256:ba9cf18235af9553db1e1d239f0485807001463f007c5f8f32116ce68b30c306";
+
+#[test]
+fn m7_v1_documents_are_not_silently_upgraded() {
+    // v1 hashed a JSON preimage; its digests cannot be reinterpreted as v2.
+    // Migration is re-emitting the same entries with `ChannelManifest::new`.
+    let v2 = manifest().to_json_pretty();
+    let v1 = v2.replace(
+        "neuradix.channel-manifest.v2",
+        "neuradix.channel-manifest.v1",
+    );
+    assert_eq!(
+        ChannelManifest::parse(&v1).unwrap_err(),
+        ChannelManifestError::UnsupportedVersion("neuradix.channel-manifest.v1".into())
+    );
+    let reemitted = ChannelManifest::new(manifest().channels().to_vec()).unwrap();
+    assert_eq!(reemitted, manifest());
 }
 
 fn hex(s: &str) -> Vec<u8> {

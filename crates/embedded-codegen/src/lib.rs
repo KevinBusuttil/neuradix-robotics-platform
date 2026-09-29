@@ -16,6 +16,7 @@
 //! semantic schema identity. Decoders require the sender's full wire identity;
 //! see [`WireLayout`] for the binding rules. Variable-length fields are rejected.
 
+pub mod channel_table;
 pub mod cpp_gen;
 pub mod error;
 pub mod golden;
@@ -24,6 +25,7 @@ pub mod names;
 pub mod rust_gen;
 pub mod wire;
 
+pub use channel_table::generate_channel_table;
 pub use cpp_gen::{
     CppTarget, GeneratedCpp, cpp_conformance_main, generate_cpp, generate_cpp_for_target,
 };
