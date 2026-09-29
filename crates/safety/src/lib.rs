@@ -13,6 +13,9 @@
 //! requires explicit trusted permission. Its single-use ingress ports capture
 //! runtime time and mode before component submission. Gate decisions remain
 //! informational; existing raw driver integrations must migrate explicitly.
+//! Live startup reserves each generation durably before activation through
+//! [`reservation::GenerationReserver`] (with [`reservation::FileReservationStore`]
+//! on Unix hosts) and grants it via `actuator::DriverPermission::reserved`.
 //!
 //! Both host and embedded gates share allocation-free command validity checks.
 //! FDIR and recorded command-lineage inspection are available; independent
@@ -54,6 +57,7 @@ pub mod error;
 pub mod fdir;
 pub mod gate;
 pub mod lineage;
+pub mod reservation;
 
 pub use authority::{
     AuthorityDenial, AuthorityLease, Capability, CommandEnvelope, Identity, LeaseTable,

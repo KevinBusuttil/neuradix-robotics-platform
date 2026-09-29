@@ -4,12 +4,18 @@
 //! relationship. Payloads cannot provision or reset a session. Sequence numbers
 //! and generation identifiers are replay checks, **not authentication**.
 //! Call gates periodically, including with no input, to enforce held-output expiry.
-#![no_std]
+//!
+//! Live trusted startup reserves each generation durably through
+//! [`reservation::GenerationReserver`] before activating it. Epochs are installed
+//! only by out-of-band trusted provisioning (`reservation::provision`, behind the
+//! non-default `provisioning` feature), never by the boot path or a payload.
+#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use neuradix_time::{ClockDomain, Duration, Timestamp};
 
+pub mod reservation;
 pub mod slew;
 pub use slew::SlewRate;
 
@@ -18,11 +24,16 @@ pub use slew::SlewRate;
 /// Trusted startup MUST durably reserve a value greater than every previous
 /// generation for this receiver/binding, before enabling command ingress. A
 /// reset counter or value learned from a command is not a generation allocator.
+/// Live startup uses [`reservation::GenerationReserver`], which returns values of
+/// the form `(epoch << 64) | counter`; values below 2^64 remain the legacy,
+/// fixture, simulation and replay space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Generation(u128);
 
 impl Generation {
     /// Wrap a value supplied by trusted durable initialization. Zero is reserved.
+    /// Live startup obtains values from [`reservation::GenerationReserver`];
+    /// direct construction is for tests, simulation, replay and legacy integrations.
     pub const fn new(value: u128) -> Option<Self> {
         if value == 0 { None } else { Some(Self(value)) }
     }
@@ -344,7 +355,8 @@ pub struct CommandSession {
 }
 impl CommandSession {
     /// Start without any accepted command. Restart generation non-reuse is the
-    /// trusted caller's durable initialization obligation (see [`Generation`]).
+    /// trusted caller's durable initialization obligation (see [`Generation`] and
+    /// [`reservation`]).
     pub const fn new(config: SessionConfig) -> Self {
         Self {
             config,

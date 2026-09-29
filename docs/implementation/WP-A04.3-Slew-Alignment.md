@@ -169,7 +169,7 @@ remain in the verification path. Compiler checks are not physical hardware valid
 ## Remaining work
 
 Measured rig-specific safe response, actual board timer rollover/restart,
-durable generation allocation, deployed scheduling and hardware watchdog
+a board generation store (a portable allocator and host store are proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md)), deployed scheduling and hardware watchdog
 integration, and timing/stack/resource evidence remain unqualified. WP-A04 is
 partial, ACC-05 is incomplete and Gate A remains open. No board firmware,
 storage driver, synchronization protocol, new transport, authentication, Studio

@@ -57,7 +57,7 @@ validated constructors through public fields/variants.
 See [A04.1 policy, API migration and evidence](../implementation/WP-A04.1-Trusted-Evaluation.md).
 [A04.2 policy and migration](../implementation/WP-A04.2-Command-Freshness.md)
 define the shared no_std freshness/deadline/sequence/generation checks, trusted
-durable restart allocation, explicit shared timeline, rejected-traffic watchdog
+durable restart allocation (portable allocator and host store proposed in [WP-A04.4](../implementation/WP-A04.4-Generation-Reservation.md)), explicit shared timeline, rejected-traffic watchdog
 rules and required periodic scheduling. Sequence/generation identifiers are not
 authentication. Lineage includes source metadata separately from runtime time;
 non-finite requested values use explicit JSON markers. Idle decisions retain a
@@ -164,5 +164,5 @@ state. Failure handling matches the host: first fault latched, one immediate saf
 fallback, no retry of the requested value, at most two driver calls per operation,
 terminal shutdown and no I/O in Drop. See
 [embedded permission evidence](../implementation/WP-A08-Embedded-Actuator-Permission.md).
-Board integration, durable generation allocation and physical qualification remain
+Board integration, a qualified board generation store and physical qualification remain
 required acceptance.

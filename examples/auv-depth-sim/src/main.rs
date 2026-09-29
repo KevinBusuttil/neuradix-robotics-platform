@@ -54,7 +54,10 @@ impl SafetyGatedController {
 
         let mut leases = LeaseTable::new();
         // Fixed generation/timeline are for this isolated simulation only.
-        // Live startup must durably reserve a non-reused generation before ingress.
+        // Live startup must durably reserve a non-reused generation before ingress:
+        // a portable allocator exists (WP-A04.4, `neuradix_command_core::reservation`;
+        // see the `reserved_startup` example); a board store and physical
+        // validation remain.
         let session = SessionConfig::new(
             Generation::new(1).unwrap(),
             Timestamp::new(ClockDomain::Simulation, 0),

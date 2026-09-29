@@ -91,14 +91,34 @@ source with it. The same allocator must cover gate reconstruction, replacement,
 revocation/regrant and recovery, including rollback or restored storage. Reserve
 before activation so a crash cannot reuse an active value. Storage loss or uncertain
 allocation requires remaining locally safe until a new, provably unused namespace
-is established by trusted provisioning. No command can supply that decision.
+is established by trusted provisioning. Allocation is uncertain when no readable
+record for the receiver/binding proves a ceiling at or above every issued value
+(blank, corrupt, below the trusted floor, below the rollback witness, or exhausted).
+An interrupted or failed commit, or a transient read failure, is not uncertain
+allocation: nothing in the attempted window was issued, and a read-only reopen with
+a fresh store handle selects a ceiling at or above every issued value under the
+[WP-A04.4](WP-A04.4-Generation-Reservation.md) store contract (see its proof). Deployments may adopt the stricter policy of
+provisioning a new namespace after any uncertain commit. No command can supply that
+decision.
 
-The library enforces strictly increasing replacement within retained state; it
-does **not** implement durable board storage or prove non-reuse across process
-reconstruction. This is an explicit trusted integration requirement. A reset
+> **Amendment (proposed with WP-A04.4, pending explicit reviewer acceptance):** the
+> two sentences defining uncertain allocation above were added by WP-A04.4. If they
+> are rejected, `remedy()` must map `Uncertain`, `Poisoned`, `StoreUnavailable` and
+> `Unreadable` to `Provision` for live deployments.
+
+The library enforces strictly increasing replacement within retained state.
+`neuradix_command_core::reservation` provides a portable allocator and
+`neuradix_safety::reservation::FileReservationStore` a Linux host store ([WP-A04.4](WP-A04.4-Generation-Reservation.md),
+proposed, not merged); non-reuse across process reconstruction holds only under store
+contract C1–C8, a declared rollback defense and the provisioner protocol. Board
+storage, physical power-cut evidence, the epoch registry and rollback detection
+under `RollbackDefense::Unprotected` (or within an epoch under a floor alone) remain
+open. This is an explicit trusted integration requirement. A reset
 counter, wall time without a durable guarantee, or value learned from traffic is
 insufficient. Example generation `1` is for isolated deterministic demonstrations.
 Generation `u128::MAX` cannot be replaced in the same namespace; wrapping is forbidden.
+Within-epoch rollback defense, board storage and registry integrity remain
+integrator MUSTs.
 
 Same-generation renewal extends only expiry, while the existing lease is active.
 Renewal is guarded by the gate's latest evaluation time and clock-fault state;

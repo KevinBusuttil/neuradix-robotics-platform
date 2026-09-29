@@ -24,6 +24,10 @@
 //!   single-use [`ActuatorPort`] with trusted mode and time. Reports separate the
 //!   gate selection, the driver call/acknowledgement and physical state (never
 //!   claimed). See [`actuator`].
+//! - [`reservation`] — re-export of `neuradix_command_core::reservation`: the
+//!   durable, allocation-free generation allocator trusted startup uses before
+//!   every activation. [`ActuatorAdapter::new_reserved`] refuses permissions that
+//!   were not made from a reservation token ([`DriverPermission::reserved`]).
 //!
 //! # Example — link loss drives the local safe state
 //!
@@ -68,6 +72,10 @@ pub use identity::{DeploymentId, NodeId};
 pub use lease::AuthorityLease;
 pub use node::{EmbeddedComponent, PropulsionNode};
 pub use watchdog::Watchdog;
+
+/// Durable generation reservation for trusted startup (feature `provisioning`
+/// forwards to command-core; never enable it in actuator firmware).
+pub use neuradix_command_core::reservation;
 
 /// Shared command validity configuration and metadata.
 pub use neuradix_command_core::{

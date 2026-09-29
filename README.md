@@ -16,6 +16,7 @@ The target architecture uses Tiny, MCU, Edge, Workstation and Enterprise executi
 - [Review and Strategy v1.0](docs/Neuradix_Robotics_Platform_Review_and_Strategy_v1.0.md)
 - [Current capability and evidence status](docs/Neuradix_Capability_Status.md)
 - [A05 bounded Python worker I/O and cleanup](docs/implementation/WP-A05-Bounded-Worker-IO.md)
+- [A04.4 durable generation reservation (proposed)](docs/implementation/WP-A04.4-Generation-Reservation.md)
 - [A04.3 host/MCU slew alignment and conformance](docs/implementation/WP-A04.3-Slew-Alignment.md)
 - [A04.2 command freshness, generations and API migration](docs/implementation/WP-A04.2-Command-Freshness.md)
 - [A04.1 trusted evaluation, numeric validation and API migration](docs/implementation/WP-A04.1-Trusted-Evaluation.md)
@@ -50,7 +51,7 @@ Current limits:
 
 - `replay run` verifies recorded-data integrity. The separate `neuradix-runtime::replay` API executes one selected processor over a pinned case and compares exact outputs; arbitrary graph and closed-loop replay remain deferred.
 - Graph validation does not launch a supervisor or prove physical actuator enforcement; deployment identity still omits resolved behavior.
-- A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. Trusted durable startup, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
+- A04.1/A04.2/A04.3 are integrated through PR #8/#9/#10. A portable generation allocator and Linux host store are proposed (A04.4); a board store, a shared reference clock and periodic evaluation are required; physical safe response and board timing/resource evidence remain open.
 - PRs #11/#12 integrate bounded Linux Python-worker stdio, cleanup and heartbeat recovery. PR #13 integrates [per-process CPU-time and address-space limits](docs/implementation/WP-A05-Worker-Resource-Limits.md) through a required trusted native launcher. Periodic supervision stays outside local control. Aggregate resources, other OS qualification and deployment supervision remain open; process separation is not a security sandbox.
 - MCAP has bounded uncompressed/LZ4 import and bounded uncompressed streaming output with independent Python container checks. Broader interoperability remains unqualified; no ROS payload decoding is claimed. Serial wire negotiation and compact-ID collision enforcement remain open.
 - AVR compile/link evidence is not physical board execution. Complete Arduino/MCU firmware, flash/monitor and measured stack/timing remain planned.

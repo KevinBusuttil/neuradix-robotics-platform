@@ -16,5 +16,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
+[features]
+# Trusted provisioning of reservation epochs (host provisioning tools only).
+provisioning = ["neuradix-command-core/provisioning"]
+
 [dev-dependencies]
 neuradix-embedded-core = { workspace = true }
+neuradix-command-core = { workspace = true, features = ["provisioning"] }

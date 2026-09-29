@@ -15,8 +15,11 @@
 //! * explicit terminal shutdown, after which no driver I/O occurs.
 //!
 //! Each row separates the gate-selected output from the driver acknowledgement.
-//! Neither is physical thrust. Board integration, durable generation allocation
-//! and physical timing/reset validation remain separate requirements.
+//! Neither is physical thrust. The fixed generation is a simulation fixture; live
+//! startup reserves one durably first (a portable allocator exists, WP-A04.4:
+//! `neuradix_embedded_core::reservation` with `ActuatorAdapter::new_reserved`).
+//! Board integration, a board reservation store and physical timing/reset
+//! validation remain separate requirements.
 #![forbid(unsafe_code)]
 
 use std::cell::RefCell;

@@ -12,3 +12,8 @@ publish = false
 [dependencies]
 neuradix-embedded-core = { path = "../../crates/embedded-core", version = "0.0.1", default-features = false }
 neuradix-time = { path = "../../crates/time", version = "0.0.1", default-features = false }
+
+[dev-dependencies]
+# Tests only: `commission` provisions the volatile test slots. The firmware graph
+# (normal edges) never enables `provisioning`; tools/ci/mcu_actuator.sh checks it.
+neuradix-embedded-core = { path = "../../crates/embedded-core", version = "0.0.1", default-features = false, features = ["provisioning"] }
