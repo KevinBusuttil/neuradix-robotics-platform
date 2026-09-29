@@ -11,3 +11,9 @@ authors.workspace = true
 [dependencies]
 neuradix-embedded-core = { workspace = true }
 neuradix-time = { path = "../time", version = "0.0.1", default-features = false }
+# Streaming, allocation-free SHA-256 for channel manifest digest verification.
+sha2 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+# Host manifest digest, to prove both implementations hash the same preimage.
+neuradix-contracts = { workspace = true }

@@ -6,13 +6,22 @@
 //! collisions, reserved IDs, unknown codecs, malformed identities and a digest
 //! that does not match the entries. The digest names a manifest; it does not
 //! authenticate a peer.
+//!
+//! The digest preimage ([`ChannelManifest::digest_preimage`]) is a
+//! length-prefixed binary encoding, so an allocation-free `no_std` board table
+//! (`neuradix_embedded_transport::ChannelTable`) recomputes it from its own
+//! bindings and refuses a digest they do not produce.
 
 use crate::layout::{CODEC_ID, WireLayout};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// Manifest format label; also the first hashed field.
-pub const CHANNEL_MANIFEST_VERSION: &str = "neuradix.channel-manifest.v1";
+/// Manifest format label; also the first hashed field. Version 2 replaces the
+/// v1 JSON digest input with a binary preimage the board table recomputes.
+pub const CHANNEL_MANIFEST_VERSION: &str = "neuradix.channel-manifest.v2";
+
+/// Longest channel name, in bytes.
+pub const MAX_CHANNEL_NAME_LEN: usize = 128;
 
 /// Compact ID 0 is reserved (unassigned / future link control).
 pub const RESERVED_COMPACT_ID: u16 = 0;
@@ -67,12 +76,6 @@ pub struct ChannelManifest {
     digest: [u8; 32],
 }
 
-#[derive(Serialize)]
-struct Hashed<'a> {
-    manifest_version: &'a str,
-    channels: &'a [ChannelEntry],
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -105,15 +108,19 @@ impl ChannelManifest {
         for c in &channels {
             check_entry(c)?;
         }
-        let digest = Sha256::digest(
-            serde_json::to_vec(&Hashed {
-                manifest_version: CHANNEL_MANIFEST_VERSION,
-                channels: &channels,
-            })
-            .expect("channel manifest serialization cannot fail"),
-        )
-        .into();
+        let digest = Sha256::digest(preimage(&channels)).into();
         Ok(Self { channels, digest })
+    }
+
+    /// Exact bytes hashed for the digest. All integers are little-endian and
+    /// each string is a `u16` byte length followed by its UTF-8 bytes:
+    ///
+    /// ```text
+    /// str(manifest_version) | count:u16 | per entry, ascending compact_id:
+    ///   compact_id:u16 | wire_len:u16 | str(name) | str(codec_id) | str(schema_id) | str(wire_id)
+    /// ```
+    pub fn digest_preimage(&self) -> Vec<u8> {
+        preimage(&self.channels)
     }
 
     /// Parse and verify a manifest document, including its declared digest.
@@ -147,7 +154,7 @@ impl ChannelManifest {
             + "\n"
     }
 
-    /// `sha256:<hex>` over the compact JSON of the version and ordered entries.
+    /// `sha256:<hex>` of [`Self::digest_preimage`].
     pub fn digest(&self) -> String {
         let mut s = String::from("sha256:");
         for b in self.digest {
@@ -193,13 +200,38 @@ impl ChannelManifest {
     }
 }
 
+fn preimage(channels: &[ChannelEntry]) -> Vec<u8> {
+    fn put(out: &mut Vec<u8>, s: &str) {
+        let len = u16::try_from(s.len()).expect("verified identity strings fit u16");
+        out.extend_from_slice(&len.to_le_bytes());
+        out.extend_from_slice(s.as_bytes());
+    }
+    let mut out = Vec::new();
+    put(&mut out, CHANNEL_MANIFEST_VERSION);
+    let count = u16::try_from(channels.len()).expect("unique u16 compact IDs");
+    out.extend_from_slice(&count.to_le_bytes());
+    for c in channels {
+        let wire_len = u16::try_from(c.wire_len).expect("verified wire length fits u16");
+        out.extend_from_slice(&c.compact_id.to_le_bytes());
+        out.extend_from_slice(&wire_len.to_le_bytes());
+        put(&mut out, &c.name);
+        put(&mut out, &c.codec_id);
+        put(&mut out, &c.schema_id);
+        put(&mut out, &c.wire_id);
+    }
+    out
+}
+
 fn check_entry(c: &ChannelEntry) -> Result<(), ChannelManifestError> {
     if c.compact_id == RESERVED_COMPACT_ID {
         return Err(ChannelManifestError::ReservedCompactId {
             name: c.name.clone(),
         });
     }
-    if c.name.is_empty() || c.name.len() > 128 || c.name.chars().any(char::is_control) {
+    if c.name.is_empty()
+        || c.name.len() > MAX_CHANNEL_NAME_LEN
+        || c.name.chars().any(char::is_control)
+    {
         return Err(ChannelManifestError::InvalidName(c.name.clone()));
     }
     if c.codec_id != CODEC_ID {

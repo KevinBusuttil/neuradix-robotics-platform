@@ -54,5 +54,6 @@ pub use sequence::{SeqStatus, SequenceTracker};
 
 pub use channel::{
     BindError, ChannelBinding, ChannelTable, ENVELOPE_HEADER, Envelope, EnvelopeError,
+    manifest_digest,
 };
 pub use command::{COMMAND_BYTES, COMMAND_VERSION, decode_command, encode_command};

@@ -77,7 +77,7 @@ jobs:
         run: |
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-contracts --test channel_manifest
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-transport --test channel
-          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-codegen --test channel_binding
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-codegen --test channel_binding --test golden
 
       - name: Independent MCAP fixtures and bounded import
         run: |
