@@ -54,5 +54,5 @@ pub use mcap_write::{McapStreamWriter, McapWriteLimits, McapWriteStats};
 pub use model::{
     Channel, ChannelWire, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };
-pub use native::{MAGIC, NativeRecordWriter, NativeRecording};
+pub use native::{MAGIC, NativeReadLimits, NativeRecordWriter, NativeRecording};
 pub use recording::Recording;

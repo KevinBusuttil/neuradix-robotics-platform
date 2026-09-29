@@ -1,8 +1,20 @@
 # WP-A02.2: Legacy scalar recording migration
 
-**Status:** proposed for review, not merged. This is host evidence only. It
-claims no board execution, Manufacturing integration or Gate A closure, and
-WP-A02 remains open.
+**Status:** the library increment is integrated through
+[PR #31](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/31),
+merge [`fdefa3d`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/fdefa3dda9911858240b29525f311cb91f9fb4e9)
+(reviewed head `62a4b68`). CI passed on the head
+([PR run 36557098614](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36557098614),
+[push run 36557059733](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36557059733)),
+and post-merge main CI passed all four jobs
+([run 36557513776](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36557513776)).
+The automated review of the head reported no findings.
+
+The [`record migrate` CLI command](#cli-record-migrate-wp-a023) (WP-A02.3) is
+proposed for review and **not merged**.
+
+This is host evidence only. It claims no board execution, Manufacturing
+integration or Gate A closure, and WP-A02 remains open.
 
 ## Scope
 
@@ -76,9 +88,16 @@ Container version, scalar codec version and channel-manifest version stay
 independent. Field order is never guessed from schema identity or payload
 length.
 
-**Resources.** Bounded inputs (provenance and contract size, channel count).
-Output memory is proportional to the input recording, which the existing
-bounded readers already hold. No new unbounded reader is introduced.
+**Resources.** The library bounds its own inputs (provenance and contract
+size, channel count). Its output memory is proportional to the recording it is
+given.
+
+*Correction:* this document previously said the existing readers already held
+recordings in bounded memory. That was wrong for native recordings. The CLI
+native loader (`record inspect`, `replay run`, `record export`) reads the whole
+file with no size cap, and that is still true for those commands. Only MCAP
+import is bounded there. `record migrate` (below) uses a new bounded native
+reader.
 
 ## Recording wire metadata and compatibility
 
@@ -121,16 +140,61 @@ Local validation, all passing:
 
 The workspace and CI-equivalent results are recorded in the pull request.
 
+## CLI: `record migrate` (WP-A02.3)
+
+**Status:** proposed for review, not merged.
+
+```sh
+neuradix [-o json] record migrate <input.nrec> --provenance <provenance.json> --out <output.nrec> \
+  [--max-input-bytes N] [--max-records N]
+```
+
+The command is native to native. It calls `migrate_legacy_scalar` and
+`LegacyProvenance::from_json` directly, and duplicates no decoding or
+provenance rule. Every library guarantee above still holds:
+
+- explicit provenance naming the pinned `c8aa467` `nostd-rust` producer;
+- C++/AVR output rejected;
+- strict payload checks;
+- opaque channels preserved, including the fixture's −10 ns record;
+- sequences, clock domains and recording provenance preserved;
+- no inference from container version, missing wire metadata, schema identity
+  or payload length.
+
+| Aspect | Behaviour |
+| --- | --- |
+| Recording bound | `NativeRecording::from_reader` with `NativeReadLimits`: at most 256 MiB of container bytes and 1,048,576 records by default. `--max-input-bytes` and `--max-records` can only lower these. Bytes are read in 64 KiB chunks into a buffer whose capacity never exceeds the limit + 1 byte; the reader consumes at most limit + 1 bytes before rejecting. The record count is checked while decoding. |
+| Provenance bound | Read through `take(1 MiB + 1)`, then rejected if longer. The read buffer may grow to about twice that. Each embedded contract is capped at 64 KiB by the library. |
+| Memory | The read buffer is released after decoding and the source recording is dropped after conversion. Output is streamed to disk, not assembled in memory. At peak the process holds the decoded source and the converted copy, because the library copies opaque payloads too. **Measured** peak RSS with the release build: 484 MiB for a 240 MiB input of 4 opaque 60 MiB payloads (≈2.0×); 228 MiB for a 47 MiB input of 1,048,000 16-byte legacy records (≈4.7×, dominated by per-record overhead of roughly 90 B per record per copy). The worst case at the default limits is therefore about 512 MiB (byte-dominated) or roughly 230 MiB plus payload (record-dominated). |
+| Source safety | The input is only read. A destination that already exists is refused (exit 2), including a symlink, a dangling symlink and the provenance file. When it resolves to the input's device and inode (the input path itself, a hard link or a symlink to it), the refusal names it as in-place migration. |
+| Publication | Output goes to a new temporary sibling file, created with `create_new` in the destination directory. It is flushed and `fsync`ed, then published with `link(2)`, which fails with `AlreadyExists` instead of replacing a destination created concurrently. The temporary name is then removed. Success is reported only after publication. |
+| Failure cleanup | Validation failures happen before any file is created. Write, `fsync` and link failures remove the temporary file and leave no destination. Durability of the directory entry across power loss is **not** claimed (the directory is not `fsync`ed). Filesystems without hard-link support cannot publish; that fails cleanly. A process killed mid-write (for example by `SIGKILL`) can leave a `.<name>.neuradix-migrate-<pid>-<n>.partial` file, but never a partial destination. |
+| Exit codes | 0 success; 2 invalid use (in-place, existing destination, out-of-range limits); 4 compatibility (provenance or payload rejected by the migration library); 1 general failure (I/O, missing or foreign input, an MCAP input, a truncated container, exceeded limits, a missing destination directory, publication). |
+| Report (`data`) | `source`, `file`, `format`, `formatVersion`, `bytes`, `records`, `sourceCodec`, `sourceRevision`, `sourceDigest`, `migratedDigest`, `channels[{channelId, records, legacyWireLen, codecId, wireId}]`, `opaqueChannels` and `limits`. The two digests are reported separately and are not required to differ: migration can leave payload bytes unchanged, for example when legacy and canonical orders coincide. |
+
+Evidence:
+
+| Test | What it proves |
+| --- | --- |
+| `crates/cli/tests/migrate.rs` M1 | End to end on the authentic fixture. Exit 0, a JSON envelope with the pinned source and migrated digests, channel IDs, counts and wire IDs from `expected.json`. The published file is readable and its digest matches. Order, sequences, signed timestamps, domains, opaque bytes and provenance are preserved. The source is unchanged, no temporary file remains, and text output uses the same envelope. |
+| M2 | Short revision, `cpp` generator, swapped field order, unknown field, unknown channel and malformed JSON each exit 4 and create nothing. A missing provenance file exits 1. |
+| M3 | A truncated payload and a non-canonical `bool` exit 4, naming the record. Re-migrating a migrated recording exits 4 (already bound). |
+| M4 | Input one byte over `--max-input-bytes`, and one record over `--max-records`, exit 1; exactly at both limits succeeds. Zero or raised limits exit 2. A 1 MiB + 2 byte provenance exits 1. |
+| M5 | Input as its own destination, a hard link, a symlink to it, an existing file, a dangling symlink and the provenance file all exit 2 and are left untouched. |
+| M6 | A missing destination directory, missing input, MCAP input and truncated container exit 1 and leave nothing behind. |
+| `crates/cli/src/app/migrate.rs` unit tests | Publication: link then remove the temporary file; an injected write failure leaves no destination and no temporary file; a destination created concurrently during the write is not replaced (`AlreadyExists`); a missing directory fails before writing. |
+| `crates/record/tests/bounded_native.rs` | Exactly at the limits is accepted and one below is rejected. A 1 MiB stream against a 1 KiB cap consumes exactly 1,025 bytes. Chunked and `Interrupted` reads decode identically, including negative timestamps. Invalid limits and defaults are checked. |
+
 ## Remaining WP-A02 work
 
-1. A CLI migration command (for example `neuradix record migrate --provenance`)
-   and channel-manifest emission and verification tooling. The migration is a
-   library API only in this increment.
+1. Channel-manifest emission and verification tooling.
 2. Gateway integration of the compact-channel table (WP-A02.1).
 3. RFC-0024, recording the compact-ID, collision and migration rules
    normatively.
 4. Link session binding (full manifest digest exchange, reconnect and reboot)
    in WP-B06.
 
-Legacy C++/AVR payloads remain unsupported by design; their bytes depend on the
-target ABI. WP-A02 and Gate A remain open.
+Other recording commands (`record inspect`, `replay run`, `record export`)
+still read native files unbounded; bounding them is separate work. Legacy
+C++/AVR payloads remain unsupported by design, because their bytes depend on
+the target ABI. WP-A02 and Gate A remain open.

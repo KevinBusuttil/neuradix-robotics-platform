@@ -79,10 +79,13 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-transport --test channel
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-codegen --test channel_binding --test golden
 
-      - name: Legacy scalar recording migration regressions
+      - name: Legacy scalar recording migration regressions and bounded CLI
         run: |
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-record --test legacy_migration
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --test record
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --test migrate
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --bin neuradix migrate
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-record --test bounded_native
 
       - name: Independent MCAP fixtures and bounded import
         run: |

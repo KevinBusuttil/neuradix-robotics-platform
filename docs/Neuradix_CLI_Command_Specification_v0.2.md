@@ -27,6 +27,15 @@ has no embedded codec manifest. The decoder signature now requires the producer'
 wire identity; [migration rules](implementation/Gate-A-Embedded-Wire-and-ABI.md#wire-binding-and-migration)
 cover upgrading both endpoints and preserving legacy provenance.
 
+Proposed (WP-A02.3, not merged): `record migrate <input.nrec> --provenance
+<json> --out <output.nrec> [--max-input-bytes N] [--max-records N]` converts
+legacy c8aa467 scalar payloads to `neuradix.scalar-le.v2` under explicit
+provenance, native to native. Exit codes: 0 after the output is published;
+2 for in-place requests, existing destinations or out-of-range limits; 4 when
+the provenance or payloads are rejected; 1 for I/O, foreign or truncated input,
+exceeded limits and publication failures. See the
+[migration evidence](implementation/WP-A02-Legacy-Recording-Migration.md#cli-record-migrate-wp-a023).
+
 Main also includes `record export` for the experimental MCAP subset and
 `studio timeline|series` for headless inspection. These commands do not establish
 general MCAP interoperability or a graphical Studio. Project build/flash/run and
