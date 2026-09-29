@@ -30,6 +30,7 @@
 pub mod codec;
 pub mod digest;
 pub mod error;
+pub mod legacy_scalar;
 pub mod mcap;
 pub mod mcap_import;
 pub mod mcap_write;
@@ -40,6 +41,9 @@ pub mod recording;
 pub use codec::RecordCodec;
 pub use digest::replay_digest;
 pub use error::{RecordError, Result};
+pub use legacy_scalar::{
+    LegacyProvenance, MigratedRecording, MigrationError, MigrationReport, migrate_legacy_scalar,
+};
 pub use mcap::{MCAP_MAGIC, McapRecording, McapWriter};
 pub use mcap_import::{
     McapArchive, McapAuxiliary, McapChannel, McapEvent, McapEventKind, McapHeader,
@@ -48,7 +52,7 @@ pub use mcap_import::{
 };
 pub use mcap_write::{McapStreamWriter, McapWriteLimits, McapWriteStats};
 pub use model::{
-    Channel, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
+    Channel, ChannelWire, FORMAT_VERSION, ManifestBuilder, RawRecord, RecordingManifest, SoftwareId,
 };
 pub use native::{MAGIC, NativeRecordWriter, NativeRecording};
 pub use recording::Recording;

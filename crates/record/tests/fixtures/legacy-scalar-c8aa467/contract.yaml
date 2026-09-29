@@ -1,0 +1,44 @@
+# Legacy scalar migration fixture contract. The authored field order below is
+# the legacy wire order at c8aa467; canonical v2 order sorts by name. `yaw` and
+# `pitch` are equal-width float64 fields whose legacy and v2 offsets are swapped.
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.fixtures
+  name: legacy-probe
+  version: 1.0.0
+
+spec:
+  description: Mixed-width scalar probe recorded by the pre-v2 codec
+  payload:
+    type: object
+    fields:
+      yaw:
+        type: float64
+        unit: rad
+      pitch:
+        type: float64
+        unit: rad
+      count:
+        type: int32
+      armed:
+        type: bool
+      rate:
+        type: float32
+        unit: Hz
+      ticks:
+        type: uint64
+      offset:
+        type: int64
+      flags:
+        type: uint32
+
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 100ms
+
+  delivery:
+    capacity: 8
+    overflow: keep-latest

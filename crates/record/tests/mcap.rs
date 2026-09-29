@@ -14,12 +14,14 @@ fn manifest() -> RecordingManifest {
             name: "navigation/vehicle-depth".to_owned(),
             schema_id: "sha256:deadbeef".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .channel(Channel {
             id: 1,
             name: "actuation/thrust".to_owned(),
             schema_id: "sha256:c0ffee".to_owned(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         })
         .software(SoftwareId::new("test", "0.0.1"))
         .seed(7)
@@ -226,6 +228,7 @@ fn too_many_channels_is_rejected() {
             name: format!("c{id}"),
             schema_id: String::new(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         });
     }
     let err = McapWriter::new(Vec::new(), &builder.build()).err().unwrap();

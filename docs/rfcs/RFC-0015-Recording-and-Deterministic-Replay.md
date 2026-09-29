@@ -97,6 +97,15 @@ and readers reject unknown versions cleanly. Clock-domain codes are part of the
 wire format and are fixed. Manifest fields may be added additively (serde
 tolerates unknown/missing optional fields).
 
+WP-A02.2 (proposed, not merged) adds the first such field: an optional
+per-channel `wire` object (`codec_id`, `wire_id`). It is omitted when absent, so
+earlier manifests serialize unchanged and `FORMAT_VERSION` stays 1. Its absence
+means the payload codec is not recorded; it never implies the legacy
+declaration-order scalar codec. The replay digest still excludes the manifest.
+Legacy scalar payloads are converted only by the explicit, provenance-checked
+migration in `neuradix_record::legacy_scalar`; see the
+[migration evidence](../implementation/WP-A02-Legacy-Recording-Migration.md).
+
 ## Testing strategy
 
 `crates/record/tests/roundtrip.rs`: byte-for-byte round trip (payloads,

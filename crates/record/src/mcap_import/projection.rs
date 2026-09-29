@@ -61,9 +61,7 @@ impl McapArchive {
                 .ok_or_else(unsupported)?;
             if channel.topic != c.name
                 || channel.message_encoding != "neuradix"
-                || channel.metadata.len() != 2
-                || channel.metadata.get("clockDomain") != Some(&c.clock_domain)
-                || channel.metadata.get("schemaIdentity") != Some(&c.schema_id)
+                || channel.metadata != crate::mcap_write::legacy::channel_metadata(c)
                 || schema.name != c.name
                 || schema.encoding != "neuradix/schema-id"
                 || schema.data != c.schema_id.as_bytes()

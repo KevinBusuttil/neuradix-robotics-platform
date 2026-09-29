@@ -27,12 +27,14 @@ fn write_recording(name: &str) -> std::path::PathBuf {
             name: "navigation/depth".to_owned(),
             schema_id: "sha256:depth".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .channel(Channel {
             id: 1,
             name: LINEAGE_CHANNEL.to_owned(),
             schema_id: "sha256:lineage".to_owned(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         })
         .build();
 

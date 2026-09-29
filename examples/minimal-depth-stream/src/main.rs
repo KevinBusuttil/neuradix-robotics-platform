@@ -450,6 +450,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             name: LINEAGE_CHANNEL.to_owned(),
             schema_id: "application/vnd.neuradix.command-lineage+json".to_owned(),
             clock_domain: domain.as_str().to_owned(),
+            wire: None,
         })
         .software(SoftwareId::new(
             "neuradix-example-minimal-depth-stream",

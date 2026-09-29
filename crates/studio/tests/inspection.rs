@@ -38,12 +38,14 @@ fn manifest() -> RecordingManifest {
             name: "navigation/depth".to_owned(),
             schema_id: "sha256:depth".to_owned(),
             clock_domain: "simulation".to_owned(),
+            wire: None,
         })
         .channel(Channel {
             id: 9,
             name: "unused/channel".to_owned(),
             schema_id: "sha256:none".to_owned(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         })
         .build()
 }

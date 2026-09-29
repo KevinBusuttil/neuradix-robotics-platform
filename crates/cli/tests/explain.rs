@@ -55,6 +55,7 @@ fn write_lineage(name: &str, with_lineage: bool) -> std::path::PathBuf {
             name: channel_name.to_owned(),
             schema_id: "application/vnd.neuradix.command-lineage+json".to_owned(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         })
         .build();
     let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();
@@ -146,6 +147,7 @@ fn non_finite_lineage_remains_auditable_and_cannot_poison_numeric_series() {
             name: LINEAGE_CHANNEL.to_owned(),
             schema_id: "lineage".to_owned(),
             clock_domain: "monotonic".to_owned(),
+            wire: None,
         })
         .build();
     let mut writer = NativeRecordWriter::new(Vec::new(), &manifest).unwrap();

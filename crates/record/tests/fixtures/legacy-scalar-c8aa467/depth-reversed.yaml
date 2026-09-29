@@ -1,0 +1,31 @@
+# The standard vehicle-depth contract with its two float64 fields authored in
+# reverse. Schema identity is order-independent, so it equals the standard
+# contract's; the c8aa467 codec nevertheless wrote `uncertainty` first.
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.navigation
+  name: vehicle-depth
+  version: 1.0.0
+
+spec:
+  description: Vehicle depth below the configured water reference
+  payload:
+    type: object
+    fields:
+      uncertainty:
+        type: float64
+        unit: m
+      depth:
+        type: float64
+        unit: m
+
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 100ms
+
+  delivery:
+    capacity: 8
+    overflow: keep-latest

@@ -8,6 +8,11 @@ use serde::{Deserialize, Serialize};
 pub const FORMAT_VERSION: u8 = 1;
 
 /// A logical channel within a recording (one contract stream).
+///
+/// Payloads stay opaque to the recorder. `wire` optionally records the payload
+/// codec and full wire identity. Its absence means "not recorded": it never
+/// implies a particular codec, and in particular never implies the legacy
+/// declaration-order scalar codec (see [`crate::legacy_scalar`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Channel {
     /// Stable channel id, referenced by every record on this channel.
@@ -18,6 +23,30 @@ pub struct Channel {
     pub schema_id: String,
     /// The clock domain of the channel's authoritative timestamps.
     pub clock_domain: String,
+    /// Optional payload codec and wire identity. Omitted from JSON when absent,
+    /// so manifests without it serialize exactly as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire: Option<ChannelWire>,
+}
+
+/// Payload codec and full wire identity recorded for a channel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelWire {
+    /// Versioned payload codec, for example `neuradix.scalar-le.v2`.
+    pub codec_id: String,
+    /// Full wire identity of the payload layout (`sha256:<hex>`).
+    pub wire_id: String,
+}
+
+impl ChannelWire {
+    /// The canonical scalar binding of a resolved layout.
+    pub fn for_layout(layout: &neuradix_contracts::layout::WireLayout) -> Self {
+        Self {
+            codec_id: layout.codec_id.clone(),
+            wire_id: layout.wire_id.clone(),
+        }
+    }
 }
 
 impl Channel {
@@ -28,7 +57,14 @@ impl Channel {
             name: name.into(),
             schema_id: schema.as_str().to_owned(),
             clock_domain: domain.as_str().to_owned(),
+            wire: None,
         }
+    }
+
+    /// Record the channel's payload codec and wire identity.
+    pub fn with_wire(mut self, wire: ChannelWire) -> Self {
+        self.wire = Some(wire);
+        self
     }
 }
 

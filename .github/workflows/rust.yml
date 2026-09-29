@@ -79,6 +79,11 @@ jobs:
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-transport --test channel
           timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-codegen --test channel_binding --test golden
 
+      - name: Legacy scalar recording migration regressions
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-record --test legacy_migration
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-cli --test record
+
       - name: Independent MCAP fixtures and bounded import
         run: |
           python3 -m venv /tmp/a06-fixtures

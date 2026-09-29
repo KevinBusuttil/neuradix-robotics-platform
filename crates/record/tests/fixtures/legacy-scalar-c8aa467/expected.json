@@ -1,0 +1,100 @@
+{
+  "producer_revision": "c8aa4671bcee8739354beb7880551db7f64314fa",
+  "native_format_version": 1,
+  "channels": {
+    "1": {
+      "legacy_wire_len": 45,
+      "canonical_wire_id": "sha256:4db32d4f18c011d14185a23be33683c7851b310d3ef5b3ee1bc56c2e11e8b8ea"
+    },
+    "3": {
+      "legacy_wire_len": 16,
+      "canonical_wire_id": "sha256:4780f56bd7e4780987152907da8156c19dd2946470bc550c35abb16285d7b11d"
+    }
+  },
+  "records": [
+    {
+      "channel_id": 2,
+      "sequence": 5,
+      "domain": "simulation",
+      "nanos": -10,
+      "opaque_hex": "00ff6f7061717565"
+    },
+    {
+      "channel_id": 1,
+      "sequence": 10,
+      "domain": "monotonic",
+      "nanos": 1000000000,
+      "values": {
+        "yaw": 1.5,
+        "pitch": -0.25,
+        "count": -7,
+        "armed": true,
+        "rate": 0.5,
+        "ticks": 1099511627776,
+        "offset": -8589934592,
+        "flags": 2779054081
+      }
+    },
+    {
+      "channel_id": 1,
+      "sequence": 12,
+      "domain": "monotonic",
+      "nanos": 1020000000,
+      "values": {
+        "yaw": -3.0,
+        "pitch": 2.75,
+        "count": 42,
+        "armed": false,
+        "rate": -8.0,
+        "ticks": 3,
+        "offset": 5,
+        "flags": 0
+      }
+    },
+    {
+      "channel_id": 2,
+      "sequence": 9,
+      "domain": "simulation",
+      "nanos": 1020000000,
+      "opaque_hex": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e"
+    },
+    {
+      "channel_id": 1,
+      "sequence": 14,
+      "domain": "monotonic",
+      "nanos": 1040000000,
+      "values": {
+        "yaw": 0.0,
+        "pitch": -0.0,
+        "count": -2147483648,
+        "armed": true,
+        "rate": 1024.0,
+        "ticks": 18446744073709551615,
+        "offset": -9223372036854775808,
+        "flags": 4294967295
+      }
+    },
+    {
+      "channel_id": 3,
+      "sequence": 0,
+      "domain": "monotonic",
+      "nanos": 2000000000,
+      "values": {
+        "uncertainty": 0.25,
+        "depth": 12.5
+      }
+    },
+    {
+      "channel_id": 3,
+      "sequence": 1,
+      "domain": "monotonic",
+      "nanos": 2000000001,
+      "values": {
+        "uncertainty": 3.0,
+        "depth": -1.0
+      }
+    }
+  ],
+  "source_digest": "sha256:c1f0bc262fd21bf811e953ac416e52eb8dba6a756269edb9cd2d78505ae73711",
+  "migrated_digest": "sha256:3c4d194d2b75bb23d3ed5fa6b341ffa4c1fa65560e6f93aca8519c786facb87f"
+}

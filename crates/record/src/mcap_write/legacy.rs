@@ -95,10 +95,7 @@ impl<W: Write> McapWriter<W> {
                 schema_id,
                 topic: c.name.clone(),
                 message_encoding: "neuradix".into(),
-                metadata: BTreeMap::from([
-                    ("clockDomain".into(), c.clock_domain.clone()),
-                    ("schemaIdentity".into(), c.schema_id.clone()),
-                ]),
+                metadata: channel_metadata(c),
             })?;
             domains.insert(c.id, domain);
         }
@@ -146,6 +143,20 @@ impl<W: Write> McapWriter<W> {
     pub fn finish(self) -> Result<W> {
         self.writer.finish()
     }
+}
+/// Channel metadata of the historical profile. `codecId` and `wireId` appear
+/// only when the manifest records a wire binding, so channels without one are
+/// written exactly as before.
+pub(crate) fn channel_metadata(c: &crate::Channel) -> BTreeMap<String, String> {
+    let mut metadata = BTreeMap::from([
+        ("clockDomain".into(), c.clock_domain.clone()),
+        ("schemaIdentity".into(), c.schema_id.clone()),
+    ]);
+    if let Some(wire) = &c.wire {
+        metadata.insert("codecId".into(), wire.codec_id.clone());
+        metadata.insert("wireId".into(), wire.wire_id.clone());
+    }
+    metadata
 }
 struct Counter {
     bytes: usize,
