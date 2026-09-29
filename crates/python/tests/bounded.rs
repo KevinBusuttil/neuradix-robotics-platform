@@ -154,12 +154,90 @@ scenario!(
     descendant_cleanup,
     exited_leader_cleanup,
     failed_restart_budget,
+    failed_restart_budget_slow_startup,
     process_admission_bound,
     local_control_continues,
     local_control_during_heartbeat_failure,
     remote_error_recovery,
     write_and_response_share_deadline
 );
+
+/// Restart-budget evidence, kept separate per stage:
+/// - charged attempt: `restarts_used()`;
+/// - interpreter start: one line in `starts`, written by `sitecustomize` during
+///   Python startup, before the injected delay and before `adversary.py`;
+/// - fixture reached: the `retry_handshake` counter written by `adversary.py`;
+/// - handshake completed: only the initial `start`, since restarts never send
+///   `ready`.
+///
+/// A charged attempt need not reach Python or the fixture: the handshake
+/// deadline can expire during startup (CI run 36524973547 lineage, PR #29).
+/// Budget consumption and exhaustion are therefore asserted from the
+/// supervisor, and the fixture counter only bounds how far attempts got. With
+/// `slow_restarts`, every restart's startup is delayed past the handshake
+/// deadline, so no restart reaches the fixture (deterministic).
+fn restart_budget(slow_restarts: bool) {
+    let path = temp("restarts");
+    let site = temp("restart-site");
+    std::fs::create_dir_all(&site).unwrap();
+    let starts = site.join("starts");
+    std::fs::write(
+        site.join("sitecustomize.py"),
+        "import os, time\n\
+         here = os.path.dirname(os.path.abspath(__file__))\n\
+         with open(os.path.join(here, 'starts'), 'a') as log:\n    log.write('start\\n')\n\
+         if os.path.exists(os.path.join(here, 'slow')):\n    time.sleep(1.0)\n",
+    )
+    .unwrap();
+    let count = |file: &std::path::Path| -> usize {
+        std::fs::read_to_string(file).map_or(0, |text| text.lines().count())
+    };
+    let reached = || {
+        std::fs::read_to_string(&path)
+            .unwrap()
+            .parse::<usize>()
+            .unwrap()
+    };
+    let cfg = config("retry_handshake")
+        .with_arg(path.to_string_lossy())
+        .with_python_path(&site)
+        .with_timeouts(Timeouts::new(TOTAL, TOTAL, TOTAL, RESERVE).unwrap());
+    let mut supervisor =
+        WorkerSupervisor::start(cfg, 2).unwrap_or_else(|error| panic!("initial start: {error:?}"));
+    // Handshake completion implies Python started and reached the fixture.
+    assert_eq!((count(&starts), reached()), (1, 1));
+    supervisor.worker().unwrap().send(&Value::Null).unwrap_err();
+    if slow_restarts {
+        std::fs::write(site.join("slow"), "").unwrap();
+    }
+    for used in 1..=2 {
+        let start = Instant::now();
+        let error = supervisor.ensure_alive().unwrap_err();
+        assert!(matches!(cause(&error), WorkerError::HandshakeTimeout));
+        assert_bounded(start, TOTAL);
+        // Charged whether or not Python or the fixture was reached.
+        assert_eq!(supervisor.restarts_used(), used);
+    }
+    let (started, fixture) = (count(&starts), reached());
+    assert!(matches!(
+        supervisor.ensure_alive(),
+        Err(WorkerError::RestartBudgetExhausted { used: 2, max: 2 })
+    ));
+    assert_eq!(supervisor.restarts_used(), 2);
+    // Exhaustion launches nothing: no new interpreter start or fixture entry.
+    assert_eq!((count(&starts), reached()), (started, fixture));
+    // At most one start and one fixture entry per launch, reach <= start.
+    assert!((1..=3).contains(&started), "interpreter starts {started}");
+    assert!(
+        (1..=started).contains(&fixture),
+        "fixture {fixture} > starts {started}"
+    );
+    if slow_restarts {
+        assert_eq!(fixture, 1, "a delayed restart reached the fixture");
+    }
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir_all(site).unwrap();
+}
 
 #[test]
 fn scenario_child() {
@@ -320,27 +398,8 @@ fn scenario_child() {
             await_dead(w.process_id());
             std::fs::remove_file(path).unwrap();
         }
-        "failed_restart_budget" => {
-            let path = temp("restarts");
-            let cfg = config("retry_handshake")
-                .with_arg(path.to_string_lossy())
-                .with_timeouts(Timeouts::new(TOTAL, TOTAL, TOTAL, RESERVE).unwrap());
-            let mut supervisor = WorkerSupervisor::start(cfg, 2).unwrap();
-            supervisor.worker().unwrap().send(&Value::Null).unwrap_err();
-            for used in 1..=2 {
-                let start = Instant::now();
-                let error = supervisor.ensure_alive().unwrap_err();
-                assert!(matches!(cause(&error), WorkerError::HandshakeTimeout));
-                assert_bounded(start, TOTAL);
-                assert_eq!(supervisor.restarts_used(), used);
-            }
-            assert!(matches!(
-                supervisor.ensure_alive(),
-                Err(WorkerError::RestartBudgetExhausted { used: 2, max: 2 })
-            ));
-            assert_eq!(std::fs::read_to_string(&path).unwrap(), "3");
-            std::fs::remove_file(path).unwrap();
-        }
+        "failed_restart_budget" => restart_budget(false),
+        "failed_restart_budget_slow_startup" => restart_budget(true),
         "process_admission_bound" => {
             let cfg = config("echo");
             let mut workers = Vec::new();
