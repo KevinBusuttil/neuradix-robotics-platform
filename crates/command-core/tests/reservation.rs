@@ -3224,6 +3224,59 @@ fn r28_unreadable_plus_single_slot_rollback_char() {
     );
 }
 
+/// CHAR (widened residual, review finding): the same double fault with slot A
+/// ECC-flagged, erased or rotted instead of unreadable. No slot order can close
+/// it; the named residual is "single-slot rollback plus any loss of the other
+/// slot before the next complete commit". A witness detects every variant.
+#[test]
+fn r28b_single_slot_rollback_plus_other_slot_loss_char() {
+    enum Loss {
+        EccFlagged,
+        Erased,
+        Rotted,
+    }
+    for loss in [Loss::EccFlagged, Loss::Erased, Loss::Rotted] {
+        let (store, history) = single_slot_rollback();
+        let witness = generation(*history.last().unwrap());
+        let prepare = |mut store: FaultStore| match loss {
+            Loss::EccFlagged => faulted(store, &[(0, Fault::ReadCorrupt), (2, Fault::ReadCorrupt)]),
+            Loss::Erased => {
+                store.erase(Slot::A);
+                store
+            }
+            Loss::Rotted => {
+                store.rot(Slot::A, 40, 0x01);
+                store
+            }
+        };
+        let mut unprotected_store = prepare(store);
+        let reissued = {
+            let mut reserver = open(&mut unprotected_store, unprotected(1)).unwrap();
+            assert_eq!(reserver.status().durable_ceiling, value(1, 1));
+            issued(reserver.reserve()).unwrap()
+        };
+        assert_eq!(reissued, value(1, 2));
+        assert!(
+            history.contains(&reissued),
+            "CHAR: rolled-back B plus lost A reissues"
+        );
+
+        let (store, _history) = single_slot_rollback();
+        let mut witnessed = prepare(store);
+        assert_eq!(
+            refused(
+                &mut witnessed,
+                key(),
+                config(1, RollbackDefense::Witness(witness))
+            ),
+            OpenError::RolledBack {
+                witness,
+                stored: value(1, 1)
+            }
+        );
+    }
+}
+
 #[test]
 fn r28_unreadable_plus_single_slot_rollback_witness() {
     let (store, history) = single_slot_rollback();

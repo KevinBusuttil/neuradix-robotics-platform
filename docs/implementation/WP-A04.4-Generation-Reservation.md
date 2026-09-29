@@ -287,7 +287,7 @@ test pins the unsafe behaviour.
 | Lying cache / flush | OBL (C1, C3) | R20 CHAR |
 | One slot unreadable, ECC-flagged, rotted or marginal | SAFE | F2, R15, R19 |
 | Single-slot rollback, no further fault | SAFE (maximum selected) | R28 witness case |
-| Single-slot rollback plus a later fault on the other slot before the next complete commit | OBL unless a witness is configured (then DET `RolledBack`) | R28 CHAR; review reproduction |
+| Single-slot rollback plus a later fault on the other slot before the next complete commit | OBL unless a witness is configured (then DET `RolledBack`) | R28, R28b CHAR (unreadable, ECC-flagged, erased, rotted); marginal-slot review reproduction |
 | Marginal bits differing within a boot | SAFE for reuse; may fail closed typed | F2b |
 | ECC-refuse medium | AVAIL, never reuse | F3, R25 |
 | Both slots Io / handle unavailable | DET `Unreadable` / `StoreUnavailable` | R5, H7 |
