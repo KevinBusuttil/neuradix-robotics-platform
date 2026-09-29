@@ -423,3 +423,29 @@ estimate because the design's stride and timeline give about 5×10^3 cases.
 - This closes only "no allocator is supplied": WP-A08 remaining item 2 becomes
   partial (a board store remains), and ACC-05 reboot/epoch evidence exists at
   software level only.
+
+## Remaining Gate A acceptance and next task
+
+Gate A remains open. After this increment:
+
+- **A01/ACC-01** — broader evidence inventory and optional-tool audit.
+- **A02/ACC-03** — transport binding, compact-ID collision handling and a
+  recording migration fixture.
+- **A03/ACC-02** — board-generated payloads matching host golden vectors on the
+  actual Uno; stack/timing.
+- **A04/ACC-05** — a qualified board `ReservationStore`, trusted startup on the
+  rig, reboot/timer-rollover evidence on hardware and the rig's documented
+  physical safe response.
+- **A05/ACC-09** — aggregate process-tree resources and additional OS/deployment
+  containment.
+- **A06/ACC-08** — broader interchange and scale qualification.
+- **A07/ACC-07** — closed-loop replay evidence.
+- **A08** — graph-to-binding through trusted setup (with B02/B07), the board
+  store, board driver qualification, and a follow-up making reserved permissions
+  mandatory for `ExecutionMode::Live`.
+
+**Next recommended task (Gate A, software-only):** WP-A02's transport binding
+and compact-ID collision handling with a recording migration fixture (ACC-03);
+it needs no hardware and is the remaining Gate A item the later board packages
+depend on. Board-store qualification follows once a board package exists
+(B04/B05). This does not pull Gate B or Manufacturing work forward.
