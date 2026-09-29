@@ -53,6 +53,7 @@
 #![warn(missing_docs)]
 
 pub mod canonical;
+pub mod channel;
 pub mod error;
 pub mod generate;
 pub mod layout;
@@ -61,6 +62,7 @@ pub mod parse;
 pub mod validate;
 
 pub use canonical::{SchemaId, canonical_bytes, schema_identity};
+pub use channel::{ChannelEntry, ChannelManifest, ChannelManifestError};
 pub use error::{ContractError, Result, ValidationIssue};
 pub use generate::{GENERATOR_VERSION, GeneratedRust, generate_rust};
 pub use model::{

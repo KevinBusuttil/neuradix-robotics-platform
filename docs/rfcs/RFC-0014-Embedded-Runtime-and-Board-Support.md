@@ -18,7 +18,11 @@ codec from development `c8aa467`.
 
 Both endpoints and their channel bindings must be upgraded together. The serial
 CRC/sequence frame format is unchanged and does not negotiate wire identity.
-Compact-ID collision handling and legacy recording migration remain open.
+WP-A02.1 (proposed, not merged) adds a verified channel manifest and a
+compact-channel envelope inside that frame, with collision-checked tables and a
+manifest tag; see
+[its evidence](../implementation/WP-A02-Compact-Channel-Binding.md). Legacy
+recording migration and link sessions remain open.
 The note preserves the exact tested commit, toolchain, memory measurements and
 remaining WP-A01/A02/A03 acceptance work.
 

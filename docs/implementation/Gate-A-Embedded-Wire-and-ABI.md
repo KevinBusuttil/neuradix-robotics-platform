@@ -106,7 +106,8 @@ rewrite existing recordings or their semantic schema IDs.
 The serial framing crate is unchanged: its CRC and sequence number are not a
 wire-identity handshake. Transport-level binding, collision-checked compact
 channel IDs and their enforcement in gateways remain the next part of WP-A02.
-No truncated hash is introduced here.
+No truncated hash is introduced here. [WP-A02.1](WP-A02-Compact-Channel-Binding.md)
+(proposed, not merged) adds the verified manifest and envelope binding.
 
 ## Validation and work-package status
 
@@ -132,7 +133,7 @@ firmware image, real serial communication or physical board execution.
 | Work package | This increment | Remaining acceptance work |
 | --- | --- | --- |
 | WP-A01 | Pins an existing development baseline; requires host C++ and a separate AVR compiler gate. | Complete evidence inventory and audit all optional-tool skips; the six development commits are integrated through PR #7. |
-| WP-A02 | Canonical scalar layout, versioned full wire identity, required decoder identity and cross-language regression tests. | Gateway/transport binding, compact-ID collision enforcement, existing-recording migration fixture and tooling. |
+| WP-A02 | Canonical scalar layout, versioned full wire identity, required decoder identity and cross-language regression tests. | Existing-recording migration fixture and tooling; manifest tooling and gateway integration. Compact-ID manifest and envelope binding are proposed in [WP-A02.1](WP-A02-Compact-Channel-Binding.md) (not merged). |
 | WP-A03 | Explicit AVR numeric profile, generated ABI guards, host scalar boundary tests and real AVR compile/link checks. | Execute golden vectors on a physical Uno, measure stack/runtime memory and timing, then add the selected MCU board profile. |
 
 Gate A remains open. WP-A04 safety time/finite bounds, WP-A05 Python process
