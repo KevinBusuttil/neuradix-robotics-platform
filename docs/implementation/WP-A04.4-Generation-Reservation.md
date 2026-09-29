@@ -320,11 +320,84 @@ H11); M16 drop the generation equality (E3, H11); M17 never set the latch (E6);
 M18 set the latch before success (E20); M19 `reserve_from_window` commits (R7,
 E17); M20 `ReadFailed` collapsed into `MediaChanged` (R29).
 
-⟨TBD: mutation results⟩
+**Result:** every checklist mutant M1–M20 was applied to a scratch copy and was
+killed by at least one of its named tests, including separate embedded and host
+variants of M14–M18 (the host variants are killed by H11) and an extra
+provisioning-floor variant (killed by R9, R13). One extra sub-mutant of M12
+(`open` computing `next` with a wrapping add) is equivalent: `select` refuses a
+`u64::MAX` high-water with `Exhausted` before that addition runs. Review
+mutants beyond the checklist were also killed: the post-rename identity check
+(S6), the host grant-order reordering (H11), 26 additional allocator/codec
+mutants against the R suite, and M1/M3 variants against the F sweeps' proof-step-2
+oracle.
 
 ## Evidence
 
-⟨TBD: evidence table⟩
+Local environment: Rust/Cargo 1.94.1 (pinned), `RUSTFLAGS=-D warnings`, locked
+dependencies, AVR GCC from Ubuntu packages, Linux container running as root
+(host-store tests also passed as an unprivileged user). Figures are at head
+`beba2cc`; remote CI results are recorded in the pull request.
+
+| Check | Result |
+|---|---|
+| fmt; workspace all-target Clippy (warnings denied) | Passed |
+| command-core unit U1–U6; deterministic R1–R29 (+R28b); allocation | 6; 36; 1 passed (0 allocations on every reservation path) |
+| Default fault sweeps F1–F5 (debug) | 6 passed; with R and allocation ≈2.3 s wall once built |
+| Release sweeps F6–F8 (`--ignored`, separate CI job) | 3 passed in 7.7 s: F6 344,736 single-fault cases (73,728 lose availability under ECC-refuse, never reuse); F7 4,273 double-fault cases; F8 100,000 boots, 49,927 of 49,927 planned faults took effect, 18,459 weak tails left, 598 epochs |
+| Embedded E1–E23; reserved allocation scenario | 23; 1 passed |
+| Host S1–S9 (store step faults, bounded reads, replacement, canonical paths, symlinks) and 3 lineage unit tests | 13 passed |
+| Host H1–H14 (subprocess harness, exit at every store call) | 15 passed (also as an unprivileged user) |
+| Doctests incl. compile-fail ownership checks with passing twins | command-core 14, embedded-core 19, safety 12 |
+| MCU target T1 and footprint asserts | 3 passed |
+| Command/safety/embedded/transport regression group | 258 passed (3 release sweeps ignored) |
+| Workspace tests/doctests excluding `neuradix-python` (root container) | 501 passed, 5 ignored (2 AVR, 3 release sweeps); 379 before this increment |
+| `neuradix-python` as an unprivileged user | All passed except `privileged_launcher_rejected`, which needs passwordless sudo (CI provides it); SDK 6 passed |
+| Examples: reserved_startup, guarded_actuator, embedded-propulsion, minimal-depth-stream, auv-depth-sim; graph/replay examples | Passed |
+| no_std checks: time, command-core (with and without `provisioning`), embedded-transport, embedded-core, embedded-actuator-target | Passed |
+| MCAP fixtures, import memory and export verification | Passed (`/usr/bin/time` installed locally) |
+| Actual ATmega328P codec ABI (AVR job) | 2 passed; does not build this Rust code for AVR |
+| `cargo doc --workspace --no-deps` | Passed, 0 warnings |
+| `tools/ci/mcu_actuator.sh` (thumbv6m, thumbv7em, riscv32imc, release) | Passed: no `provisioning` in any resolved firmware feature set; no heap-allocator symbols; no `provision` or `record::encode`/`seal` symbols. Negative probes: a forwarded or command-line `provisioning` feature trips the feature gate, and a feature-enabled build shows the provisioning and encoder symbols the symbol gate rejects |
+
+Footprint on thumbv6m, thumbv7em and riscv32imc (compile-time asserted bounds in
+parentheses): adapter 464 B (≤ 640, unchanged by the added `bool`), report 232 B
+(≤ 320), `GenerationReserver` with a zero-sized store 72 B (≤ 128),
+`ReservedGeneration` 48 B (≤ 64; it carries the epoch as well as the generation
+and key). Monomorphized code (object symbol sizes): `reserve_and_install`
+1.26–1.53 KiB, `open_reserver` 588–756 B, `replace_from_window` 222–274 B.
+Static frame adjustments (`sub sp`/`push`, not measured stack use): the example's
+reserved startup chain `reserve_and_install` → `grant_reserved` → `grant` is about
+1.87 KiB (thumbv6m), 1.78 KiB (thumbv7em) and 1.79 KiB (riscv32imc), versus about
+0.7–0.8 KiB for the legacy `install` chain; the reserver itself fits in the
+~0.4 KiB `open_reserver`/`reserve_and_install` frames. Board packages must size
+startup stacks from their own measurements. No physical stack, timing or commit
+latency is measured.
+
+Corrected during review (before the pull request): the record encoders are now
+provisioning-only; the MCU feature gate checks resolved feature sets (the earlier
+edge-display gate missed forwarded features) and both gates capture producer
+output first so a failing `cargo tree`/`llvm-nm` cannot pass; the host store
+refuses non-canonical paths and never follows planted `lock`/temporary-file
+symlinks; the F5/F8 campaign's faults now always apply to the op kind they hit
+(previously about a third were silent no-ops counted as fired); H11 now pins the
+host grant check order; the single-slot-rollback residual was widened (R28b).
+H14 observes `Uncertain(ReadFailed(A))` for a directory replaced before a commit
+(the pre-commit read sees the replacement first) and `WriteFailed(A)` when it is
+replaced between that read and the write; both poison the handle and write
+nothing to the replacement. F7's exact count (4,273) is below the design's rough
+estimate because the design's stride and timeline give about 5×10^3 cases.
+
+### Not established
+
+- **No hardware execution** and no board `ReservationStore`: nothing here
+  exercises real flash, EEPROM, FRAM, ECC behaviour, power cuts, reset paths,
+  commit latency or stack margins on an MCU.
+- **Host durability under real power loss** is argued by design only (no
+  power-cut or dm-flakey rig).
+- **Rust AVR** is not built (nightly-only); the AVR job checks the generated
+  C/C++ codec ABI only.
+- The fault model abstracts vendor flash physics; board qualification must re-run
+  the suite against the real driver.
 
 ## Constraints, deferrals and non-claims
 
