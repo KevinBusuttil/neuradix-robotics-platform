@@ -11,7 +11,16 @@ and post-merge main CI passed all four jobs
 The automated review of the head reported no findings.
 
 The [`record migrate` CLI command](#cli-record-migrate-wp-a023) (WP-A02.3) is
-proposed for review and **not merged**.
+integrated through [PR #32](https://github.com/KevinBusuttil/neuradix-robotics-platform/pull/32),
+merge [`520c8e9`](https://github.com/KevinBusuttil/neuradix-robotics-platform/commit/520c8e959df5a2cd66e1c805f0c8226a2c4a2cfa)
+(reviewed head `170c350`). CI passed on the head
+([PR run 36560292725](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36560292725),
+[push run 36560287804](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36560287804)),
+and post-merge main CI passed all four jobs
+([run 36564383664](https://github.com/KevinBusuttil/neuradix-robotics-platform/actions/runs/36564383664)).
+The automated review found one P2 issue on the first head (a byte limit of
+`usize::MAX` overflowed the `max + 1` sentinel), which was fixed in `170c350`;
+its review of the final head reported no major issues.
 
 This is host evidence only. It claims no board execution, Manufacturing
 integration or Gate A closure, and WP-A02 remains open.
@@ -142,7 +151,7 @@ The workspace and CI-equivalent results are recorded in the pull request.
 
 ## CLI: `record migrate` (WP-A02.3)
 
-**Status:** proposed for review, not merged.
+**Status:** integrated through PR #32 (see the status above).
 
 ```sh
 neuradix [-o json] record migrate <input.nrec> --provenance <provenance.json> --out <output.nrec> \
@@ -167,8 +176,8 @@ provenance rule. Every library guarantee above still holds:
 | Provenance bound | Read through `take(1 MiB + 1)`, then rejected if longer. The read buffer may grow to about twice that. Each embedded contract is capped at 64 KiB by the library. |
 | Memory | The read buffer is released after decoding and the source recording is dropped after conversion. Output is streamed to disk, not assembled in memory. At peak the process holds the decoded source and the converted copy, because the library copies opaque payloads too. **Measured** peak RSS with the release build: 484 MiB for a 240 MiB input of 4 opaque 60 MiB payloads (≈2.0×); 228 MiB for a 47 MiB input of 1,048,000 16-byte legacy records (≈4.7×, dominated by per-record overhead of roughly 90 B per record per copy). The worst case at the default limits is therefore about 512 MiB (byte-dominated) or roughly 230 MiB plus payload (record-dominated). |
 | Source safety | The input is only read. A destination that already exists is refused (exit 2), including a symlink, a dangling symlink and the provenance file. When it resolves to the input's device and inode (the input path itself, a hard link or a symlink to it), the refusal names it as in-place migration. |
-| Publication | Output goes to a new temporary sibling file, created with `create_new` in the destination directory. It is flushed and `fsync`ed, then published with `link(2)`, which fails with `AlreadyExists` instead of replacing a destination created concurrently. The temporary name is then removed. Success is reported only after publication. |
-| Failure cleanup | Validation failures happen before any file is created. Write, `fsync` and link failures remove the temporary file and leave no destination. Durability of the directory entry across power loss is **not** claimed (the directory is not `fsync`ed). Filesystems without hard-link support cannot publish; that fails cleanly. A process killed mid-write (for example by `SIGKILL`) can leave a `.<name>.neuradix-migrate-<pid>-<n>.partial` file, but never a partial destination. |
+| Publication | Output goes to a new temporary sibling file, created with `create_new` in the destination directory. It is flushed and `fsync`ed, then published with `link(2)`, which fails with `AlreadyExists` instead of replacing a destination created concurrently. Removal of the temporary name is then attempted; if it fails, the command still succeeds and reports the leftover path as a warning. Success is reported only after publication. |
+| Failure cleanup | Validation failures happen before any file is created. Write, `fsync` and link failures leave no destination, and removal of the temporary file is attempted. *Correction:* earlier text said the temporary file is always removed, but removal errors on these paths are ignored, so a failed removal can leave the temporary file. Since WP-A02.4 a failed removal after a successful publication is reported as a warning. Durability of the directory entry across power loss is **not** claimed (the directory is not `fsync`ed). Filesystems without hard-link support cannot publish; that fails cleanly. A process killed mid-write (for example by `SIGKILL`) can leave a `.<name>.neuradix-migrate-<pid>-<n>.partial` file, but never a partial destination. The publisher is shared with `channel manifest|table` (`crates/cli/src/app/publish.rs`). |
 | Exit codes | 0 success; 2 invalid use (in-place, existing destination, out-of-range limits); 4 compatibility (provenance or payload rejected by the migration library); 1 general failure (I/O, missing or foreign input, an MCAP input, a truncated container, exceeded limits, a missing destination directory, publication). |
 | Report (`data`) | `source`, `file`, `format`, `formatVersion`, `bytes`, `records`, `sourceCodec`, `sourceRevision`, `sourceDigest`, `migratedDigest`, `channels[{channelId, records, legacyWireLen, codecId, wireId}]`, `opaqueChannels` and `limits`. The two digests are reported separately and are not required to differ: migration can leave payload bytes unchanged, for example when legacy and canonical orders coincide. |
 
@@ -182,12 +191,14 @@ Evidence:
 | M4 | Input one byte over `--max-input-bytes`, and one record over `--max-records`, exit 1; exactly at both limits succeeds. Zero or raised limits exit 2. A 1 MiB + 2 byte provenance exits 1. |
 | M5 | Input as its own destination, a hard link, a symlink to it, an existing file, a dangling symlink and the provenance file all exit 2 and are left untouched. |
 | M6 | A missing destination directory, missing input, MCAP input and truncated container exit 1 and leave nothing behind. |
-| `crates/cli/src/app/migrate.rs` unit tests | Publication: link then remove the temporary file; an injected write failure leaves no destination and no temporary file; a destination created concurrently during the write is not replaced (`AlreadyExists`); a missing directory fails before writing. |
+| Publication unit tests (`crates/cli/src/app/publish.rs` since WP-A02.4) | Publication: link then remove the temporary file; an injected write failure leaves no destination and no temporary file on a filesystem where removal succeeds; a destination created concurrently during the write is not replaced (`AlreadyExists`); a missing directory fails before writing. |
 | `crates/record/tests/bounded_native.rs` | Exactly at the limits is accepted and one below is rejected. A 1 MiB stream against a 1 KiB cap consumes exactly 1,025 bytes. Chunked and `Interrupted` reads decode identically, including negative timestamps. Invalid limits and defaults are checked. |
 
 ## Remaining WP-A02 work
 
-1. Channel-manifest emission and verification tooling.
+1. Channel-manifest emission and verification tooling: proposed in
+   [WP-A02.4](WP-A02-Compact-Channel-Binding.md#channel-manifest-tooling-wp-a024)
+   (not merged).
 2. Gateway integration of the compact-channel table (WP-A02.1).
 3. RFC-0024, recording the compact-ID, collision and migration rules
    normatively.

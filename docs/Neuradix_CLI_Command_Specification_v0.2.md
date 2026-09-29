@@ -27,7 +27,7 @@ has no embedded codec manifest. The decoder signature now requires the producer'
 wire identity; [migration rules](implementation/Gate-A-Embedded-Wire-and-ABI.md#wire-binding-and-migration)
 cover upgrading both endpoints and preserving legacy provenance.
 
-Proposed (WP-A02.3, not merged): `record migrate <input.nrec> --provenance
+Integrated (WP-A02.3, PR #32): `record migrate <input.nrec> --provenance
 <json> --out <output.nrec> [--max-input-bytes N] [--max-records N]` converts
 legacy c8aa467 scalar payloads to `neuradix.scalar-le.v2` under explicit
 provenance, native to native. Exit codes: 0 after the output is published;
@@ -35,6 +35,17 @@ provenance, native to native. Exit codes: 0 after the output is published;
 the provenance or payloads are rejected; 1 for I/O, foreign or truncated input,
 exceeded limits and publication failures. See the
 [migration evidence](implementation/WP-A02-Legacy-Recording-Migration.md#cli-record-migrate-wp-a023).
+
+Proposed (WP-A02.4, not merged): `channel manifest <bindings.yaml> --out
+<manifest.json>`, `channel verify <manifest.json> [--bindings <bindings.yaml>]`
+and `channel table <bindings.yaml> --out <board_table.rs>`. The binding
+specification (`channels.neuradix.io/v1alpha1`, `ChannelBindings`) lists
+explicit `compactId`, `name` and a `contract` path relative to the
+specification; identities are derived from the contracts. `verify` reports
+`self-consistent` or `matches-bindings`. Exit codes: 0 success; 2 existing
+destination or input; 3 contract invalid or unsupported; 4 binding, manifest or
+bindings-mismatch failure; 1 I/O, limits or publication. See the
+[tooling evidence](implementation/WP-A02-Compact-Channel-Binding.md#channel-manifest-tooling-wp-a024).
 
 Main also includes `record export` for the experimental MCAP subset and
 `studio timeline|series` for headless inspection. These commands do not establish

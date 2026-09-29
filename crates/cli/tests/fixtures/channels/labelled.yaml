@@ -1,0 +1,21 @@
+# A valid contract whose string field has no fixed scalar width.
+apiVersion: contracts.neuradix.io/v1alpha1
+kind: StreamContract
+metadata:
+  namespace: io.neuradix.test
+  name: labelled
+  version: 1.0.0
+spec:
+  description: Unsupported by the scalar channel codec
+  payload:
+    type: object
+    fields:
+      label: { type: string }
+  semantics:
+    frame: vehicle/base
+    clockDomain: monotonic
+    authoritativeTimestamp: measurement
+    maximumAge: 100ms
+  delivery:
+    capacity: 8
+    overflow: keep-latest

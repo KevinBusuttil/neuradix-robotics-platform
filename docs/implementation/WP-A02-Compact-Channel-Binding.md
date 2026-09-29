@@ -175,22 +175,95 @@ Environment notes:
 The MCAP fixture steps were not rerun locally; this change does not touch
 `neuradix-record`.
 
+## Channel-manifest tooling (WP-A02.4)
+
+**Status:** proposed for review, not merged. It builds on `main` at
+`520c8e9`, which integrates PR #32.
+
+```sh
+neuradix [-o json] channel manifest <bindings.yaml> --out <manifest.json>
+neuradix [-o json] channel verify <manifest.json> [--bindings <bindings.yaml>]
+neuradix [-o json] channel table <bindings.yaml> --out <board_table.rs>
+```
+
+The binding specification assigns explicit compact IDs and names to authored
+contracts. Contract paths are resolved relative to the specification:
+
+```yaml
+apiVersion: channels.neuradix.io/v1alpha1
+kind: ChannelBindings
+channels:
+  - compactId: 1
+    name: vehicle-depth
+    contract: ../contracts/standard/navigation/vehicle-depth.yaml
+  - compactId: 2
+    name: tiny-telemetry
+    contract: fixtures/tiny-telemetry.yaml
+```
+
+- **Identities are always derived.** The codec, schema ID, wire ID and wire
+  length come from `WireLayout::for_contract` on each validated contract.
+  Identity fields in a specification are unknown fields and are rejected.
+- **Compact IDs are never derived.** They are never taken from hashes,
+  assigned or renumbered. One contract can back several channels with
+  different names and IDs.
+- **The existing implementation is reused unchanged:**
+  - entries: `ChannelEntry::for_layout`;
+  - rules and digest: `ChannelManifest::new`, `parse`, `verify_layout` and
+    `to_json_pretty` (format `neuradix.channel-manifest.v2`, with the same
+    digest preimage and rules);
+  - board table: `generate_channel_table`.
+
+  There is no new digest algorithm, codec or manifest version.
+- **Two verification levels.** They are reported separately:
+  - `self-consistent`: the format, rules and declared digest check out. This
+    comes with a warning, because anyone can recompute a valid digest for
+    wrong bindings.
+  - `matches-bindings`: additionally, every entry equals what the
+    specification and its contracts produce. Missing, extra, renamed and
+    mismatched entries are all rejected, including an equal-width foreign
+    layout whose digest is correct.
+
+  Neither level authenticates a peer or establishes a link session.
+
+| Aspect | Behaviour |
+| --- | --- |
+| Limits | Each is enforced while reading (`take(limit + 1)`): binding specification 64 KiB; manifest 1 MiB; each contract 64 KiB; distinct contracts 4 MiB in total; at most 256 channels. The channel count is checked before any contract is read. |
+| Outputs | `--out` is always the artifact; the global `--output` still selects the report format. An existing destination is refused with exit 2, including the specification, a contract being read, or a symlink to either. Publication uses the shared no-overwrite publisher (`crates/cli/src/app/publish.rs`): a `create_new` temporary sibling is `fsync`ed and published with `link(2)`, so a concurrently created destination is not replaced. Removal of the temporary file is attempted on every path. A failed removal after publication is reported as a warning. On error paths, or if the process is killed, a `.partial` file can remain, but never a partial destination. The directory is not `fsync`ed, and power-loss durability is not claimed. |
+| Exit codes | 0 success (after publication); 2 existing destination or input; 3 contract parse, validation or unsupported (for example `string`) field; 4 binding specification or manifest rule violation, self-consistency failure, or mismatch with the bindings; 1 I/O, missing files, exceeded byte limits, missing destination directory, publication. |
+| Reports | `digest`, `channels[{compactId, name, codecId, schemaId, wireId, wireLen}]`, `file`, `bytes` and `limits`. `manifest` adds `manifestVersion` and `contractBytes`. `verify` adds `level`, `selfConsistent`, `matchesBindings`, `expectedDigest` and `mismatches`. |
+
+Evidence (`crates/cli/tests/channel.rs`):
+
+| Test | What it proves |
+| --- | --- |
+| C1 | The golden bindings (`crates/cli/tests/fixtures/channels/bindings.yaml`) produce the pinned golden digest `sha256:4a8c…97fb` and the existing `VehicleDepth` wire ID. The output round-trips through `parse` and `to_json_pretty`. Reordered binding entries and `vehicle-depth` with reversed field order give byte-identical output. One contract can back two named channels. |
+| C2 | Self-consistent verification (with a warning) and bindings verification report distinct levels. |
+| C3 | Four self-consistent manifests with valid digests are each rejected (exit 4) against the golden bindings: an equal-width foreign layout on channel 1, a missing channel, an extra channel, and a renamed channel. |
+| C4 | A tampered digest, the v1 version, an unknown field, an uppercase wire ID, reserved ID 0, an ID collision and malformed JSON all fail self-consistency (exit 4). A missing manifest and one over 1 MiB exit 1. |
+| C5 | Duplicate or reserved IDs, duplicate names, supplied identity fields, a wrong `apiVersion` and 257 channels exit 4. A `string` field and invalid contract YAML exit 3. A missing contract or specification, oversized specification or contract, and more than 4 MiB of contracts in total exit 1. No output is created in any of these cases. |
+| C6 | `channel table` emits source byte-identical to `crates/embedded-codegen/tests/golden/channel_table.rs`. `channel_binding.rs` E7 compiles that file, builds a `ChannelTable` from it, decodes through it, and rejects an edited binding or digest. |
+| C7 | An existing file, the specification, and a symlink to a contract are refused (exit 2) and left untouched. A missing directory exits 1. Text output uses the same envelope. |
+
+`crates/cli/src/app/publish.rs` unit tests cover publication, an injected
+write failure, a concurrently created destination, a missing directory,
+bounded reads and refused destinations. The no_std transport and MCU gates are
+unchanged; this tooling runs on the host only, and no board execution is
+claimed.
+
 ## Remaining work
 
 WP-A02 is **not complete**:
 
-1. **Existing-recording migration.** This needs three things:
-   - a checked-in legacy fixture: a v1 declaration-order payload with its
-     ordered source/layout and codec provenance from `c8aa467`;
-   - a pinned legacy decoder that re-encodes to v2 and records the new wire
-     identity, rejecting input without provenance;
-   - optional `codec_id`/`wire_id` recording channel metadata, updated in step
-     with the strict MCAP projection (`crates/record/src/mcap_import/projection.rs`).
-2. **Tooling.**
-   - A CLI command that emits and verifies channel manifests, for example from
-     graph-resolved contracts.
-   - Board-table generation exists as a library function
-     (`generate_channel_table`); no CLI command emits it yet.
+1. **Existing-recording migration: done.** The legacy fixture, pinned
+   decoder, conversion and recording wire metadata are integrated in
+   [WP-A02.2](WP-A02-Legacy-Recording-Migration.md) (PR #31), and the bounded
+   `record migrate` CLI in WP-A02.3 (PR #32).
+2. **Tooling.** Manifest generation, verification and board-table emission
+   from an explicit binding specification are proposed in
+   [WP-A02.4](#channel-manifest-tooling-wp-a024) (not merged). Deriving the
+   binding specification from a deployment graph, including compact-ID
+   allocation, is not included.
 3. **Gateway integration.** An example or runtime gateway that routes opened
    envelopes to generated decoders. It must also report the manifest digest
    alongside firmware identity (NRX-EMB-005).

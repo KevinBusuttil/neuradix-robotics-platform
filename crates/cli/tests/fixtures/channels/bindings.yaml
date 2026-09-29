@@ -1,0 +1,12 @@
+# Channel bindings reproducing the embedded-codegen golden board table
+# (crates/embedded-codegen/tests/golden/channel_table.rs). Contract paths are
+# relative to this file.
+apiVersion: channels.neuradix.io/v1alpha1
+kind: ChannelBindings
+channels:
+  - compactId: 1
+    name: vehicle-depth
+    contract: ../../../../../contracts/standard/navigation/vehicle-depth.yaml
+  - compactId: 2
+    name: tiny-telemetry
+    contract: ../../../../embedded-codegen/tests/fixtures/tiny-telemetry.yaml
