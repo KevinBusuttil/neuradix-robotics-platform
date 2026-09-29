@@ -45,20 +45,28 @@ fn assert_storage(worker: &PythonWorker, config: &WorkerConfig) {
     assert!(stats.queued_messages <= config.limits().queued_messages());
     assert!(stats.outgoing_bytes <= config.limits().outgoing_bytes());
 }
+/// A process is dead once `/proc/<pid>` is gone or unreadable, or its state is
+/// zombie (`Z`) or dead (`X`, `x` on older kernels). `X` is visible while a
+/// parent (here often init, after reparenting) is reaping it.
 fn running(pid: u32) -> bool {
     let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
         return false;
     };
     !stat
         .rsplit_once(") ")
-        .is_some_and(|(_, tail)| tail.starts_with('Z'))
+        .is_some_and(|(_, tail)| tail.starts_with(['Z', 'X', 'x']))
 }
+/// Death is monotonic, so decide on a single observation. Re-reading after the
+/// loop let a later read race a concurrent reap.
 fn await_dead(pid: u32) {
     let end = Instant::now() + Duration::from_secs(1);
-    while running(pid) && Instant::now() < end {
+    loop {
+        if !running(pid) {
+            return;
+        }
+        assert!(Instant::now() < end, "process {pid} survived cleanup");
         std::thread::sleep(Duration::from_millis(2));
     }
-    assert!(!running(pid), "process {pid} survived cleanup");
 }
 fn temp(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("neuradix-a05-{}-{name}", std::process::id()))
@@ -84,6 +92,47 @@ fn external(case: &str) {
         }
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+
+/// Regression for the intermittent `descendant_cleanup` failure (main CI run
+/// 36524973547: "process 12807 survived cleanup" after 0.29 s). While a parent
+/// reaps a zombie, the kernel marks it `EXIT_DEAD` before `release_task`
+/// removes `/proc/<pid>`, so `/proc/<pid>/stat` briefly reports `X`. A liveness
+/// oracle must never report such a process as running.
+#[test]
+fn liveness_oracle_treats_reaping_as_dead() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let mut revived = 0;
+    for _ in 0..300 {
+        let mut child = Command::new("true").spawn().unwrap();
+        let pid = child.id();
+        let zombie_by = Instant::now() + Duration::from_secs(5);
+        while running(pid) {
+            assert!(Instant::now() < zombie_by, "`true` did not exit");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        let watcher = {
+            let stop = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Acquire) {
+                    if running(pid) {
+                        return true;
+                    }
+                }
+                false
+            })
+        };
+        std::thread::sleep(Duration::from_millis(1));
+        child.wait().unwrap();
+        stop.store(true, Ordering::Release);
+        revived += usize::from(watcher.join().unwrap());
+    }
+    assert_eq!(
+        revived, 0,
+        "a dead process was reported running during reaping"
+    );
 }
 
 macro_rules! scenario {
