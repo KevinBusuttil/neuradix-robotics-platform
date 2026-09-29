@@ -49,21 +49,27 @@ fn bounded(start: Instant, budget: Duration) {
 fn temp(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("neuradix-resources-{}-{name}", std::process::id()))
 }
+/// Gone, unreadable, zombie (`Z`) or dead while being reaped (`X`, or `x` on
+/// older kernels); see `liveness_oracle_treats_reaping_as_dead` in bounded.rs.
 fn not_running(pid: u32) -> bool {
     std::fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true, |stat| {
         stat.rsplit_once(") ")
-            .is_some_and(|(_, tail)| tail.starts_with('Z'))
+            .is_some_and(|(_, tail)| tail.starts_with(['Z', 'X', 'x']))
     })
 }
+/// Decide on a single observation; death is monotonic.
 fn await_exit(pid: u32) {
     let deadline = Instant::now() + Duration::from_secs(5);
-    while !not_running(pid) && Instant::now() < deadline {
+    loop {
+        if not_running(pid) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "worker did not exit within kernel-enforcement tolerance"
+        );
         std::thread::sleep(Duration::from_millis(2));
     }
-    assert!(
-        not_running(pid),
-        "worker did not exit within kernel-enforcement tolerance"
-    );
 }
 fn script(path: &Path, body: &str) {
     use std::os::unix::fs::PermissionsExt;
