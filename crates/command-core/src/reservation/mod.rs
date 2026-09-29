@@ -86,6 +86,11 @@
 //! let token = ReservedGeneration { generation: todo!(), key: todo!(), epoch: todo!() };
 //! ```
 //!
+//! ```
+//! use neuradix_command_core::reservation::ReservedGeneration;
+//! fn _takes(_token: ReservedGeneration) {}
+//! ```
+//!
 //! ```compile_fail
 //! use neuradix_command_core::{Generation, reservation::ReservedGeneration};
 //! let g = Generation::new(1).unwrap();
@@ -814,7 +819,7 @@ pub(crate) fn verified_write<S: ReservationStore + ?Sized>(
     buf: &mut [u8; RECORD_BYTES],
 ) -> Result<(), PoisonCause> {
     let slot = fields.slot;
-    let bytes = record::encode(fields);
+    let bytes = record::encode_record(fields);
     if store.write(slot, &bytes).is_err() {
         return Err(PoisonCause::WriteFailed(slot));
     }

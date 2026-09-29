@@ -136,9 +136,28 @@ no queue or history. Measured `size_of` (driver included in the adapter):
 A compile-time assertion bounds them at 640/320 bytes. Stack use and timing on a
 real board are not measured.
 
+WP-A04.4 (proposed, not merged) adds one `bool` to the adapter and to
+`DriverPermission`; the 32-bit adapter stays at 464 B. Its reservation types
+measure, on thumbv6m, thumbv7em and riscv32imc: `GenerationReserver` with a
+zero-sized store 72 B and `ReservedGeneration` 48 B (asserted ≤ 128 B / ≤ 64 B).
+Static frame adjustments of the example's reserved startup chain are about
+1.8–1.9 KiB versus about 0.7–0.8 KiB for legacy `install` (see
+[WP-A04.4](WP-A04.4-Generation-Reservation.md)); board packages must size their
+startup stack from measurements, not estimates.
+
 ## Migration
 
-Additive. `CommandGate`, `PropulsionNode`, `EmbeddedComponent`, `Limits`,
+WP-A04.4 (proposed, not merged) changes this boundary: `PermissionError` gains
+`ReservationMismatch` and `ReservationRequired` (breaking for exhaustive matches);
+`reservation` is re-exported at the crate root; `ActuatorAdapter::new_reserved`,
+`requires_reserved_generations`, `DriverPermission::reserved`/`is_reserved` and
+`ActuatorBinding::reservation_key` are added; a legacy `new` adapter that accepted
+a reserved grant refuses later unreserved grants (one-way latch, a behaviour
+change for callers that mix grant types); and a non-default `provisioning`
+feature forwards to command-core and must never be enabled in actuator firmware.
+See [WP-A04.4](WP-A04.4-Generation-Reservation.md).
+
+The original PR #22 change was additive. `CommandGate`, `PropulsionNode`, `EmbeddedComponent`, `Limits`,
 wire/codec formats, host `SafetyGate`/actuator APIs and graph identities are
 unchanged in behaviour. Changes:
 
@@ -249,3 +268,6 @@ reserve and use, duplicate/rolled-back storage), used by both actuator
 boundaries' setup. Board qualification follows once a board package exists;
 Manufacturing remains a future consumer and does not reorder this plan.
 That increment is now proposed in [WP-A04.4](WP-A04.4-Generation-Reservation.md).
+After it, the remaining A08 items are the graph-to-binding path (with B02/B07), a
+qualified board `ReservationStore` (B04/B05), board driver qualification, and a
+follow-up that makes reserved permissions mandatory for `ExecutionMode::Live`.

@@ -31,10 +31,10 @@ networking, graph executor or Manufacturing logic, and no new dependency.
 | "Before enabling ingress on every startup, trusted initialization must atomically reserve and durably persist a nonzero u128 generation greater than every value previously used" | `GenerationReserver::open` is read-only; the first `reserve` after every `open` always commits the new ceiling to **both** slots with byte-exact read-back before returning a value; values are `(epoch << 64) \| counter`, counter ≥ 1 | R6, R16, E2, E11, H6, H10 |
 | "then provision the gates and authorized source with it" | `DriverPermission::reserved` binds the token to the binding key and exact lease generation; `new_reserved` adapters refuse anything else | E1–E7, H11 |
 | "The same allocator must cover gate reconstruction, replacement, revocation/regrant and recovery" | One reserver per key for the process lifetime; `reserve_from_window` for zero-I/O replacement; reconstruction takes a fresh token | E8, E10, E15–E18, E22, H13 |
-| "including rollback or restored storage" | Required `RollbackDefense` (floor, witness, both, or explicit `Unprotected`); max-selection covers single-slot rollback | R8, R22, R27, R28, H8 |
+| "including rollback or restored storage" | Required `RollbackDefense` (floor, witness, both, or explicit `Unprotected`); max-selection covers a single-slot rollback **provided no further fault hits the other slot before the next complete two-slot commit** (see proof step 7) | R8, R22, R27, R28, H8 |
 | "Reserve before activation so a crash cannot reuse an active value" | Nothing is issued until both slots verify the ceiling; burned values are never reissued | F1, F4, E12, E13, H6 |
 | "Storage loss or uncertain allocation requires remaining locally safe until a new, provably unused namespace is established by trusted provisioning" | Blank/corrupt/below-floor/rolled-back/exhausted storage fails `open` with `Remedy::Provision`; the adapter is never granted and ticks write only the safe output. See the amendment below for interrupted commits | R5, R9, E14 |
-| "No command can supply that decision" | No port, payload or report can reach a store, reserver, token or provisioning; firmware cannot link `provision` | compile-fail doctests; MCU CI gate |
+| "No command can supply that decision" | No port, payload or report can reach a store, reserver, token or provisioning; firmware cannot link `provision` or the record encoders (`record::encode`/`seal` are provisioning-only) | compile-fail doctests; MCU CI gate |
 | "Generation u128::MAX cannot be replaced ... wrapping is forbidden" | Counters never wrap (checked arithmetic; release keeps overflow checks); `u128::MAX` is issued at most once; provisioning refuses non-newer epochs | R12 |
 | ACC-05 "reboot a device ... old leases cannot be resurrected" | A restarted receiver with a clock restarted at 0 rejects replayed old-generation commands with fresh timestamps | E11, H10 (software level only) |
 | ACC-05 timer rollover | A latched clock regression requires reconstruction with a fresh token; old-generation commands are rejected | E22, H13 |
@@ -70,6 +70,7 @@ metadata still only echoes a `Generation`.
 | `ReservedGeneration` | Not `Clone`/`Copy`/`Default`, private fields, `#[must_use]`; consumed by at most one permission |
 | `OpenError`, `ReserveError`, `Remedy`, `OpenFailure<S>` | Typed fail-closed outcomes; refused open returns the store |
 | `provision`, `ProvisionGuards` (feature `provisioning`) | Out-of-band epoch installation; never erases; refusals write nothing |
+| `record::{decode, crc32}`; `record::{encode, seal}` (feature `provisioning`) | Inspection is always available; record encoders are provisioning/test tooling only, so firmware cannot link a helper that fabricates records |
 | `DriverPermission::reserved`, `is_reserved` (both boundaries) | Token-backed permission; `ReservationMismatch` for another binding key or generation |
 | `ActuatorAdapter::new_reserved`, `requires_reserved_generations` | Strict adapter; one-way latch after the first reserved grant on a legacy adapter |
 | `ActuatorBinding::reservation_key` | `BindingKey::numeric` (embedded) or `BindingKey::named` (host) |
@@ -163,7 +164,9 @@ poisons permanently and issues nothing. Only then is `n` returned.
    first slot verified C′ ≥ M. So during every write, an untouched slot holds a
    valid record ≥ M.
 3. A write in progress affects only its own slot (C2); a torn slot decodes as
-   non-valid, or as its complete old or new content, both ≥ M.
+   non-valid, or as its complete old or new content. The new content is ≥ M, and
+   the old content is ≥ M **unless that slot was rolled back on its own** (a
+   single-slot rollback leaves a valid record below M in it).
 4. Open takes the maximum, so after any power losses, a single-slot tear, rot,
    marginal bit, unreadable slot or single-slot rollback, the next value is > M.
 5. Provisioning installs only a strictly greater epoch (and, with guards, one above
@@ -171,8 +174,16 @@ poisons permanently and issues nothing. Only then is `n` returned.
 6. Floor and witness only refuse; they never raise or select a value.
 7. Outside the proof (named obligations): faithful two-slot rollback under
    `Unprotected`, or within an epoch under `Floor` only; lying durable-write
-   acknowledgements; violations of C2, C3, C5 or C8; the double fault "one slot
-   unreadable at open plus rollback of the other".
+   acknowledgements; violations of C2, C3, C5 or C8; and the double fault
+   **"single-slot rollback plus any loss, unreadability, rot, erase or
+   marginal/torn write of the other slot before the next complete two-slot
+   commit"**. After a single-slot rollback the reserver cannot distinguish a
+   leftover never-issued ceiling in one slot from a good ceiling beside a
+   rolled-back slot, and each case needs the opposite write order, so no slot
+   order closes it (a review reproduction: roll back slot A alone, interrupt the
+   next commit marginally on A, then erase B during the following commit — the
+   next boot reissues). A `Witness` detects it (`RolledBack`); `Floor` detects it
+   only across epochs. A single-slot rollback with no further fault is SAFE.
 
 ## Normative rules
 
@@ -228,27 +239,38 @@ A receiver-wide key is deferred.
 
 ## Host store
 
-`FileReservationStore::open` requires an existing directory with no group or other
-permission bits whose parent is not group/world-writable without the sticky bit;
-it never creates the directory, refuses symlinks and replaced directories
-((dev, ino) re-checked), takes an exclusive `File::try_lock` on `lock`, and
-removes stale `*.tmp` files. Writes go to `slot-x.tmp` (0600), `fsync`, `rename`,
-directory `fsync`, with directory identity re-verified before every operation. Any
-write-path error poisons the handle permanently (later reads → `Unavailable` →
+`FileReservationStore::open` requires a **canonically spelled** path (no trailing
+`/`, no `.` or `..` components, no repeated separators, a plain final name; a
+trailing `/` or `/.` would otherwise make `lstat` follow a final symlink and `..`
+would redirect the parent check) naming an existing directory with no group or
+other permission bits, whose parent is not group/world-writable without the sticky
+bit. It never creates the directory, refuses symlinks and replaced directories
+((dev, ino) re-checked), and takes an exclusive `File::try_lock` on `lock`. The
+lock entry is never followed: an existing entry must be a regular file and the
+opened file must be that entry; a missing one is created with `O_CREAT|O_EXCL`.
+Stale `*.tmp` files are removed. Writes unlink any `slot-x.tmp` entry, create it
+exclusively (0600; a planted symlink is never followed), `fsync`, `rename`, and
+`fsync` the directory, with directory identity re-verified before every operation
+and after the rename. Reads compare the opened slot file with the `lstat`ed entry.
+Any write-path error poisons the handle permanently (later reads → `Unavailable` →
 `Remedy::ReopenStore`). Reads are bounded to 65 bytes; wrong-length files decode
 as Corrupt; missing files as Blank.
 
 Claimed and CI-tested on Linux: per-slot atomic replacement, exclusive locking
 in-process and cross-process, refusal of missing/insecure/symlinked/replaced
-directories and insecure parents, stale temporary files, damaged slot files,
-process exit at every store call, and injected failure after every internal write
-step. Claimed by design only: durability on ext4/xfs/btrfs with default barriers on
-devices honouring flushes. Not claimed: NFS, SMB, FUSE, tmpfs, overlay/ephemeral
-layers, lying devices or hypervisors, snapshots or restored copies (use `Witness`
-or `Floor`, exclude the directory from snapshots, provision a new epoch after any
+directories, non-canonical spellings and insecure parents, lock and temporary-file
+symlinks not followed, stale temporary files, damaged slot files, process exit at
+every store call, injected failure after every internal write step, and directory
+replacement between the rename and the identity re-check (S1–S9, H1–H14). Claimed
+by design only: durability on ext4/xfs/btrfs with default barriers on devices
+honouring flushes. Not claimed: NFS, SMB, FUSE, tmpfs, overlay/ephemeral layers,
+lying devices or hypervisors, snapshots or restored copies (use `Witness` or
+`Floor`, exclude the directory from snapshots, provision a new epoch after any
 restore), writers bypassing the lock, privileged administrators, ancestors above
-the parent, directory ownership, Windows, and the path TOCTOU residual (std has no
-`openat`).
+the parent, directory ownership (running the store as a user other than the
+directory owner is an obligation), `FileStoreError::Replaced` from `open` (only a
+check-to-open race reaches it; untested), Windows, and the path TOCTOU residual
+between an identity check and the next path operation (std has no `openat`).
 
 ## Failure matrix (summary)
 
@@ -264,6 +286,8 @@ test pins the unsafe behaviour.
 | Silent write drop | DET `VerifyFailed` | R21 |
 | Lying cache / flush | OBL (C1, C3) | R20 CHAR |
 | One slot unreadable, ECC-flagged, rotted or marginal | SAFE | F2, R15, R19 |
+| Single-slot rollback, no further fault | SAFE (maximum selected) | R28 witness case |
+| Single-slot rollback plus a later fault on the other slot before the next complete commit | OBL unless a witness is configured (then DET `RolledBack`) | R28 CHAR; review reproduction |
 | Marginal bits differing within a boot | SAFE for reuse; may fail closed typed | F2b |
 | ECC-refuse medium | AVAIL, never reuse | F3, R25 |
 | Both slots Io / handle unavailable | DET `Unreadable` / `StoreUnavailable` | R5, H7 |
@@ -279,7 +303,7 @@ test pins the unsafe behaviour.
 | Unreserved permission to strict/latched adapter | DET `ReservationRequired`, 0 driver calls | E1, E6, E19, H11 |
 | Legacy grant ≥ 2^64 blocks lower reserved grant | CHAR; migrate with `prior_high_water`/witness | E21, R26 |
 | Host directory replaced after open | DET, poisoned, nothing written to the replacement | H14, S5 |
-| Boot code auto-provisioning | Firmware cannot link `provision` (CI); host OBL | MCU gate |
+| Boot code auto-provisioning | Firmware cannot link `provision` or `record::encode`/`seal` (CI symbol gate; the resolved-feature gate refuses `provisioning` in the firmware graph); hand-writing records from the documented format and host tooling remain review obligations (OBL) | MCU gates |
 | Reset/brown-out loop | AVAIL (wear-out), residual risk | — |
 
 ## Mutation checklist

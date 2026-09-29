@@ -503,6 +503,20 @@ impl Driver {
         self.meter.plan.set(plan);
     }
 
+    /// Plan one fault at `op` chosen by that op's kind (campaign events), so the
+    /// fault always applies to whichever kind of operation it lands on.
+    fn inject_by_kind(&mut self, op: u64, on_read: Option<Fault>, on_write: Option<Fault>) {
+        self.store.inject_by_kind(op, on_read, on_write);
+        let mut plan = self.meter.plan.get();
+        let free = plan
+            .iter()
+            .position(Option::is_none)
+            .expect("at most two planned faults");
+        plan[free] = Some(op);
+        self.meter.plan.set(plan);
+        self.st.case.faults[free] = on_write.or(on_read).map(|f| (op, f));
+    }
+
     fn clear_faults(&mut self) {
         self.store.clear_faults();
         self.meter.plan.set([None; 2]);
@@ -1298,16 +1312,23 @@ enum Event {
     WeakBits,
 }
 
-fn safe_fault(rng: &mut XorShift64, tears: &[Tear]) -> Fault {
+/// One SAFE-set fault for each op kind, so the fault applies whichever kind of
+/// operation the chosen index turns out to be: `(on_read, on_write)`.
+fn safe_fault(rng: &mut XorShift64, tears: &[Tear]) -> (Fault, Fault) {
+    let on_read = match rng.below(4) {
+        0 => Fault::Crash(Tear::Unchanged),
+        1 => Fault::ReadIo,
+        2 => Fault::ReadCorrupt,
+        _ => Fault::Unavailable,
+    };
     let tear = rng.pick(tears);
-    match rng.below(6) {
+    let on_write = match rng.below(4) {
         0 => Fault::Crash(tear),
         1 => Fault::WriteErr(tear),
         2 => Fault::SilentDrop,
-        3 => Fault::ReadIo,
-        4 => Fault::ReadCorrupt,
         _ => Fault::Unavailable,
-    }
+    };
+    (on_read, on_write)
 }
 
 /// Each boot picks: a clean boot; one SAFE-set fault at a random op of the boot
@@ -1355,8 +1376,8 @@ fn campaign(sweep: &'static str, boots: u64) -> (u64, Tally) {
             Event::Clean => {}
             Event::SafeFault => {
                 let at = d.store.ops() + rng.below(span);
-                let fault = safe_fault(&mut rng, &tears);
-                d.inject(&[(at, fault)]);
+                let (on_read, on_write) = safe_fault(&mut rng, &tears);
+                d.inject_by_kind(at, Some(on_read), Some(on_write));
             }
             Event::Rot => {
                 let slot = rng.pick(&[Slot::A, Slot::B]);
@@ -1370,8 +1391,14 @@ fn campaign(sweep: &'static str, boots: u64) -> (u64, Tally) {
                 d.set_media(media, policy);
                 let tear = Tear::WeakTail(rng.pick(&K_B));
                 let fault = rng.pick(&[Fault::Crash(tear), Fault::WriteErr(tear)]);
-                let at = d.store.ops() + rng.below(span);
-                d.inject(&[(at, fault)]);
+                // A marginal tail needs a write: target the first or second
+                // slot write of the boot's first commit (after provisioning when
+                // required, and the two open reads). If the boot diverges before
+                // it, the op is a read and the event has no effect (not counted
+                // as applied).
+                let provisioning = if d.st.needs_provision { 6 } else { 0 };
+                let at = d.store.ops() + provisioning + 2 + 2 + 2 * rng.below(2);
+                d.inject_by_kind(at, None, Some(fault));
             }
         }
         events[event as usize] += 1;
@@ -1382,11 +1409,17 @@ fn campaign(sweep: &'static str, boots: u64) -> (u64, Tally) {
     // power losses, write and verify failures and unavailable opens. At 2,000
     // boots each count is expected in the tens, for any seed.
     let fired = u64::from(d.meter.fired.get());
+    let applied = d.store.applied();
+    let weak_tails = d.store.weak_tails();
     let tally = d.st.tally;
     println!(
-        "{sweep}: {fired} of {} injected faults fired on a powered operation",
-        events[Event::SafeFault as usize] + events[Event::WeakBits as usize]
+        "{sweep}: {applied} of {} planned faults took effect (planned index reached while \
+         powered: {fired}); weak tails left: {weak_tails} of {} weak-bit events",
+        events[Event::SafeFault as usize] + events[Event::WeakBits as usize],
+        events[Event::WeakBits as usize]
     );
+    assert!(applied > 0, "no planned fault took effect");
+    assert!(weak_tails > 0, "no weak-bit event left a marginal slot");
     for event in [
         Ev::PowerLost,
         Ev::WriteFailed,

@@ -1112,8 +1112,9 @@ fn child_h6(root: &Path) {
 // ---------------------------------------------------------------------------
 
 /// Makes write number `fail_write` fail inside the real store: a directory
-/// occupies the temporary-file path, so creating it fails with EISDIR (for any
-/// user, root included) and the store poisons itself.
+/// occupies the temporary-file path; it cannot be unlinked, so the exclusive
+/// create fails with EEXIST (for any user, root included) and the store poisons
+/// itself.
 struct Sabotage<'a> {
     inner: &'a mut FileReservationStore,
     dir: PathBuf,
@@ -1189,7 +1190,9 @@ fn child_h7(root: &Path) {
             );
         }
         assert!(store.is_poisoned(), "{slot:?}");
-        assert_eq!(store.last_io_error(), Some(ErrorKind::IsADirectory));
+        // The planted directory cannot be unlinked, so the exclusive create of
+        // the temporary file refuses it (a symlink or file would be unlinked).
+        assert_eq!(store.last_io_error(), Some(ErrorKind::AlreadyExists));
 
         // Reopen over the same handle: StoreUnavailable, 2 reads and 0 writes.
         let mut counted = Counting::new(&mut store);
@@ -1622,6 +1625,55 @@ fn child_h11() {
     assert_eq!(driver_calls(&trace), calls);
     let report = legacy.port(ExecutionMode::Live, t(2)).tick(None);
     assert_eq!(report.generation, Some(g1));
+    // The refused unreserved grant installed nothing: a command carrying its
+    // generation is rejected and only the safe output is written (the check runs
+    // before the lease is installed, as on the embedded boundary).
+    let calls = driver_calls(&trace);
+    let report = legacy.port(ExecutionMode::Live, t(3)).tick(Some(command(
+        generation(value(1, 9)),
+        0,
+        3,
+        0.9,
+    )));
+    assert_eq!(
+        report.decision.expect("evaluated").outcome,
+        Outcome::Rejected(RejectReason::GenerationMismatch)
+    );
+    assert_eq!(report.output, 0.0);
+    assert_eq!(driver_calls(&trace), calls + 1);
+    assert!(only_safe_output(&trace));
+
+    // Check order (as E19): the reservation requirement precedes the
+    // control-time check. After a reserved grant at t(50), an unreserved grant at
+    // the regressed time t(40) is ReservationRequired, while a reserved token at
+    // the same time reaches the control-time check.
+    let (mut strict, trace) = adapter(true, None);
+    let mut store = FaultStore::erased(0xFF);
+    let token = first_token(&mut store, &binding(), 1);
+    let g = token.generation();
+    strict
+        .grant(reserved_permission(g, token), t(50))
+        .expect("reserved grant at t(50)");
+    let calls = driver_calls(&trace);
+    let late = DriverPermission::new(binding(), lease(generation(value(1, 9)), 0, 60_000))
+        .expect("permission");
+    assert_eq!(
+        strict.grant(late, t(40)).map(|_| ()).unwrap_err(),
+        PermissionError::ReservationRequired
+    );
+    let mut store = FaultStore::erased(0xFF);
+    let token = first_token(&mut store, &binding(), 2);
+    let later = token.generation();
+    assert_eq!(
+        strict
+            .grant(reserved_permission(later, token), t(40))
+            .map(|_| ())
+            .unwrap_err(),
+        PermissionError::Session(SessionError::InvalidEvaluationTime)
+    );
+    assert_eq!(driver_calls(&trace), calls);
+    let report = strict.port(ExecutionMode::Live, t(60)).tick(None);
+    assert_eq!(report.generation, Some(g));
 }
 
 // ---------------------------------------------------------------------------

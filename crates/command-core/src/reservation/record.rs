@@ -1,6 +1,12 @@
 //! Pure v1 record codec for golden vectors, inspection and crafted test records.
 //!
-//! Writing bytes to a slot still requires trusted store access. Layout (64 bytes,
+//! [`decode`] and [`crc32`] are always available for inspection. The encoders
+//! (`encode`, `seal`) are compiled only with the trusted `provisioning`
+//! feature, so actuator firmware cannot link a helper that fabricates records and
+//! bypasses the guards of `provision` (CI checks the MCU target for their
+//! symbols). Hand-writing bytes in the documented format remains possible; boot
+//! code that writes store records outside this module is a review obligation.
+//! Layout (64 bytes,
 //! little-endian):
 //!
 //! | Offset | Size | Field |
@@ -79,14 +85,26 @@ pub const fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
-/// Rewrite bytes 60..64 with the CRC of bytes 0..60. Pure.
+/// Rewrite bytes 60..64 with the CRC of bytes 0..60. Pure. Trusted
+/// provisioning and test tooling only (feature `provisioning`).
+#[cfg(feature = "provisioning")]
 pub fn seal(bytes: &mut [u8; RECORD_BYTES]) {
+    seal_bytes(bytes);
+}
+
+fn seal_bytes(bytes: &mut [u8; RECORD_BYTES]) {
     let crc = crc32(&bytes[..CRC_OFFSET]);
     bytes[CRC_OFFSET..].copy_from_slice(&crc.to_le_bytes());
 }
 
-/// Encode a v1 record, including its CRC.
+/// Encode a v1 record, including its CRC. Trusted provisioning and test tooling
+/// only (feature `provisioning`); the reserver uses an internal encoder.
+#[cfg(feature = "provisioning")]
 pub fn encode(fields: &RecordFields) -> [u8; RECORD_BYTES] {
+    encode_record(fields)
+}
+
+pub(crate) fn encode_record(fields: &RecordFields) -> [u8; RECORD_BYTES] {
     let mut bytes = [0u8; RECORD_BYTES];
     bytes[0..4].copy_from_slice(&RECORD_MAGIC);
     bytes[4] = RECORD_FORMAT;
@@ -98,7 +116,7 @@ pub fn encode(fields: &RecordFields) -> [u8; RECORD_BYTES] {
     bytes[40..48].copy_from_slice(&fields.high_water.to_le_bytes());
     bytes[48..52].copy_from_slice(&fields.commits.to_le_bytes());
     // bytes 52..60 reserved = 0
-    seal(&mut bytes);
+    seal_bytes(&mut bytes);
     bytes
 }
 

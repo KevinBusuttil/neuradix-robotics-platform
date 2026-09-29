@@ -24,7 +24,7 @@ mod file_store {
     use std::fs::{self, File, OpenOptions, TryLockError};
     use std::io::{self, ErrorKind, Read, Write};
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
-    use std::path::{Path, PathBuf};
+    use std::path::{Component, Path, PathBuf};
 
     use super::{RECORD_BYTES, ReservationStore, Slot, StoreError};
 
@@ -34,6 +34,15 @@ mod file_store {
         /// Not a real directory (a symlink is refused).
         #[error("reservation state path is not a directory")]
         NotADirectory,
+        /// The path is not in canonical spelling: a trailing `/`, a `.` or `..`
+        /// component, repeated separators, or a final component that is not a
+        /// plain name. Such spellings make `lstat` follow a final symlink or make
+        /// the parent check inspect the wrong directory.
+        #[error("reservation state path must be canonically spelled")]
+        NonCanonicalPath,
+        /// `lock` exists but is not a regular file (for example a symlink).
+        #[error("reservation lock entry is not a regular file")]
+        UnexpectedEntry,
         /// The directory grants any group or other permission bit.
         #[error("reservation state directory has group/other permissions (mode {mode:o})")]
         InsecurePermissions {
@@ -119,6 +128,46 @@ mod file_store {
         (meta.dev(), meta.ino())
     }
 
+    /// Plain-name final component, no `.`/`..` components, and no spelling that
+    /// path normalization would change (trailing `/`, `/.`, `//`).
+    fn canonical_spelling(dir: &Path) -> bool {
+        let rebuilt: PathBuf = dir.components().collect();
+        rebuilt.as_os_str() == dir.as_os_str()
+            && !dir.components().any(|c| c == Component::ParentDir)
+            && matches!(dir.components().next_back(), Some(Component::Normal(_)))
+    }
+
+    /// Open the lock file without ever following a symlink: an existing entry
+    /// must be a regular file and must be the file actually opened; a missing
+    /// entry is created exclusively (`O_CREAT | O_EXCL` never follows links).
+    fn open_lock(path: &Path) -> Result<File, FileStoreError> {
+        let io = |e: io::Error| FileStoreError::Io(e.kind());
+        match fs::symlink_metadata(path) {
+            Ok(meta) => {
+                if !meta.file_type().is_file() {
+                    return Err(FileStoreError::UnexpectedEntry);
+                }
+                let file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(path)
+                    .map_err(io)?;
+                if identity(&file.metadata().map_err(io)?) != identity(&meta) {
+                    return Err(FileStoreError::Replaced);
+                }
+                Ok(file)
+            }
+            Err(e) if e.kind() == ErrorKind::NotFound => OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(path)
+                .map_err(io),
+            Err(e) => Err(io(e)),
+        }
+    }
+
     /// Two 64-byte slot files (`slot-a`, `slot-b`, mode 0600) and a `lock` file in
     /// one existing directory with no group or other permission bits, owned by the
     /// service user and created by provisioning tooling (never by `open`).
@@ -139,13 +188,18 @@ mod file_store {
     impl FileReservationStore {
         /// Open an existing state directory and take its exclusive lock.
         ///
-        /// Refuses a missing directory (`Io(NotFound)`), a non-directory or symlink,
+        /// Refuses a non-canonically spelled path (trailing `/`, `.` or `..`
+        /// components, repeated separators), a missing directory (`Io(NotFound)`),
+        /// a non-directory or symlink,
         /// any group or other permission bit, a parent that is group- or
         /// world-writable without the sticky bit, a directory replaced during the
         /// checks, and a directory locked by another handle. Removes stale
         /// temporary files best-effort. Never creates the directory.
         pub fn open(dir: &Path) -> Result<Self, FileStoreError> {
             let io = |e: io::Error| FileStoreError::Io(e.kind());
+            if !canonical_spelling(dir) {
+                return Err(FileStoreError::NonCanonicalPath);
+            }
             let meta = fs::symlink_metadata(dir).map_err(io)?;
             if !meta.file_type().is_dir() {
                 return Err(FileStoreError::NotADirectory);
@@ -167,14 +221,7 @@ mod file_store {
             if dir_id != identity(&meta) {
                 return Err(FileStoreError::Replaced);
             }
-            let lock = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .mode(0o600)
-                .open(dir.join(LOCK))
-                .map_err(io)?;
+            let lock = open_lock(&dir.join(LOCK))?;
             match lock.try_lock() {
                 Ok(()) => {}
                 Err(TryLockError::WouldBlock) => return Err(FileStoreError::Locked),
@@ -224,6 +271,10 @@ mod file_store {
                 return Err(io::Error::other("slot is not a regular file"));
             }
             let mut file = File::open(&path)?;
+            let opened = file.metadata()?;
+            if !opened.file_type().is_file() || identity(&opened) != identity(&meta) {
+                return Err(io::Error::other("slot entry changed while opening"));
+            }
             // Bounded: never read more than one byte past a record.
             let mut staging = [0u8; RECORD_BYTES + 1];
             let mut filled = 0;
@@ -246,10 +297,12 @@ mod file_store {
         fn write_slot(&mut self, slot: Slot, record: &[u8; RECORD_BYTES]) -> io::Result<()> {
             let name = slot_name(slot);
             let tmp = self.dir_path.join(format!("{name}.tmp"));
+            // Never follow a planted link: unlink any entry, then create
+            // exclusively (`O_CREAT | O_EXCL` does not follow symlinks).
+            let _ = fs::remove_file(&tmp);
             let mut file = OpenOptions::new()
                 .write(true)
-                .create(true)
-                .truncate(true)
+                .create_new(true)
                 .mode(0o600)
                 .open(&tmp)?;
             injected(Step::CreateTemp, &self.dir_path)?;
@@ -850,5 +903,92 @@ mod tests {
             fs::read(slot_path(&moved, Slot::A)).expect("renamed slot"),
             record.to_vec()
         );
+    }
+
+    /// S7: non-canonical spellings are refused before any filesystem check, so a
+    /// trailing `/` or `/.` cannot make `lstat` follow a final symlink and `..`
+    /// or `.` cannot redirect the parent check.
+    #[test]
+    fn s7_non_canonical_paths_refused() {
+        let scratch = Scratch::new("s7");
+        let state = scratch.state();
+        fs::create_dir(state.join("sub")).expect("sub");
+        let link = scratch.root.join("link");
+        symlink(&state, &link).expect("symlink");
+        assert_eq!(
+            FileReservationStore::open(&link).unwrap_err(),
+            FileStoreError::NotADirectory
+        );
+        let spellings = [
+            PathBuf::from(format!("{}/", link.display())),
+            link.join("."),
+            PathBuf::from(format!("{}/.", link.display())),
+            state.join("sub").join(".."),
+            PathBuf::from(format!("{}//state", scratch.root.display())),
+            PathBuf::from("."),
+            PathBuf::from(".."),
+            PathBuf::from("/"),
+        ];
+        for path in spellings {
+            assert_eq!(
+                FileReservationStore::open(&path).unwrap_err(),
+                FileStoreError::NonCanonicalPath,
+                "{}",
+                path.display()
+            );
+        }
+        assert!(!state.join("lock").exists(), "no lock created by refusals");
+        FileReservationStore::open(&state).expect("canonical path opens");
+    }
+
+    /// S8: a planted `lock` symlink (dangling or not) is refused and never
+    /// followed: its target is not created or opened.
+    #[test]
+    fn s8_lock_symlink_refused_not_followed() {
+        let scratch = Scratch::new("s8");
+        let state = scratch.state();
+        let target = scratch.root.join("created-through-lock");
+        symlink(&target, state.join("lock")).expect("plant lock link");
+        assert_eq!(
+            FileReservationStore::open(&state).unwrap_err(),
+            FileStoreError::UnexpectedEntry
+        );
+        assert!(!target.exists(), "lock link target must not be created");
+        fs::remove_file(state.join("lock")).expect("remove link");
+        fs::create_dir(state.join("lock")).expect("lock directory");
+        assert_eq!(
+            FileReservationStore::open(&state).unwrap_err(),
+            FileStoreError::UnexpectedEntry
+        );
+    }
+
+    /// S9: a `slot-x.tmp` symlink planted after open is unlinked, not followed:
+    /// the victim file keeps its content and the slot receives the record.
+    #[test]
+    fn s9_tmp_symlink_not_followed() {
+        let scratch = Scratch::new("s9");
+        let state = scratch.state();
+        let mut store = FileReservationStore::open(&state).expect("open");
+        let victim = scratch.root.join("victim");
+        fs::write(&victim, b"victim content").expect("victim");
+        symlink(&victim, tmp_path(&state, Slot::A)).expect("plant tmp link");
+        let record = record::encode(&RecordFields {
+            slot: Slot::A,
+            key: key(),
+            epoch: epoch(1),
+            high_water: 0,
+            commits: 1,
+        });
+        assert_eq!(store.write(Slot::A, &record), Ok(()));
+        assert_eq!(fs::read(&victim).expect("victim"), b"victim content");
+        let slot = slot_path(&state, Slot::A);
+        assert!(
+            fs::symlink_metadata(&slot)
+                .expect("slot")
+                .file_type()
+                .is_file()
+        );
+        assert_eq!(fs::read(&slot).expect("slot"), record.to_vec());
+        assert!(!store.is_poisoned());
     }
 }

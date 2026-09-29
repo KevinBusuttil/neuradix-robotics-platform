@@ -105,6 +105,9 @@ pub struct Image {
 
 const LOG: usize = 256;
 
+/// `(op, fault if the op is a read, fault if the op is a write)`.
+type Planned = (u64, Option<Fault>, Option<Fault>);
+
 /// The fault-injecting store. NOT `Clone`.
 #[derive(Debug)]
 pub struct FaultStore {
@@ -118,7 +121,11 @@ pub struct FaultStore {
     boot: u64,
     dead: bool,
     ops: u64,
-    plan: [Option<(u64, Fault)>; 2],
+    plan: [Option<Planned>; 2],
+    /// Planned faults that took effect (applicable to the op kind they hit).
+    applied: u64,
+    /// Writes that left a marginal (weak) tail.
+    weak_tails: u64,
     reads: [u64; 2],
     writes: [u64; 2],
     per_read: u64,
@@ -139,6 +146,8 @@ impl FaultStore {
             dead: false,
             ops: 0,
             plan: [None; 2],
+            applied: 0,
+            weak_tails: 0,
             reads: [0; 2],
             writes: [0; 2],
             per_read: 0,
@@ -153,14 +162,32 @@ impl FaultStore {
         self
     }
 
-    /// Schedule `fault` at global operation index `op` (up to two entries).
+    /// Schedule `fault` at global operation index `op` (up to two entries). The
+    /// same fault is used whether the op is a read or a write; kinds that do not
+    /// apply to the op kind hit have no effect and are not counted as applied.
     pub fn inject(&mut self, op: u64, fault: Fault) {
+        self.inject_by_kind(op, Some(fault), Some(fault));
+    }
+
+    /// Schedule a fault at `op` chosen by the kind of that op: `on_read` if it is
+    /// a read, `on_write` if it is a write (`None`: no fault for that kind).
+    pub fn inject_by_kind(&mut self, op: u64, on_read: Option<Fault>, on_write: Option<Fault>) {
         let slot = self
             .plan
             .iter_mut()
             .find(|p| p.is_none())
             .expect("at most two planned faults");
-        *slot = Some((op, fault));
+        *slot = Some((op, on_read, on_write));
+    }
+
+    /// Planned faults that took effect so far.
+    pub fn applied(&self) -> u64 {
+        self.applied
+    }
+
+    /// Writes that left a marginal tail so far.
+    pub fn weak_tails(&self) -> u64 {
+        self.weak_tails
     }
 
     /// Remove all planned faults.
@@ -260,13 +287,20 @@ impl FaultStore {
         other
     }
 
-    fn next_fault(&mut self, index: u64) -> Option<Fault> {
+    fn next_fault(&mut self, index: u64, kind: OpKind) -> Option<Fault> {
         for entry in &mut self.plan {
-            if let Some((op, fault)) = *entry
+            if let Some((op, on_read, on_write)) = *entry
                 && op == index
             {
                 *entry = None;
-                return Some(fault);
+                let fault = match kind {
+                    OpKind::Read => on_read,
+                    OpKind::Write => on_write,
+                };
+                if fault.is_some_and(|f| applies(f, kind)) {
+                    self.applied += 1;
+                }
+                return fault;
             }
         }
         None
@@ -335,6 +369,7 @@ impl FaultStore {
                 && k < RECORD_BYTES
             {
                 self.weak[i] = Some((k, *record));
+                self.weak_tails += 1;
             }
         }
         self.durable[i] = out;
@@ -350,7 +385,7 @@ impl ReservationStore for FaultStore {
             self.record(index, OpKind::Read, slot, false);
             return Err(StoreError::Unavailable);
         }
-        let fault = self.next_fault(index);
+        let fault = self.next_fault(index, OpKind::Read);
         self.record(index, OpKind::Read, slot, fault.is_some());
         match fault {
             Some(Fault::Crash(_)) => {
@@ -374,7 +409,7 @@ impl ReservationStore for FaultStore {
             self.record(index, OpKind::Write, slot, false);
             return Err(StoreError::Unavailable);
         }
-        let fault = self.next_fault(index);
+        let fault = self.next_fault(index, OpKind::Write);
         self.record(index, OpKind::Write, slot, fault.is_some());
         if self.media == Media::EccRefuse && self.weak[slot.index()].is_some() {
             return Err(StoreError::Io);
@@ -422,4 +457,17 @@ pub fn provisioned(
         ProvisionGuards::default(),
     )
     .expect("provision");
+}
+
+/// Whether `fault` has an effect on an operation of `kind`.
+fn applies(fault: Fault, kind: OpKind) -> bool {
+    matches!(
+        (fault, kind),
+        (Fault::Crash(_) | Fault::Unavailable, _)
+            | (Fault::ReadIo | Fault::ReadCorrupt, OpKind::Read)
+            | (
+                Fault::WriteErr(_) | Fault::SilentDrop | Fault::Lie,
+                OpKind::Write
+            )
+    )
 }

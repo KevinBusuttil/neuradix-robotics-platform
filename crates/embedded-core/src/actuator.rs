@@ -144,6 +144,14 @@ impl ActuatorBinding {
 /// ```
 ///
 /// ```
+/// use neuradix_embedded_core::{ActuatorBinding, AuthorityLease, CommandMeta, DriverPermission, Generation};
+/// fn echoed(b: ActuatorBinding, l: AuthorityLease, meta: CommandMeta) {
+///     let _plain: Generation = meta.generation;
+///     let _unreserved = DriverPermission::new(b, l);
+/// }
+/// ```
+///
+/// ```
 /// use neuradix_embedded_core::{ActuatorBinding, AuthorityLease, DriverPermission};
 /// use neuradix_embedded_core::reservation::ReservedGeneration;
 /// fn once(b: ActuatorBinding, l1: AuthorityLease, l2: AuthorityLease, t: ReservedGeneration) {

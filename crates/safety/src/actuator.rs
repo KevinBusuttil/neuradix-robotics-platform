@@ -150,6 +150,15 @@ impl ActuatorConfig {
 /// ```
 ///
 /// ```
+/// use neuradix_safety::{AuthorityLease, Generation};
+/// use neuradix_safety::actuator::{ActuatorBinding, DriverPermission};
+/// fn plain(b: ActuatorBinding, l: AuthorityLease, g: Generation) {
+///     let _plain: Generation = g;
+///     let _unreserved = DriverPermission::new(b, l);
+/// }
+/// ```
+///
+/// ```
 /// use neuradix_safety::AuthorityLease;
 /// use neuradix_safety::actuator::{ActuatorBinding, DriverPermission};
 /// use neuradix_safety::reservation::ReservedGeneration;

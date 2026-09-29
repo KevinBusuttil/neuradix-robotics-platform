@@ -9,20 +9,24 @@
 # is not covered (nightly-only target).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+target_dir=${CARGO_TARGET_DIR:-target}
 targets=(thumbv6m-none-eabi thumbv7em-none-eabihf riscv32imc-unknown-none-elf)
 # Prefer the pinned toolchain's llvm-tools component, then a system llvm-nm.
 nm="$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin/llvm-nm"
 [[ -x "$nm" ]] || nm=$(command -v llvm-nm || true)
 for target in "${targets[@]}"; do
   echo "== $target"
-  # Provisioning-absence gate, feature graph: firmware (normal) edges must never
-  # enable `provisioning`; only dev-dependency edges (tests) may. The graph is
-  # captured first so a failing `cargo tree` aborts (set -e) instead of passing.
-  graph=$(cargo tree --locked -e normal,features --target "$target" \
+  # Provisioning-absence gate, resolved features: in the firmware (normal-edge)
+  # graph, no neuradix crate may resolve with `provisioning`, whether requested by
+  # a dependency declaration, a default or forwarding feature, or the command
+  # line. `{f}` prints each package's RESOLVED feature set (the edge-feature
+  # display does not show root or forwarded features). Captured first so a failing
+  # `cargo tree` aborts (set -e) instead of passing.
+  graph=$(cargo tree --locked -e normal --target "$target" -f '{p} [{f}]' \
     -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target)
-  grep -qF 'neuradix-command-core v' <<<"$graph" \
+  grep -qE 'neuradix-command-core v[^[]*\[' <<<"$graph" \
     || { echo "$target firmware graph lacks neuradix-command-core; gate is blind" >&2; exit 1; }
-  if grep -F 'feature "provisioning"' <<<"$graph"; then
+  if grep -E 'neuradix-[a-z-]+ v[^[]*\[[^]]*\bprovisioning\b' <<<"$graph"; then
     echo "provisioning feature enabled in the $target firmware graph" >&2; exit 1
   fi
   echo "no provisioning feature in the firmware graph"
@@ -37,8 +41,9 @@ for target in "${targets[@]}"; do
   for lib in neuradix_time neuradix_command_core neuradix_embedded_core \
              neuradix_example_embedded_actuator_target; do
     mkdir -p "$dir/$lib"
-    rlib=$(ls -t "target/$target/release/deps/lib$lib"-*.rlib | head -n 1)
-    (cd "$dir/$lib" && ar x "$OLDPWD/$rlib")
+    rlib=$(ls -t "$target_dir/$target/release/deps/lib$lib"-*.rlib | head -n 1)
+    rlib=$(readlink -f "$rlib")
+    (cd "$dir/$lib" && ar x "$rlib")
   done
   if "$nm" -u "$dir"/*/*.o 2>/dev/null | grep -Ei '__rust_(alloc|dealloc|realloc)|__rdl_|__rg_'; then
     echo "heap allocator reference found for $target" >&2
@@ -56,7 +61,9 @@ for target in "${targets[@]}"; do
   reservation='neuradix_command_core(::|\.\.)reservation(::|\.\.)'
   grep -qE "$reservation" <<<"$syms" \
     || { echo "no reservation symbols for $target; provisioning gate is blind" >&2; exit 1; }
-  if grep -E "${reservation}provision" <<<"$syms"; then
+  # Also the record encoders, which are provisioning-only: firmware must not link
+  # a helper that fabricates records outside the reserver.
+  if grep -E "${reservation}(provision|record(::|\.\.)(encode|seal)\b)" <<<"$syms"; then
     echo "provisioning code linked for $target" >&2; exit 1
   fi
   echo "no provisioning symbols"
