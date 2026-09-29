@@ -73,6 +73,12 @@ jobs:
       - name: Trusted command regressions
         run: timeout --signal=TERM --kill-after=5s 300s cargo test --locked -p neuradix-command-core -p neuradix-safety -p neuradix-embedded-core -p neuradix-embedded-transport
 
+      - name: Compact channel binding regressions
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-contracts --test channel_manifest
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-transport --test channel
+          timeout --signal=TERM --kill-after=5s 60s cargo test --locked -p neuradix-embedded-codegen --test channel_binding
+
       - name: Independent MCAP fixtures and bounded import
         run: |
           python3 -m venv /tmp/a06-fixtures

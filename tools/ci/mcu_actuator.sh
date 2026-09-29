@@ -31,15 +31,18 @@ for target in "${targets[@]}"; do
   fi
   echo "no provisioning feature in the firmware graph"
   # time and command-core are built as no-default-features dependencies.
+  # The WP-A02 transport (frames, commands, compact channel envelopes) is built
+  # for the same targets; it has no `alloc` crate, so it cannot allocate.
   cargo build --locked --release --target "$target" \
-    -p neuradix-embedded-core -p neuradix-example-embedded-actuator-target
+    -p neuradix-embedded-core -p neuradix-embedded-transport \
+    -p neuradix-example-embedded-actuator-target
   if [[ -z "$nm" ]]; then
     echo "llvm-nm unavailable: allocator-symbol scan skipped" >&2
     exit 1
   fi
   dir=$(mktemp -d)
   for lib in neuradix_time neuradix_command_core neuradix_embedded_core \
-             neuradix_example_embedded_actuator_target; do
+             neuradix_embedded_transport neuradix_example_embedded_actuator_target; do
     mkdir -p "$dir/$lib"
     rlib=$(ls -t "$target_dir/$target/release/deps/lib$lib"-*.rlib | head -n 1)
     rlib=$(readlink -f "$rlib")

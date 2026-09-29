@@ -11,6 +11,8 @@
 //!   CRC-verified frames, reporting corrupt ones as [`FrameEvent::Corrupt`].
 //! - [`SequenceTracker`] classifies each frame's sequence number as in-order,
 //!   duplicate, gapped (frames lost) or reordered.
+//! - [`ChannelTable`] binds compact channel IDs in a payload envelope to the
+//!   full wire identities of a verified channel manifest (see [`channel`]).
 //!
 //! Integrity (CRC) and ordering (sequence) live here; **freshness** is enforced
 //! by the gate's source age, deadline and accepted-command watchdog checks.
@@ -40,6 +42,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod channel;
 pub mod command;
 pub mod crc;
 pub mod frame;
@@ -49,4 +52,7 @@ pub use crc::{Crc32, crc32};
 pub use frame::{Frame, FrameDecoder, FrameEvent, OVERHEAD, SYNC, TransportError, encode};
 pub use sequence::{SeqStatus, SequenceTracker};
 
+pub use channel::{
+    BindError, ChannelBinding, ChannelTable, ENVELOPE_HEADER, Envelope, EnvelopeError,
+};
 pub use command::{COMMAND_BYTES, COMMAND_VERSION, decode_command, encode_command};

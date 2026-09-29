@@ -455,6 +455,7 @@ name = "neuradix-embedded-codegen"
 version = "0.0.1"
 dependencies = [
  "neuradix-contracts",
+ "neuradix-embedded-transport",
  "serde",
  "serde_json",
  "sha2",
