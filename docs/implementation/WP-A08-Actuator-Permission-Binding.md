@@ -215,8 +215,8 @@ The embedded PropulsionNode still returns a gate-selected scalar (now documented
 such); the corresponding allocation-free embedded owned-driver boundary is now
 integrated through PR #22 (see [embedded permission evidence](WP-A08-Embedded-Actuator-Permission.md)).
 `ExecutionMode` moved to command-core in that change and remains re-exported from
-this module. Durable generation reservation for both boundaries is proposed in
-[WP-A04.4](WP-A04.4-Generation-Reservation.md); a qualified board store remains open.
+this module. Durable generation reservation for both boundaries is integrated in
+[WP-A04.4](WP-A04.4-Generation-Reservation.md) (PR #24); a qualified board store remains open.
 
 Manufacturing's integration note is a consumer requirement, not a live task API.
 This does not implement its task authentication, durable outcomes, networking,
