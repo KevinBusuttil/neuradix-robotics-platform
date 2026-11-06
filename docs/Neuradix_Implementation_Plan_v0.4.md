@@ -23,7 +23,7 @@ The acceptance horizon is one complete instrumented system spanning an actual Un
 | Native MCU | One RP2040 board; static executor first | WP-B04 may substitute a board with recorded rationale and equivalent acceptance coverage |
 | Reference system | Instrumented motor/sensor rig or small mobile robot; retain AUV fixture | WP-C05 records actual sensors, safe state, calibration and operating envelope |
 | Host | One supported Linux distribution/architecture first | WP-E03 publishes the exact tested host/toolchain matrix |
-| Simulation | Native Neuradix API, headless Gazebo backend, fast AUV fixture | WP-C01/C02 qualify stepping, imports, assets and fidelity |
+| Simulation | Gazebo-independent Neuradix simulator for the reference application; reusable physics engines permitted; retain fast AUV fixture | WP-C01/C02 qualify independence, stepping, imports, assets and fidelity; C05/C06 qualify hardware agreement |
 | Studio | Local web UI plus shared Rust application/query services | WP-C03 records renderer/desktop decisions after a bounded performance spike |
 | Communication | Bounded local channels, serial board gateway, Zenoh network candidate | WP-B06/D03 qualify transport behaviour; shared memory follows a measured need |
 | Recording | Maintained MCAP implementation plus Neuradix metadata | WP-A06 validates independent interchange and limits |
@@ -31,6 +31,22 @@ The acceptance horizon is one complete instrumented system spanning an actual Un
 | Languages | Rust trusted core, generated C/C++ on constrained targets, isolated host C++/Python extensions | Capability and ABI declarations govern placement |
 
 The platform lead owns architectural integration; each work package has a role owner and an independent reviewer. Role labels do not assume additional employees. Procurement, dedicated staffing and access to physical test equipment are planning inputs, not actions performed by this documentation update.
+
+## Mandatory simulation milestone decision — 6 November 2026
+
+This scope amendment supersedes the headless-Gazebo-first default. Commercialisation milestones 5–7 map to existing Gate C packages; they do not replace Gates A–F or waive their dependencies.
+
+| Commercial milestone | Mandatory outcome | Packages / acceptance |
+|---|---|---|
+| 5: Native simulation | Execute the selected reference application without Gazebo libraries, processes, services or an installed Gazebo distribution; include physics, required sensors/actuators, world/model loading and automated scenarios | C01/C02; ACC-06 development evidence |
+| 6: Integrated Studio | Configure, run/step/reset and inspect that independent simulator through shared Studio/CLI services | C03/C04; ACC-10 |
+| 7: Qualified integrated alpha | Demonstrate simulation, program replay and HIL, compare with measured hardware using predefined tolerances, and publish limitations | C05/C06; ACC-06/07/10; Gate C closure |
+
+The platform lead and test/control owner must record the selected reference application, physical rig, operating envelope, sensor/actuator list, required physics, performance budgets, repeat counts and numerical/physical tolerances before C02 implementation and qualification trials. The motor/sensor rig or small mobile robot remains the planning default; an AUV has not been selected by this amendment. If selected, its acceptance scope must explicitly cover required buoyancy, hydrodynamics, thrusters and underwater sensors. Pending decisions block acceptance; they are not permission to omit evidence.
+
+A third-party physics engine is permitted. Optional Gazebo interoperability cannot satisfy these milestones. The existing one-dimensional AUV fixture is retained as a regression and is insufficient by itself. See the [simulation acceptance contract](implementation/Gazebo-Independent-Simulation-Acceptance.md).
+
+The original C01/C02, Gate C and total effort ranges below predate this scope change and are **not validated estimates for the revised scope**. Re-estimate after the bounded backend spike and reference-scope decision; no revised delivery date is implied.
 
 # 3. Gates, dependencies and effort
 
@@ -70,7 +86,7 @@ At the two-person/70% scenario, a 12-week planning window provides about 16.8 en
 | Weeks 3–4 | A02/A03/A04 fixes and target ABI checks | B01 project example; MCAP/worker edge-case fixtures | Reviewed protocol/authority decisions; actual target compilation |
 | Weeks 5–6 | A05/A06/A08; A07 runner as capacity permits | Board HAL/static-loop spike; simulator API sketch | Bounded I/O/interchange/identity evidence; first board measurements |
 | Weeks 7–8 | Close remaining A work; start B01/B02 | One serial/board session and initial Studio data view | Gate A review; immutable project/identity example |
-| Weeks 9–10 | B02/B03 and first B04/B05 integration according to measured progress | Gazebo stepping/import spike and Studio service contract | Placement errors, clock/reboot results and simulator decision record |
+| Weeks 9–10 | B02/B03 and first B04/B05 integration according to measured progress | Gazebo-independent physics-backend and stepping/import spike and Studio service contract | Placement errors, clock/reboot results and simulator decision record |
 | Weeks 11–12 | Integrate the achievable board/control path; repair failures | Draft C01/C03 boundaries and next work orders | Retained physical evidence where executed; revised B–E backlog and capacity forecast |
 
 Each review explicitly marks not-run hardware tests and unfinished work. If A exceeds available capacity, move downstream work rather than weakening the correctness gate or relabelling a prototype as complete.
@@ -315,9 +331,9 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 
 **Gate:** C · **Owner role:** Simulation/graphics · **Dependencies:** [WP-C01](#wp-c01) · **Estimate:** 4–7 engineer-weeks.
 
-**Deliver:** Integrate headless Gazebo as the first general backend behind the native API. Pin a supported release and assets; import the reference URDF/SDF with explicit fidelity diagnostics. Provide joints, contacts, actuators and required sensors plus CPU headless operation.
+**Deliver:** Implement the mandatory Milestone 5 Gazebo-independent reference simulator behind the native API, using a qualified physics engine where useful. Pin engine/assets, load the reference world and robot, and import the selected URDF/SDF subset with explicit fidelity diagnostics. Provide the required joints, contacts, actuators and sensors plus CPU headless operation. Gazebo adapters are optional interoperability work and cannot fulfil this deliverable.
 
-**Acceptance:** The reference model runs under the Neuradix project with observable frames, contact/controller state and solver settings. Import omissions are reported. A pinned offline installation reproduces the scenario within its declared tolerance.
+**Acceptance:** The reference model runs under the Neuradix project with observable frames, contact/controller state and solver settings. Import omissions are reported. A clean environment without Gazebo builds and runs the supported reference workflow; a pinned offline installation reproduces the scenario within predefined tolerances. Retain dependency and runtime evidence, automated stepping/reset/sensor/actuator/fault tests and model limitations as specified in ACC-06. Milestone 5 remains pending until these pass.
 
 **Primary risk:** A thin launch wrapper being mistaken for an integrated simulation product.
 
@@ -339,7 +355,7 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 
 **Gate:** C · **Owner role:** Studio/tooling · **Dependencies:** [WP-B02](#wp-b02), [WP-B04](#wp-b04), [WP-B05](#wp-b05), [WP-B06](#wp-b06), [WP-C02](#wp-c02), [WP-C03](#wp-c03) · **Estimate:** 3–5 engineer-weeks.
 
-**Deliver:** Add minimal project, parameter, scene and binding authoring. Invoke the same validation/build/flash/launch services as the CLI. Present a target/deployment change preview and artifact identities. Preserve handwritten code while generating declared outputs.
+**Deliver:** For Milestone 6, configure, run/step/reset and inspect the Gazebo-independent simulator through shared Studio/CLI services. Add minimal project, parameter, scene and binding authoring. Invoke the same validation/build/flash/launch services as the CLI. Present a target/deployment change preview and artifact identities. Preserve handwritten code while generating declared outputs.
 
 **Acceptance:** One project is edited, simulated, built and flashed through documented UI/CLI paths. Invalid edits are explained before deployment. The user can identify exactly which configuration and firmware are active.
 
@@ -353,7 +369,7 @@ Resource implementation `4742a1ce` passed PR CI `34324405885` and push CI `34324
 
 **Deliver:** Create an instrumented motor/sensor rig or small mobile robot, plus its virtual counterpart. Define calibration, safe states and available current/thermal measurements. Run controlled communication, sensor, process and clock faults; support hardware test fixtures and retained evidence.
 
-**Acceptance:** A declared test matrix executes on the Uno and selected MCU. Distinguish interface equivalence from physical-model accuracy. Hardware timing and fallback meet the rig-specific criteria selected before the trial.
+**Acceptance:** For Milestone 7, a declared test matrix executes on the Uno and selected MCU with the Gazebo-independent virtual counterpart. Compare measured physical behaviour against simulation using tolerances and repeat counts fixed before trials. Distinguish interface equivalence from physical-model accuracy. Hardware timing and fallback meet the rig-specific criteria selected before the trial. Retain calibration, faults, raw results and model limitations; unavailable hardware leaves qualification open.
 
 **Primary risk:** Claiming current/thermal protection without the sensors and independent hardware needed to verify it.
 
@@ -633,9 +649,9 @@ Store release evidence under a versioned run/artifact identity. Each result reco
 
 ## ACC-06: Simulation and hardware-in-the-loop
 
-**Procedure:** Replace the reference virtual device with Uno and MCU bindings; calibrate sensors and run plant/transport faults.
+**Procedure:** Execute the [Gazebo-independent simulation acceptance contract](implementation/Gazebo-Independent-Simulation-Acceptance.md). At Milestone 5, build/run the reference scenario in a clean Gazebo-free environment and exercise world loading, stepping/reset, sensors, actuators and declared faults. At Milestone 7, replace reference virtual devices with Uno/MCU bindings, calibrate sensors, run HIL/plant/transport faults and compare measured hardware with simulation and program-replay results.
 
-**Pass evidence:** Contracts remain consistent, hardware timing is measured and model error is reported separately from interface conformance.
+**Pass evidence:** Retain exact artifacts, dependency/runtime inventories, commands, model/engine versions, seeds, calibration, raw traces, predefined budgets/tolerances and repeat counts. Contracts remain consistent; timing and physical model error meet the selected envelope and are reported separately from interface conformance. Missing hardware evidence or unresolved thresholds prevents Milestone 7 and Gate C closure. The AUV fixture alone, a Gazebo wrapper or a Gazebo-backed adapter cannot pass this requirement.
 
 **Owners/work packages:** [WP-C01](#wp-c01), [WP-C02](#wp-c02), [WP-C05](#wp-c05).
 
@@ -755,6 +771,8 @@ New v0.6 requirements are defined normatively in the functional specification. E
 | NRX-PLAT-008 | [WP-A05](#wp-a05), [WP-B07](#wp-b07) | [ACC-09](#acc-09) |
 | NRX-PLAT-009 | [WP-A07](#wp-a07), [WP-C06](#wp-c06) | [ACC-07](#acc-07) |
 | NRX-PLAT-010 | [WP-A06](#wp-a06), [WP-C06](#wp-c06) | [ACC-08](#acc-08) |
+| NRX-SIM-005 | [WP-C01](#wp-c01), [WP-C02](#wp-c02), [WP-C04](#wp-c04) | [ACC-06](#acc-06), [ACC-10](#acc-10) |
+| NRX-SIM-006 | [WP-C05](#wp-c05), [WP-C06](#wp-c06) | [ACC-06](#acc-06), [ACC-07](#acc-07) |
 | NRX-PLAT-011 | [WP-C01](#wp-c01), [WP-C02](#wp-c02), [WP-C05](#wp-c05) | [ACC-06](#acc-06) |
 | NRX-PLAT-012 | [WP-C03](#wp-c03), [WP-C04](#wp-c04) | [ACC-10](#acc-10) |
 | NRX-PLAT-013 | [WP-D01](#wp-d01) | [ACC-11](#acc-11) |
@@ -774,7 +792,7 @@ New v0.6 requirements are defined normatively in the functional specification. E
 
 - **A:** static defects reproduced/fixed and reviewed baseline established; no hardware support implied.
 - **B:** both actual boards and Edge satisfy applicable ACC-01–05/09/12; cross-target foundation only.
-- **C:** ACC-06–10 demonstrate the integrated physical/simulated workflow; an alpha with a named target/backend matrix.
+- **C:** ACC-06–10 demonstrate the integrated physical/simulated workflow, including mandatory Gazebo-independent Milestone 5 delivery and Milestone 7 hardware qualification; an alpha with a named target/backend matrix. Missing qualification evidence keeps Gate C open.
 - **D:** ACC-11–14 demonstrate local/two-worker execution and basic operations; this is a distributed alpha, not enterprise high availability.
 - **E:** all ACC-01–16 apply to the supported release matrix; exceptions remove the relevant advertised capability or delay that release. The selected hardware/host workflow is supported; broader Enterprise HA, domain, XR and Flight profiles remain separately versioned.
 - **F:** each pack carries additional domain/operational tests and a named maintainer. Flight qualification is project-specific.
