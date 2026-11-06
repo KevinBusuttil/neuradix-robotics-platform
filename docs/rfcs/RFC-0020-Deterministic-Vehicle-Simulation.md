@@ -4,6 +4,10 @@
 - Authoritative spec: [Functional Specification v0.5](../Neuradix_Robotics_Platform_Functional_Specification_v0.5.md) §10 (simulation), §3.4 (determinism); [Implementation Plan v0.3](../Neuradix_Implementation_Plan_v0.3.md) Phase 3 (single AUV vertical slice); complements RFC-0003, RFC-0005, RFC-0016
 - Crate: `neuradix-sim`; example: `examples/auv-depth-sim`
 
+## Current qualification boundary — 6 November 2026
+
+The historical implementation described below remains a one-dimensional foundation fixture. Current scope is governed by [Specification v0.6](../Neuradix_Robotics_Platform_Functional_Specification_v0.6.md) NRX-SIM-005/006 and [Plan v0.4](../Neuradix_Implementation_Plan_v0.4.md) C01–C06: mandatory Gazebo-independent reference simulation at Milestone 5, Studio integration at Milestone 6, and physical/replay/HIL qualification at Milestone 7. The fixture does not fulfil these requirements. RFC-0025 remains the reserved decision for backend and service boundaries; no new backend or hardware qualification is claimed here.
+
 ## Problem
 
 The platform proves determinism, control and safety *in the open* — a controller

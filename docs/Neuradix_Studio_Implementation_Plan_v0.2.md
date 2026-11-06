@@ -34,7 +34,7 @@ The UI must not implement a second contract, authority or clock model. Reuse the
 1. Open one project and see its robot, components, targets, configuration and asset versions.
 2. Edit controller parameters, basic scene properties and virtual/physical device bindings.
 3. Validate through the project compiler; explain unit/frame, ABI, memory and placement errors.
-4. Run/step/reset simulation and inspect signals, controller state, health and command lineage.
+4. Run/step/reset the mandatory Gazebo-independent reference simulator and inspect signals, controller state, health and command lineage. Milestone 6 must use the same services as the CLI without a Gazebo installation; optional Gazebo integration cannot substitute for this workflow.
 5. Build and flash the selected Uno/MCU through the same services as the CLI.
 6. Identify active firmware/configuration; launch and observe the physical system.
 7. Capture a failure, link it to source/run identities and rerun an actual program regression.

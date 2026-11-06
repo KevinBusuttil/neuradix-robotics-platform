@@ -35,7 +35,7 @@ PR #7 integrated these RFCs and their prototype implementations into main. Their
 |---|---|---|
 | 0023 | Unified System Model and Project Compiler | B01/B02: model versions, lock identity, target placement and diagnostics |
 | 0024 | Target ABI, Wire Layout and Cross-Device Conformance | A02/A03: precision, ordered codecs, compact IDs and migration |
-| 0025 | Native Simulation and Studio Service Boundaries | C01/C03: stepping/reset, device binding, import fidelity, shared UI/CLI API |
+| 0025 | Native Simulation and Studio Service Boundaries | C01/C02/C03: Gazebo-independent backend selection and dependency boundary, reference scope and predeclared qualification thresholds, stepping/reset, device binding, import fidelity, shared UI/CLI API; Milestones 5–7 and NRX-SIM-005/006 |
 | 0026 | Durable Runs, Workers and Artifact Identity | D01/D02: leases, retry/cancel, duplicate completion, partial results and retention |
 | 0027 | Site Independence and Enterprise Operations | D03/D04/F01: discovery, freshness, access/quotas, backup and HA evidence |
 

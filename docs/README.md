@@ -35,6 +35,10 @@ The current direction is a unified robotics development and operations platform 
 | [RFC Backlog v0.4](Neuradix_RFC_Backlog_v0.4.md) | Integrated RFC alignment and reserved new decisions |
 | [Studio XR Plan v0.2](Neuradix_Studio_XR_Implementation_Plan_v0.2.md) | Supplemental later-profile design; current platform gates override older sequencing |
 
+## Mandatory simulation direction
+
+As of 6 November 2026, Milestone 5 requires Gazebo-independent simulation for the selected reference application, Milestone 6 integrates Studio, and Milestone 7 qualifies simulation/replay/HIL against physical measurements. This replaces the headless-Gazebo-first planning default. Physics-engine reuse is permitted; Gazebo adapters cannot fulfil the requirement. See the [acceptance contract](implementation/Gazebo-Independent-Simulation-Acceptance.md). These deliverables are pending; existing fixture tests do not close Gate C.
+
 ## Precedence and maturity
 
 User-approved scope and current project decisions govern the work. Within this current planning document set, v0.6 owns normative behaviour, v0.4 owns sequencing/estimates, and Capability Status owns implementation claims. Specialist plans refine the same work packages; they do not create separate release commitments. The research report supplies rationale, not evidence that recommendations are already implemented. RFCs and ADRs keep their recorded status until explicitly amended.

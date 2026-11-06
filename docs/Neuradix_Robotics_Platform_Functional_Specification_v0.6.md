@@ -536,6 +536,8 @@ Edge runs Linux-class autonomy and payload workloads such as perception, state e
 | **NRX-SIM-002** | Sim SHALL support lockstep, real-time, accelerated, paused and stepped execution. |
 | **NRX-SIM-003** | Sim SHALL support software-, processor- and hardware-in-the-loop configurations. |
 | **NRX-SIM-004** | Sim SHALL support multi-vehicle environments, network impairment and swarm partition scenarios. |
+| **NRX-SIM-005** | Milestone 5 SHALL deliver simulation of the selected reference application without Gazebo libraries, processes, services or an installed Gazebo distribution. Reused physics engines are permitted. Milestone 6 SHALL expose this workflow through shared Studio/CLI services. |
+| **NRX-SIM-006** | Milestone 7 SHALL qualify that independent simulator through simulation, program replay, hardware comparison and HIL with predefined tolerances, repeatability criteria, fault scenarios and published model limitations. Missing evidence SHALL keep Gate C open. |
 | **NRX-REC-001** | Record SHALL capture data, topology, configuration, versions, clock relationships and operator actions. |
 | **NRX-REC-002** | Record SHALL support real-time, accelerated, lockstep, branch and fault replay. |
 | **NRX-REC-003** | Distributed recordings SHALL preserve cross-vehicle correlation and communication delay metadata. |
@@ -2345,9 +2347,11 @@ The Aero model library SHOULD support six-degree-of-freedom airframe dynamics, p
 
 ## 27.9 Native simulation workflow and initial backend
 
-Neuradix SHALL own the project/world API, stepping and reset semantics, scenario model, device bindings and evidence model. Headless Gazebo is the planned first general simulation backend behind this API, while the current AUV fixture remains the fast component/control backend. Backend selection, versions, assets, solver settings, random seeds and calibration SHALL be pinned per run.
+Neuradix SHALL own the project/world API, stepping and reset semantics, scenario model, device bindings and evidence model. The mandatory Milestone 5 reference simulator SHALL operate without Gazebo libraries, processes, services or an installed Gazebo distribution. Qualified third-party physics engines MAY be reused; optional Gazebo interoperability SHALL NOT satisfy this requirement. This decision, adopted 6 November 2026, supersedes the headless-Gazebo-first default. The current AUV fixture remains the fast component/control regression and SHALL NOT alone establish completion. Backend selection, versions, assets, solver settings, random seeds and calibration SHALL be pinned per run.
 
 URDF/SDF imports SHALL preserve unsupported properties or report explicit fidelity losses. Studio SHALL provide minimal scene/parameter/binding authoring in the integrated alpha. Physical and virtual devices SHALL use the same contracts with explicit clock, delay and calibration differences. HIL SHALL measure those differences; simulation interface equivalence does not establish physical-model accuracy.
+
+Before implementation and qualification trials, the reference application, physical rig, required physics/sensors/actuators, operating envelope, performance budgets, repeat counts and comparison tolerances SHALL be recorded under C01/C02/C05. The current motor/sensor rig or small mobile robot default is unchanged; an AUV selection SHALL additionally define required buoyancy, hydrodynamics, thrusters and underwater sensor acceptance. Milestone 7 SHALL compare the independent simulation against measured hardware and execute program replay and HIL fault scenarios. Unresolved thresholds or unavailable hardware SHALL leave qualification open. The [acceptance contract](implementation/Gazebo-Independent-Simulation-Acceptance.md) defines required evidence; broader Gazebo feature parity is not a first-release claim.
 
 Independent worlds MAY execute across workers. A coupled distributed world requires separately designed synchronization and partitioning; additional servers SHALL NOT imply linear acceleration. Bitwise determinism, numerical tolerance and task outcomes SHALL be distinct claims with stated scope.
 
